@@ -1145,7 +1145,7 @@ button {
 .footer-logo {
   font-size: 1.2rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #a78bfa, #ec4899);
+  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

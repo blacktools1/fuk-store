@@ -37,6 +37,7 @@ export default function RootLayout({
   }
 
   let secondaryStr = store.secondaryColor || "#ec4899";
+  let textValue = store.titleColor || "#f0f0f8";
   
   return (
     <html lang="pt-BR">
@@ -47,13 +48,15 @@ export default function RootLayout({
         '--accent-glow': `rgba(${primaryRgb}, 0.4)`,
         '--accent-bright': store.primaryColor || "#a78bfa",
         '--bg': store.tertiaryColor || "#0a0a0f",
-        '--bg-card': store.tertiaryColor ? `color-mix(in srgb, ${store.tertiaryColor} 95%, white)` : "#12121a",
-        '--bg-elevated': store.tertiaryColor ? `color-mix(in srgb, ${store.tertiaryColor} 92%, white)` : "#1a1a26",
+        '--bg-card': store.tertiaryColor ? `color-mix(in srgb, ${store.tertiaryColor} 95%, ${textValue})` : "#12121a",
+        '--bg-elevated': store.tertiaryColor ? `color-mix(in srgb, ${store.tertiaryColor} 90%, ${textValue})` : "#1a1a26",
         '--header-bg': store.headerColor ? `color-mix(in srgb, ${store.headerColor} 85%, transparent)` : "rgba(10, 10, 15, 0.85)",
-        '--text': store.titleColor || "#f0f0f8",
+        '--text': textValue,
         '--text-muted': store.textColor || "#8888a8",
         '--price-color': store.priceColor || "#f0f0f8",
         '--btn-text': store.btnTextColor || "#ffffff",
+        '--border': `color-mix(in srgb, ${textValue} 12%, transparent)`,
+        '--border-hover': `rgba(${primaryRgb}, 0.5)`,
         '--radius': store.borderRadius || "14px",
         '--radius-lg': store.borderRadius ? `calc(${store.borderRadius} * 1.5)` : "20px",
         '--radius-xl': store.borderRadius ? `calc(${store.borderRadius} * 2)` : "28px",

@@ -594,99 +594,111 @@ function SettingsSection({
     <div className="admin-card" style={{ maxWidth: 800 }}>
       <h2 className="admin-card-title">Configurações e Personalização</h2>
 
-      <div className="admin-form-grid">
-        <div className="admin-form-field span-2">
-          <label className="admin-form-label">Nome da Loja</label>
-          <input className="admin-form-input" value={storeName} onChange={(e) => setStoreName(e.target.value)} />
+      <div style={{ padding: "16px", borderRadius: "12px", background: "var(--adm-bg-elevated)", marginBottom: "20px" }}>
+        <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", fontWeight: "600", color: "var(--accent-bright)" }}>1. Informações Básicas</h3>
+        <div className="admin-form-grid">
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Nome da Loja</label>
+            <input className="admin-form-input" value={storeName} onChange={(e) => setStoreName(e.target.value)} />
+          </div>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Tagline / Descrição</label>
+            <input className="admin-form-input" value={tagline} onChange={(e) => setTagline(e.target.value)} />
+          </div>
+          <div className="admin-form-field">
+            <label className="admin-form-label">Emoji Substitutito (ex: 🛍️)</label>
+            <input className="admin-form-input" value={logo} onChange={(e) => setLogo(e.target.value)} />
+          </div>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">URL da Logo (Imagem Principal)</label>
+            <input className="admin-form-input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://exemplo.com/sua-logo.png" />
+            {logoUrl && (
+              <img src={logoUrl} alt="Logo" style={{ marginTop: 8, height: 40, objectFit: "contain", borderRadius: 4, background: "rgba(255,255,255,0.1)", padding: 4 }} />
+            )}
+          </div>
         </div>
-        <div className="admin-form-field span-2">
-          <label className="admin-form-label">Tagline / Descrição</label>
-          <input className="admin-form-input" value={tagline} onChange={(e) => setTagline(e.target.value)} />
-        </div>
-        <div className="admin-form-field">
-          <label className="admin-form-label">Emoji Substitutito (ex: 🛍️)</label>
-          <input className="admin-form-input" value={logo} onChange={(e) => setLogo(e.target.value)} />
-        </div>
-        <div className="admin-form-field span-2">
-          <label className="admin-form-label">URL da Logo (Imagem Principal)</label>
-          <input className="admin-form-input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://exemplo.com/sua-logo.png" />
-          {logoUrl && (
-            <img src={logoUrl} alt="Logo" style={{ marginTop: 8, height: 40, objectFit: "contain", borderRadius: 4, background: "rgba(255,255,255,0.1)", padding: 4 }} />
-          )}
-        </div>
+      </div>
 
-        <div className="admin-form-field">
-          <label className="admin-form-label">Cor Principal</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input className="admin-form-input" type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{primaryColor}</span>
+      <div style={{ padding: "16px", borderRadius: "12px", background: "var(--adm-bg-elevated)", marginBottom: "20px" }}>
+        <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", fontWeight: "600", color: "var(--accent-bright)" }}>2. Estrutura e Fundos</h3>
+        <div className="admin-form-grid">
+          <div className="admin-form-field">
+            <label className="admin-form-label">Cor do Fundo da Loja (Terciária)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input className="admin-form-input" type="color" value={tertiaryColor} onChange={(e) => setTertiaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{tertiaryColor}</span>
+            </div>
+          </div>
+          <div className="admin-form-field">
+            <label className="admin-form-label">Fundo do Cabeçalho (Navbar)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input className="admin-form-input" type="color" value={headerColor} onChange={(e) => setHeaderColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{headerColor}</span>
+            </div>
+          </div>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Arredondamento dos Cards (Bordas)</label>
+            <select className="admin-form-select" value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)}>
+              <option value="0px">Retos (0px)</option>
+              <option value="8px">Pouco Arredondados (8px)</option>
+              <option value="14px">Arredondados (Padrão 14px)</option>
+              <option value="24px">Bem Arredondados (24px)</option>
+            </select>
           </div>
         </div>
-        
-        <div className="admin-form-field">
-          <label className="admin-form-label">Cor Secundária</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input className="admin-form-input" type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{secondaryColor}</span>
-          </div>
-        </div>
-        
-        <div className="admin-form-field">
-          <label className="admin-form-label">Cor do Fundo (Terciária)</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input className="admin-form-input" type="color" value={tertiaryColor} onChange={(e) => setTertiaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{tertiaryColor}</span>
-          </div>
-        </div>
-        
-        <div className="admin-form-field">
-          <label className="admin-form-label">Fundo do Cabeçalho</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input className="admin-form-input" type="color" value={headerColor} onChange={(e) => setHeaderColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{headerColor}</span>
-          </div>
-        </div>
+      </div>
 
-        <div className="admin-form-field">
-          <label className="admin-form-label">Cor dos Titulos</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input className="admin-form-input" type="color" value={titleColor} onChange={(e) => setTitleColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{titleColor}</span>
+      <div style={{ padding: "16px", borderRadius: "12px", background: "var(--adm-bg-elevated)", marginBottom: "20px" }}>
+        <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", fontWeight: "600", color: "var(--accent-bright)" }}>3. Ações e Destaques</h3>
+        <div className="admin-form-grid">
+          <div className="admin-form-field">
+            <label className="admin-form-label">Cor Principal (Botões e Hover)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input className="admin-form-input" type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{primaryColor}</span>
+            </div>
+          </div>
+          <div className="admin-form-field">
+            <label className="admin-form-label">Cor Secundária (Degradês)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input className="admin-form-input" type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{secondaryColor}</span>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="admin-form-field">
-          <label className="admin-form-label">Cor das Descrições</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input className="admin-form-input" type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{textColor}</span>
+      <div style={{ padding: "16px", borderRadius: "12px", background: "var(--adm-bg-elevated)", marginBottom: "20px" }}>
+        <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", fontWeight: "600", color: "var(--accent-bright)" }}>4. Fontes e Textos</h3>
+        <div className="admin-form-grid">
+          <div className="admin-form-field">
+            <label className="admin-form-label">Cor dos Títulos Principais</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input className="admin-form-input" type="color" value={titleColor} onChange={(e) => setTitleColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{titleColor}</span>
+            </div>
           </div>
-        </div>
-
-        <div className="admin-form-field">
-          <label className="admin-form-label">Cor dos Preços</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input className="admin-form-input" type="color" value={priceColor} onChange={(e) => setPriceColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{priceColor}</span>
+          <div className="admin-form-field">
+            <label className="admin-form-label">Cor das Descrições</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input className="admin-form-input" type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{textColor}</span>
+            </div>
           </div>
-        </div>
-        
-        <div className="admin-form-field">
-          <label className="admin-form-label">Texto dos Botões</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <input className="admin-form-input" type="color" value={btnTextColor} onChange={(e) => setBtnTextColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{btnTextColor}</span>
+          <div className="admin-form-field">
+            <label className="admin-form-label">Cor dos Preços</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input className="admin-form-input" type="color" value={priceColor} onChange={(e) => setPriceColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{priceColor}</span>
+            </div>
           </div>
-        </div>
-
-        <div className="admin-form-field span-2">
-          <label className="admin-form-label">Arredondamento dos Cards (Bordas)</label>
-          <select className="admin-form-select" value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)}>
-            <option value="0px">Retos (0px)</option>
-            <option value="8px">Pouco Arredondados (8px)</option>
-            <option value="14px">Arredondados (Padrão 14px)</option>
-            <option value="24px">Bem Arredondados (24px)</option>
-          </select>
+          <div className="admin-form-field">
+            <label className="admin-form-label">Texto Dentro dos Botões</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input className="admin-form-input" type="color" value={btnTextColor} onChange={(e) => setBtnTextColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{btnTextColor}</span>
+            </div>
+          </div>
         </div>
       </div>
 
