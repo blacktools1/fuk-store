@@ -85,7 +85,7 @@ button {
   top: 0;
   z-index: 100;
   height: var(--header-h);
-  background: rgba(10, 10, 15, 0.85);
+  background: var(--header-bg, rgba(10, 10, 15, 0.85));
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -149,7 +149,7 @@ button {
   top: -8px;
   right: -8px;
   background: var(--accent);
-  color: white;
+  color: var(--btn-text, white);
   font-size: 0.7rem;
   font-weight: 700;
   width: 20px;
@@ -245,7 +245,7 @@ button {
   gap: 8px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: white;
+  color: var(--btn-text, white);
   flex-shrink: 0;
 }
 
@@ -374,17 +374,17 @@ button {
 
 .product-badge.popular {
   background: rgba(139, 92, 246, 0.9);
-  color: white;
+  color: var(--btn-text, white);
 }
 
 .product-badge.novo {
   background: rgba(16, 185, 129, 0.9);
-  color: white;
+  color: var(--btn-text, white);
 }
 
 .product-badge.oferta {
   background: rgba(239, 68, 68, 0.9);
-  color: white;
+  color: var(--btn-text, white);
 }
 
 .product-card-quick-add {
@@ -415,7 +415,7 @@ button {
 
 .quick-add-btn:hover {
   background: var(--accent);
-  color: white;
+  color: var(--btn-text, white);
 }
 
 .product-card-body {
@@ -463,7 +463,7 @@ button {
 .product-price {
   font-size: 1.15rem;
   font-weight: 800;
-  color: var(--text);
+  color: var(--price-color, var(--text));
 }
 
 .add-btn {
@@ -471,7 +471,7 @@ button {
   height: 36px;
   border-radius: 10px;
   background: var(--accent);
-  color: white;
+  color: var(--btn-text, white);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -662,7 +662,7 @@ button {
 
 .cart-item-price {
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--price-color, var(--text-muted));
   margin-bottom: 8px;
 }
 
@@ -717,7 +717,7 @@ button {
 .cart-item-subtotal {
   font-size: 0.95rem;
   font-weight: 800;
-  color: var(--text);
+  color: var(--price-color, var(--text));
   flex-shrink: 0;
   align-self: center;
   text-align: right;
@@ -766,7 +766,7 @@ button {
   margin-top: 16px;
   padding: 16px;
   background: var(--gradient, linear-gradient(135deg, var(--accent), #ec4899));
-  color: white;
+  color: var(--btn-text, white);
   border-radius: var(--radius);
   font-size: 1rem;
   font-weight: 700;
@@ -853,7 +853,7 @@ button {
   width: 28px;
   height: 28px;
   background: var(--accent);
-  color: white;
+  color: var(--btn-text, white);
   border-radius: 50%;
   font-size: 0.8rem;
   font-weight: 700;
@@ -961,7 +961,7 @@ button {
   padding: 14px;
   margin-top: 16px;
   background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
+  color: var(--btn-text, white);
   border-radius: var(--radius);
   font-size: 0.95rem;
   font-weight: 700;

@@ -583,6 +583,11 @@ function SettingsSection({
   const [primaryColor, setPrimaryColor] = useState(data.primaryColor || "#8b5cf6");
   const [secondaryColor, setSecondaryColor] = useState(data.secondaryColor || "#ec4899");
   const [tertiaryColor, setTertiaryColor] = useState(data.tertiaryColor || "#0a0a0f");
+  const [headerColor, setHeaderColor] = useState(data.headerColor || "#0a0a0f");
+  const [titleColor, setTitleColor] = useState(data.titleColor || "#ffffff");
+  const [textColor, setTextColor] = useState(data.textColor || "#9ca3af");
+  const [priceColor, setPriceColor] = useState(data.priceColor || "#ffffff");
+  const [btnTextColor, setBtnTextColor] = useState(data.btnTextColor || "#ffffff");
   const [borderRadius, setBorderRadius] = useState(data.borderRadius || "14px");
 
   return (
@@ -633,8 +638,48 @@ function SettingsSection({
             <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{tertiaryColor}</span>
           </div>
         </div>
+        
+        <div className="admin-form-field">
+          <label className="admin-form-label">Fundo do Cabeçalho</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input className="admin-form-input" type="color" value={headerColor} onChange={(e) => setHeaderColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{headerColor}</span>
+          </div>
+        </div>
 
         <div className="admin-form-field">
+          <label className="admin-form-label">Cor dos Titulos</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input className="admin-form-input" type="color" value={titleColor} onChange={(e) => setTitleColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{titleColor}</span>
+          </div>
+        </div>
+
+        <div className="admin-form-field">
+          <label className="admin-form-label">Cor das Descrições</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input className="admin-form-input" type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{textColor}</span>
+          </div>
+        </div>
+
+        <div className="admin-form-field">
+          <label className="admin-form-label">Cor dos Preços</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input className="admin-form-input" type="color" value={priceColor} onChange={(e) => setPriceColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{priceColor}</span>
+          </div>
+        </div>
+        
+        <div className="admin-form-field">
+          <label className="admin-form-label">Texto dos Botões</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input className="admin-form-input" type="color" value={btnTextColor} onChange={(e) => setBtnTextColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{btnTextColor}</span>
+          </div>
+        </div>
+
+        <div className="admin-form-field span-2">
           <label className="admin-form-label">Arredondamento dos Cards (Bordas)</label>
           <select className="admin-form-select" value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)}>
             <option value="0px">Retos (0px)</option>
@@ -664,7 +709,8 @@ PHP_PIX_STATUS_URL=http://localhost:8080/pix-widget.php?action=check-status`}
           disabled={saving}
           onClick={() => onSave({ 
             storeName, storeTagline: tagline, storeLogo: logo, 
-            logoUrl, primaryColor, secondaryColor, tertiaryColor, borderRadius 
+            logoUrl, primaryColor, secondaryColor, tertiaryColor, borderRadius,
+            headerColor, titleColor, textColor, priceColor, btnTextColor
           })}
           id="save-settings-btn"
         >

@@ -33,6 +33,11 @@ export interface StoreData {
   primaryColor?: string;
   secondaryColor?: string;
   tertiaryColor?: string;
+  headerColor?: string;
+  titleColor?: string;
+  textColor?: string;
+  priceColor?: string;
+  btnTextColor?: string;
   borderRadius?: string;
   banners: Banner[];
   products: AdminProduct[];
