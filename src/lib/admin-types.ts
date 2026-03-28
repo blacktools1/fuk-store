@@ -29,7 +29,11 @@ export interface StoreData {
   storeName: string;
   storeTagline: string;
   storeLogo: string;
-  primaryColor: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  tertiaryColor?: string;
+  borderRadius?: string;
   banners: Banner[];
   products: AdminProduct[];
 }

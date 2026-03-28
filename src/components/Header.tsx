@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { cartCount } from "@/lib/cart";
 import { useUser } from "@/context/UserContext";
 import { useState } from "react";
 
-export default function Header({ storeName = "Minha Loja", storeLogo = "🛍️" }: { storeName?: string, storeLogo?: string }) {
+interface HeaderProps {
+  storeName: string;
+  storeLogo: string;
+  logoUrl?: string;
+}
+
+export default function Header({ storeName = "Minha Loja", storeLogo = "🛍️", logoUrl }: HeaderProps) {
   const { items, toggleCart } = useCart();
   const count = cartCount(items);
   
@@ -27,9 +34,13 @@ export default function Header({ storeName = "Minha Loja", storeLogo = "🛍️"
     <>
       <header className="header">
         <div className="container header-inner">
-          <Link href="/" className="header-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span dangerouslySetInnerHTML={{ __html: storeLogo }} />
-            {storeName}
+          <Link href="/" className="header-logo" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {logoUrl ? (
+              <Image src={logoUrl} alt={storeName} width={36} height={36} style={{ objectFit: "contain" }} />
+            ) : (
+              <span dangerouslySetInnerHTML={{ __html: storeLogo }} />
+            )}
+            <span>{storeName}</span>
           </Link>
 
           <nav className="header-actions">

@@ -579,30 +579,69 @@ function SettingsSection({
   const [storeName, setStoreName] = useState(data.storeName);
   const [tagline, setTagline] = useState(data.storeTagline);
   const [logo, setLogo] = useState(data.storeLogo);
+  const [logoUrl, setLogoUrl] = useState(data.logoUrl || "");
   const [primaryColor, setPrimaryColor] = useState(data.primaryColor || "#8b5cf6");
+  const [secondaryColor, setSecondaryColor] = useState(data.secondaryColor || "#ec4899");
+  const [tertiaryColor, setTertiaryColor] = useState(data.tertiaryColor || "#0a0a0f");
+  const [borderRadius, setBorderRadius] = useState(data.borderRadius || "14px");
 
   return (
-    <div className="admin-card" style={{ maxWidth: 600 }}>
-      <h2 className="admin-card-title">Configurações da Loja</h2>
+    <div className="admin-card" style={{ maxWidth: 800 }}>
+      <h2 className="admin-card-title">Configurações e Personalização</h2>
 
-      <div className="admin-form-field">
-        <label className="admin-form-label">Nome da Loja</label>
-        <input className="admin-form-input" value={storeName} onChange={(e) => setStoreName(e.target.value)} />
-      </div>
-      <div className="admin-form-field">
-        <label className="admin-form-label">Tagline / Descrição</label>
-        <input className="admin-form-input" value={tagline} onChange={(e) => setTagline(e.target.value)} />
-      </div>
-      <div className="admin-form-field">
-        <label className="admin-form-label">Emoji / Logo</label>
-        <input className="admin-form-input" value={logo} onChange={(e) => setLogo(e.target.value)} style={{ width: 120 }} />
-      </div>
+      <div className="admin-form-grid">
+        <div className="admin-form-field span-2">
+          <label className="admin-form-label">Nome da Loja</label>
+          <input className="admin-form-input" value={storeName} onChange={(e) => setStoreName(e.target.value)} />
+        </div>
+        <div className="admin-form-field span-2">
+          <label className="admin-form-label">Tagline / Descrição</label>
+          <input className="admin-form-input" value={tagline} onChange={(e) => setTagline(e.target.value)} />
+        </div>
+        <div className="admin-form-field">
+          <label className="admin-form-label">Emoji Substitutito (ex: 🛍️)</label>
+          <input className="admin-form-input" value={logo} onChange={(e) => setLogo(e.target.value)} />
+        </div>
+        <div className="admin-form-field span-2">
+          <label className="admin-form-label">URL da Logo (Imagem Principal)</label>
+          <input className="admin-form-input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://exemplo.com/sua-logo.png" />
+          {logoUrl && (
+            <img src={logoUrl} alt="Logo" style={{ marginTop: 8, height: 40, objectFit: "contain", borderRadius: 4, background: "rgba(255,255,255,0.1)", padding: 4 }} />
+          )}
+        </div>
 
-      <div className="admin-form-field">
-        <label className="admin-form-label">Cor Principal (Accent Color)</label>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <input className="admin-form-input" type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 80, padding: "2px", height: 40 }} />
-          <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{primaryColor}</span>
+        <div className="admin-form-field">
+          <label className="admin-form-label">Cor Principal</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input className="admin-form-input" type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{primaryColor}</span>
+          </div>
+        </div>
+        
+        <div className="admin-form-field">
+          <label className="admin-form-label">Cor Secundária</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input className="admin-form-input" type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{secondaryColor}</span>
+          </div>
+        </div>
+        
+        <div className="admin-form-field">
+          <label className="admin-form-label">Cor do Fundo (Terciária)</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input className="admin-form-input" type="color" value={tertiaryColor} onChange={(e) => setTertiaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
+            <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{tertiaryColor}</span>
+          </div>
+        </div>
+
+        <div className="admin-form-field">
+          <label className="admin-form-label">Arredondamento dos Cards (Bordas)</label>
+          <select className="admin-form-select" value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)}>
+            <option value="0px">Retos (0px)</option>
+            <option value="8px">Pouco Arredondados (8px)</option>
+            <option value="14px">Arredondados (Padrão 14px)</option>
+            <option value="24px">Bem Arredondados (24px)</option>
+          </select>
         </div>
       </div>
 
@@ -623,7 +662,10 @@ PHP_PIX_STATUS_URL=http://localhost:8080/pix-widget.php?action=check-status`}
         <button
           className="admin-btn admin-btn-primary"
           disabled={saving}
-          onClick={() => onSave({ storeName, storeTagline: tagline, storeLogo: logo, primaryColor })}
+          onClick={() => onSave({ 
+            storeName, storeTagline: tagline, storeLogo: logo, 
+            logoUrl, primaryColor, secondaryColor, tertiaryColor, borderRadius 
+          })}
           id="save-settings-btn"
         >
           {saving ? "Salvando..." : "💾 Salvar Configurações"}

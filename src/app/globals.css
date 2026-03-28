@@ -106,7 +106,7 @@ button {
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: -0.5px;
-  background: linear-gradient(135deg, #a78bfa, #ec4899);
+  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -210,7 +210,7 @@ button {
   letter-spacing: -2px;
   line-height: 1.05;
   margin-bottom: 20px;
-  background: linear-gradient(135deg, #f0f0f8 0%, #a78bfa 50%, #ec4899 100%);
+  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -226,7 +226,7 @@ button {
 
 /* ─── Banner / Marquee ────────────────────────────────── */
 .marquee-bar {
-  background: linear-gradient(90deg, var(--accent) 0%, #ec4899 100%);
+  background: var(--gradient, linear-gradient(90deg, var(--accent) 0%, #ec4899 100%));
   padding: 10px 0;
   overflow: hidden;
   position: relative;
@@ -751,7 +751,7 @@ button {
 }
 
 .cart-summary-row.total .cart-total-value {
-  background: linear-gradient(135deg, #a78bfa, #ec4899);
+  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -765,7 +765,7 @@ button {
   width: 100%;
   margin-top: 16px;
   padding: 16px;
-  background: linear-gradient(135deg, var(--accent), #ec4899);
+  background: var(--gradient, linear-gradient(135deg, var(--accent), #ec4899));
   color: white;
   border-radius: var(--radius);
   font-size: 1rem;
@@ -1207,7 +1207,7 @@ button {
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, #a78bfa, #ec4899);
+  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
