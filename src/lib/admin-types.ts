@@ -13,12 +13,15 @@ export interface AdminProduct {
   id: string;
   name: string;
   description: string;
+  longDescription?: string;
   price: number;
   image: string;
+  images?: string[];
   category: string;
   badge?: string;
   stock: number;
   active: boolean;
+  variations?: string[];
   createdAt: string;
 }
 
@@ -26,6 +29,7 @@ export interface StoreData {
   storeName: string;
   storeTagline: string;
   storeLogo: string;
+  primaryColor: string;
   banners: Banner[];
   products: AdminProduct[];
 }

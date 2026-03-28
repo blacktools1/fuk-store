@@ -579,6 +579,7 @@ function SettingsSection({
   const [storeName, setStoreName] = useState(data.storeName);
   const [tagline, setTagline] = useState(data.storeTagline);
   const [logo, setLogo] = useState(data.storeLogo);
+  const [primaryColor, setPrimaryColor] = useState(data.primaryColor || "#8b5cf6");
 
   return (
     <div className="admin-card" style={{ maxWidth: 600 }}>
@@ -595,6 +596,14 @@ function SettingsSection({
       <div className="admin-form-field">
         <label className="admin-form-label">Emoji / Logo</label>
         <input className="admin-form-input" value={logo} onChange={(e) => setLogo(e.target.value)} style={{ width: 120 }} />
+      </div>
+
+      <div className="admin-form-field">
+        <label className="admin-form-label">Cor Principal (Accent Color)</label>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <input className="admin-form-input" type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 80, padding: "2px", height: 40 }} />
+          <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{primaryColor}</span>
+        </div>
       </div>
 
       <hr className="admin-divider" />
@@ -614,7 +623,7 @@ PHP_PIX_STATUS_URL=http://localhost:8080/pix-widget.php?action=check-status`}
         <button
           className="admin-btn admin-btn-primary"
           disabled={saving}
-          onClick={() => onSave({ storeName, storeTagline: tagline, storeLogo: logo })}
+          onClick={() => onSave({ storeName, storeTagline: tagline, storeLogo: logo, primaryColor })}
           id="save-settings-btn"
         >
           {saving ? "Salvando..." : "💾 Salvar Configurações"}
@@ -647,8 +656,17 @@ function ProductModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || form.price <= 0) return;
-    onSave(form);
+    
+    // Convert variations comma-separated string back to array if modified
+    let finalVariations = typeof form.variations === 'string' 
+      ? (form.variations as string).split(',').map(s => s.trim()).filter(Boolean)
+      : form.variations;
+      
+    onSave({ ...form, variations: finalVariations });
   };
+
+  // Convert array to string for the input field
+  const variationsStr = Array.isArray(form.variations) ? form.variations.join(', ') : (form.variations || "");
 
   return (
     <div className="admin-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -665,8 +683,16 @@ function ProductModal({
               <input className="admin-form-input" value={form.name} onChange={(e) => set("name", e.target.value)} required />
             </div>
             <div className="admin-form-field span-2">
-              <label className="admin-form-label">Descrição</label>
-              <textarea className="admin-form-textarea" value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} />
+              <label className="admin-form-label">Resumo</label>
+              <textarea className="admin-form-textarea" value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} />
+            </div>
+            <div className="admin-form-field span-2">
+              <label className="admin-form-label">Descrição Longa (Detalhes)</label>
+              <textarea className="admin-form-textarea" value={form.longDescription || ""} onChange={(e) => set("longDescription", e.target.value)} rows={4} placeholder="Mais especificações e detalhes para a página do produto..." />
+            </div>
+            <div className="admin-form-field span-2">
+              <label className="admin-form-label">Variações (Separadas por vírgula, ex: P, M, G ou Branco, Preto)</label>
+              <input className="admin-form-input" value={variationsStr} onChange={(e) => set("variations", e.target.value)} placeholder="Deixe em branco se não houver" />
             </div>
             <div className="admin-form-field">
               <label className="admin-form-label">Preço (R$) *</label>

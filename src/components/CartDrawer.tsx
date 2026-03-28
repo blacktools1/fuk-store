@@ -48,7 +48,7 @@ export default function CartDrawer() {
         ) : (
           <div className="cart-items">
             {items.map((item) => (
-              <div key={item.product.id} className="cart-item">
+              <div key={item.id} className="cart-item">
                 <div className="cart-item-img">
                   <Image
                     src={item.product.image}
@@ -60,11 +60,16 @@ export default function CartDrawer() {
                 </div>
                 <div className="cart-item-info">
                   <p className="cart-item-name">{item.product.name}</p>
+                  {item.variation && (
+                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                      Opção: {item.variation}
+                    </p>
+                  )}
                   <p className="cart-item-price">{formatPrice(item.product.price)} cada</p>
                   <div className="cart-item-controls">
                     <button
                       className="qty-btn"
-                      onClick={() => update(item.product.id, item.quantity - 1)}
+                      onClick={() => update(item.id, item.quantity - 1)}
                       aria-label="Diminuir quantidade"
                     >
                       −
@@ -72,14 +77,14 @@ export default function CartDrawer() {
                     <span className="qty-value">{item.quantity}</span>
                     <button
                       className="qty-btn"
-                      onClick={() => update(item.product.id, item.quantity + 1)}
+                      onClick={() => update(item.id, item.quantity + 1)}
                       aria-label="Aumentar quantidade"
                     >
                       +
                     </button>
                     <button
                       className="cart-item-remove"
-                      onClick={() => remove(item.product.id)}
+                      onClick={() => remove(item.id)}
                       aria-label="Remover item"
                     >
                       remover

@@ -18,6 +18,7 @@ export function readStoreData(): StoreData {
       storeName: STORE_CONFIG.name,
       storeTagline: STORE_CONFIG.tagline,
       storeLogo: STORE_CONFIG.logo,
+      primaryColor: "#8b5cf6",
       banners: [
         {
           id: "banner-1",

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
+import { useUser } from "@/context/UserContext";
 import { cartTotal } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
 import { useToast } from "@/components/ToastProvider";
@@ -24,12 +25,13 @@ interface PixResponse {
 
 export default function CheckoutPage() {
   const { items, clear } = useCart();
+  const { user } = useUser();
   const { showToast } = useToast();
   const total = cartTotal(items);
 
   const [form, setForm] = useState<CustomerForm>({
-    name: "",
-    email: "",
+    name: user?.name || "",
+    email: user?.email || "",
     cpf: "",
     phone: "",
   });
@@ -55,8 +57,8 @@ export default function CheckoutPage() {
           amount: total,
           customer: form,
           items: items.map((i) => ({
-            id: i.product.id,
-            name: i.product.name,
+            id: i.id,
+            name: i.variation ? `${i.product.name} - ${i.variation}` : i.product.name,
             price: i.product.price,
             quantity: i.quantity,
           })),
@@ -298,7 +300,7 @@ export default function CheckoutPage() {
             <h2 className="order-summary-title">📦 Resumo do Pedido</h2>
 
             {items.map((item) => (
-              <div key={item.product.id} className="order-item">
+              <div key={item.id} className="order-item">
                 <div className="order-item-img">
                   <Image
                     src={item.product.image}
@@ -310,6 +312,11 @@ export default function CheckoutPage() {
                 </div>
                 <div className="order-item-info">
                   <p className="order-item-name">{item.product.name}</p>
+                  {item.variation && (
+                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                      Opção: {item.variation}
+                    </p>
+                  )}
                   <p className="order-item-qty">Qtd: {item.quantity}</p>
                 </div>
                 <p className="order-item-price">
