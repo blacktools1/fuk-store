@@ -7,6 +7,8 @@ import CartDrawer from "@/components/CartDrawer";
 import ToastProvider from "@/components/ToastProvider";
 import { readStoreData } from "@/lib/store-data";
 
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata(): Promise<Metadata> {
   const store = readStoreData();
   return {

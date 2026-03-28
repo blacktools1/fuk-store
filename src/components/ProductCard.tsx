@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { formatPrice } from "@/lib/products";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/ToastProvider";
 
@@ -24,15 +25,21 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
   const { add, openCart } = useCart();
   const { showToast } = useToast();
   const [added, setAdded] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
     add(product);
     setAdded(true);
     showToast(`${product.name} adicionado ao carrinho!`);
     setTimeout(() => setAdded(false), 800);
+  };
+
+  const handleCardClick = () => {
+    router.push(`/product/${product.id}`);
   };
 
   const badgeClass =
@@ -43,17 +50,15 @@ export default function ProductCard({ product }: ProductCardProps) {
       : "oferta";
 
   return (
-    <article className="product-card">
+    <article className="product-card" onClick={handleCardClick}>
       <div className="product-card-img">
-        <Link href={`/product/${product.id}`} style={{ display: 'block', width: '100%', height: '100%' }}>
-          <Image
-            src={product.image}
-            alt={product.name}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            style={{ objectFit: "cover" }}
-          />
-        </Link>
+        <Image
+          src={product.image}
+          alt={product.name}
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          style={{ objectFit: "cover" }}
+        />
         {product.badge && (
           <span className={`product-badge ${badgeClass}`}>{product.badge}</span>
         )}
@@ -66,9 +71,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
       <div className="product-card-body">
         <p className="product-card-category">{product.category}</p>
-        <Link href={`/product/${product.id}`}>
-          <h3 className="product-card-name" style={{ cursor: 'pointer' }}>{product.name}</h3>
-        </Link>
+        <h3 className="product-card-name" style={{ cursor: 'pointer' }}>{product.name}</h3>
         <p className="product-card-desc">{product.description}</p>
         <div className="product-card-footer">
           <span className="product-price">{formatPrice(product.price)}</span>
