@@ -114,7 +114,7 @@ export default function ProductDetailPage() {
             </p>
 
             <div style={{ marginBottom: "32px" }}>
-              <div style={{ fontSize: "2.8rem", fontWeight: 900, color: "var(--primary-bright)", letterSpacing: "-1px" }}>
+              <div style={{ fontSize: "2.8rem", fontWeight: 900, color: "var(--price-color, var(--text))", letterSpacing: "-1px" }}>
                 {formatPrice(product.price)}
               </div>
               <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "4px" }}>
@@ -135,12 +135,12 @@ export default function ProductDetailPage() {
                       onClick={() => setSelectedVariation(v)}
                       style={{
                         padding: "10px 18px",
-                        border: selectedVariation === v ? "2px solid var(--primary)" : "1px solid var(--border)",
-                        background: selectedVariation === v ? "rgba(var(--primary-rgb), 0.1)" : "var(--bg-elevated)",
+                        border: selectedVariation === v ? "2px solid var(--accent)" : "1px solid var(--border)",
+                        background: selectedVariation === v ? "rgba(var(--accent-rgb), 0.1)" : "var(--bg-elevated)",
                         borderRadius: "8px",
                         cursor: "pointer",
                         fontWeight: selectedVariation === v ? 700 : 500,
-                        color: selectedVariation === v ? "var(--primary-bright)" : "var(--text-muted)",
+                        color: selectedVariation === v ? "var(--accent-bright)" : "var(--text)",
                         transition: "all 0.2s ease"
                       }}
                     >
@@ -160,14 +160,14 @@ export default function ProductDetailPage() {
                 <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "8px", overflow: "hidden" }}>
                   <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    style={{ background: "var(--bg-elevated)", border: "none", padding: "12px 18px", cursor: "pointer", color: "var(--text)", fontSize: "1.1rem" }}
+                    style={{ background: "var(--gradient, var(--accent))", border: "none", padding: "12px 18px", cursor: "pointer", color: "var(--btn-text, white)", fontSize: "1.1rem" }}
                   >
                     −
                   </button>
                   <span style={{ width: "40px", textAlign: "center", fontWeight: 600 }}>{quantity}</span>
                   <button 
                     onClick={() => setQuantity(quantity + 1)}
-                    style={{ background: "var(--bg-elevated)", border: "none", padding: "12px 18px", cursor: "pointer", color: "var(--text)", fontSize: "1.1rem" }}
+                    style={{ background: "var(--gradient, var(--accent))", border: "none", padding: "12px 18px", cursor: "pointer", color: "var(--btn-text, white)", fontSize: "1.1rem" }}
                   >
                     +
                   </button>

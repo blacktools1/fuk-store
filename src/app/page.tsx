@@ -17,10 +17,18 @@ const marqueeItems = [
 export default function StorePage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showHero, setShowHero] = useState(true);
   const [activeCategory, setActiveCategory] = useState("Todos");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    // Fetch store config
+    fetch("/api/store/info")
+      .then((r) => r.json())
+      .then((data) => setShowHero(data.showHero !== false))
+      .catch(() => {});
+
+    // Fetch products
     fetch("/api/store/products")
       .then((r) => r.json())
       .then((data) => setProducts(Array.isArray(data) ? data : []))
@@ -48,17 +56,19 @@ export default function StorePage() {
       </div>
 
       {/* Hero */}
-      <section className="hero">
-        <div className="container">
-          <div className="hero-tag">✨ Nova coleção disponível</div>
-          <h1 className="hero-title">
-            Descubra os Melhores<br />Produtos do Mercado
-          </h1>
-          <p className="hero-subtitle">
-            Os melhores produtos com entrega rápida. Pague com Pix e receba em tempo recorde.
-          </p>
-        </div>
-      </section>
+      {showHero && (
+        <section className="hero">
+          <div className="container">
+            <div className="hero-tag">✨ Nova coleção disponível</div>
+            <h1 className="hero-title">
+              Descubra os Melhores<br />Produtos do Mercado
+            </h1>
+            <p className="hero-subtitle">
+              Os melhores produtos com entrega rápida. Pague com Pix e receba em tempo recorde.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* Products Section */}
       <div className="container">

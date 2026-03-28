@@ -39,6 +39,7 @@ export interface StoreData {
   priceColor?: string;
   btnTextColor?: string;
   borderRadius?: string;
+  showHero?: boolean;
   banners: Banner[];
   products: AdminProduct[];
 }

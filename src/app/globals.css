@@ -106,10 +106,7 @@ button {
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: -0.5px;
-  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text);
 }
 
 .header-logo span {
@@ -210,10 +207,7 @@ button {
   letter-spacing: -2px;
   line-height: 1.05;
   margin-bottom: 20px;
-  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text);
 }
 
 .hero-subtitle {
@@ -751,10 +745,7 @@ button {
 }
 
 .cart-summary-row.total .cart-total-value {
-  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--price-color, var(--text));
 }
 
 .checkout-btn {
@@ -1145,11 +1136,11 @@ button {
 .footer-logo {
   font-size: 1.2rem;
   font-weight: 800;
-  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text);
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .footer-sub {
@@ -1207,10 +1198,7 @@ button {
 }
 
 .text-gradient {
-  background: var(--gradient, linear-gradient(135deg, #a78bfa, #ec4899));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text);
 }
 
 .flex { display: flex; }

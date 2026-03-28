@@ -98,7 +98,7 @@ export default function CheckoutPage() {
             alignItems: "center",
             gap: "8px",
             background: "var(--accent)",
-            color: "white",
+            color: "var(--btn-text, white)",
             padding: "12px 24px",
             borderRadius: "var(--radius)",
             fontWeight: 600,

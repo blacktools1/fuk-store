@@ -50,7 +50,7 @@ export default function RootLayout({
         '--bg': store.tertiaryColor || "#0a0a0f",
         '--bg-card': store.tertiaryColor ? `color-mix(in srgb, ${store.tertiaryColor} 95%, ${textValue})` : "#12121a",
         '--bg-elevated': store.tertiaryColor ? `color-mix(in srgb, ${store.tertiaryColor} 90%, ${textValue})` : "#1a1a26",
-        '--header-bg': store.headerColor ? `color-mix(in srgb, ${store.headerColor} 85%, transparent)` : "rgba(10, 10, 15, 0.85)",
+        '--header-bg': store.headerColor ? `${store.headerColor}E6` : "rgba(10, 10, 15, 0.85)",
         '--text': textValue,
         '--text-muted': store.textColor || "#8888a8",
         '--price-color': store.priceColor || "#f0f0f8",

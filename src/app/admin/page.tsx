@@ -579,6 +579,7 @@ function SettingsSection({
   const [storeName, setStoreName] = useState(data.storeName);
   const [tagline, setTagline] = useState(data.storeTagline);
   const [logo, setLogo] = useState(data.storeLogo);
+  const [showHero, setShowHero] = useState(data.showHero ?? true);
   const [logoUrl, setLogoUrl] = useState(data.logoUrl || "");
   const [primaryColor, setPrimaryColor] = useState(data.primaryColor || "#8b5cf6");
   const [secondaryColor, setSecondaryColor] = useState(data.secondaryColor || "#ec4899");
@@ -615,6 +616,15 @@ function SettingsSection({
             {logoUrl && (
               <img src={logoUrl} alt="Logo" style={{ marginTop: 8, height: 40, objectFit: "contain", borderRadius: 4, background: "rgba(255,255,255,0.1)", padding: 4 }} />
             )}
+          </div>
+          <div className="admin-form-field span-2" style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "10px" }}>
+            <label className="admin-toggle">
+              <input type="checkbox" checked={showHero} onChange={(e) => setShowHero(e.target.checked)} />
+              <span className="admin-toggle-slider" />
+            </label>
+            <span style={{ fontSize: "0.9rem", color: "var(--adm-text-muted)" }}>
+              Exibir Seção de Introdução (Hero) na Página Inicial
+            </span>
           </div>
         </div>
       </div>
@@ -722,7 +732,7 @@ PHP_PIX_STATUS_URL=http://localhost:8080/pix-widget.php?action=check-status`}
           onClick={() => onSave({ 
             storeName, storeTagline: tagline, storeLogo: logo, 
             logoUrl, primaryColor, secondaryColor, tertiaryColor, borderRadius,
-            headerColor, titleColor, textColor, priceColor, btnTextColor
+            headerColor, titleColor, textColor, priceColor, btnTextColor, showHero
           })}
           id="save-settings-btn"
         >
