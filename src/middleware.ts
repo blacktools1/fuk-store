@@ -17,16 +17,16 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // Block /master-admin from non-master hosts
+  // Block /master-admin from non-master hosts (only if MASTER_DOMAIN is configured)
   if (pathname.startsWith("/master-admin")) {
-    if (!MASTER_DOMAIN || host !== MASTER_DOMAIN) {
+    if (MASTER_DOMAIN && host !== MASTER_DOMAIN) {
       return NextResponse.redirect(new URL("/", req.url));
     }
   }
 
-  // Block /api/master-admin from non-master hosts
+  // Block /api/master-admin from non-master hosts (only if MASTER_DOMAIN is configured)
   if (pathname.startsWith("/api/master-admin")) {
-    if (!MASTER_DOMAIN || host !== MASTER_DOMAIN) {
+    if (MASTER_DOMAIN && host !== MASTER_DOMAIN) {
       return NextResponse.json({ message: "Não autorizado" }, { status: 403 });
     }
   }
