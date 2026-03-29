@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { StoreData, AdminProduct, Banner } from "@/lib/admin-types";
+import { StoreData, AdminProduct, Banner, TopBannerConfig } from "@/lib/admin-types";
 import { formatPrice } from "@/lib/products";
 
 // ─────────────────────────────────────────────────────────────
@@ -24,7 +24,6 @@ function useAdminToast() {
 // Types
 // ─────────────────────────────────────────────────────────────
 type Section = "dashboard" | "products" | "banners" | "settings";
-
 // ─────────────────────────────────────────────────────────────
 // Main Admin Page
 // ─────────────────────────────────────────────────────────────
@@ -35,6 +34,9 @@ export default function AdminPage() {
   const [data, setData] = useState<StoreData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navigate = (s: Section) => { setSection(s); setSidebarOpen(false); };
 
   // Product modal state
   const [productModal, setProductModal] = useState<{ open: boolean; product: AdminProduct | null }>({
@@ -163,27 +165,36 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {/* ─── Mobile overlay ─── */}
+      {sidebarOpen && (
+        <div
+          className="admin-mobile-overlay admin-mobile-overlay--visible"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* ─── Sidebar ─── */}
-      <aside className="admin-sidebar">
+      <aside className={`admin-sidebar${sidebarOpen ? " admin-sidebar--open" : ""}`}>
         <div className="admin-sidebar-header">
-          <span className="admin-sidebar-logo">🛍️ Minha Loja</span>
-          <span className="admin-sidebar-sub">Painel Administrativo</span>
+          <div className="admin-sidebar-brand">
+            <span className="admin-sidebar-logo">{data?.storeName || "Minha Loja"}</span>
+            <span className="admin-sidebar-sub">Painel Admin</span>
+          </div>
         </div>
 
         <nav className="admin-nav">
           <div className="admin-nav-section">
-            <p className="admin-nav-section-title">Geral</p>
             {([
               { key: "dashboard", icon: "📊", label: "Dashboard" },
-              { key: "products", icon: "📦", label: "Produtos" },
-              { key: "banners", icon: "🖼️", label: "Banners" },
-              { key: "settings", icon: "⚙️", label: "Configurações" },
+              { key: "settings",  icon: "🎨", label: "Aparência" },
+              { key: "banners",   icon: "🖼️", label: "Banners" },
+              { key: "products",  icon: "📦", label: "Produtos" },
             ] as { key: Section; icon: string; label: string }[]).map((item) => (
               <button
                 key={item.key}
                 id={`nav-${item.key}`}
                 className={`admin-nav-link ${section === item.key ? "active" : ""}`}
-                onClick={() => setSection(item.key)}
+                onClick={() => navigate(item.key)}
               >
                 <span className="admin-nav-icon">{item.icon}</span>
                 {item.label}
@@ -192,7 +203,7 @@ export default function AdminPage() {
           </div>
 
           <div className="admin-nav-section">
-            <p className="admin-nav-section-title">Links</p>
+            <p className="admin-nav-section-title">Externo</p>
             <a href="/" target="_blank" className="admin-nav-link">
               <span className="admin-nav-icon">🌐</span>
               Ver Loja
@@ -211,16 +222,19 @@ export default function AdminPage() {
       {/* ─── Main ─── */}
       <div className="admin-main">
         <div className="admin-topbar">
-          <h1 className="admin-topbar-title">
-            {section === "dashboard" && "Dashboard"}
-            {section === "products" && "Gerenciar Produtos"}
-            {section === "banners" && "Gerenciar Banners"}
-            {section === "settings" && "Configurações da Loja"}
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button className="admin-hamburger" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
+              <span /><span /><span />
+            </button>
+            <h1 className="admin-topbar-title">
+              {section === "dashboard" && "Dashboard"}
+              {section === "products"  && "Produtos"}
+              {section === "banners"   && "Banners"}
+              {section === "settings"  && "Aparência da Loja"}
+            </h1>
+          </div>
           <div className="admin-topbar-actions">
-            <a href="/" target="_blank" className="admin-store-link">
-              🌐 Ver Loja
-            </a>
+            <a href="/" target="_blank" className="admin-store-link">🌐 Ver Loja</a>
           </div>
         </div>
 
@@ -242,6 +256,10 @@ export default function AdminPage() {
               onToggle={toggleProduct}
               onDelete={deleteProduct}
               onEdit={(p) => setProductModal({ open: true, product: p })}
+              onBulkImport={(items) => {
+                const products = [...data.products, ...items];
+                save({ products });
+              }}
               onAdd={() =>
                 setProductModal({
                   open: true,
@@ -266,6 +284,11 @@ export default function AdminPage() {
           {section === "banners" && data && (
             <BannersSection
               banners={data.banners}
+              topBannerDesktop={data.topBannerDesktop ?? {}}
+              topBannerMobile={data.topBannerMobile ?? {}}
+              onSaveTopBanners={(desktop, mobile) =>
+                save({ topBannerDesktop: desktop, topBannerMobile: mobile })
+              }
               onToggle={toggleBanner}
               onDelete={deleteBanner}
               onEdit={(b) => setBannerModal({ open: true, banner: b })}
@@ -387,14 +410,17 @@ function ProductsSection({
   onDelete,
   onEdit,
   onAdd,
+  onBulkImport,
 }: {
   products: AdminProduct[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (p: AdminProduct) => void;
   onAdd: () => void;
+  onBulkImport: (items: AdminProduct[]) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [showBulk, setShowBulk] = useState(false);
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -413,10 +439,22 @@ function ProductsSection({
             style={{ width: 200, marginBottom: 0 }}
           />
         </div>
-        <button className="admin-btn admin-btn-primary" onClick={onAdd} id="add-product-btn">
-          + Novo Produto
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="admin-btn admin-btn-secondary" onClick={() => setShowBulk(true)}>
+            📋 Importar em Massa
+          </button>
+          <button className="admin-btn admin-btn-primary" onClick={onAdd} id="add-product-btn">
+            + Novo Produto
+          </button>
+        </div>
       </div>
+
+      {showBulk && (
+        <BulkImportModal
+          onImport={(items) => { onBulkImport(items); setShowBulk(false); }}
+          onClose={() => setShowBulk(false)}
+        />
+      )}
 
       <div className="admin-table-wrap">
         <table className="admin-table">
@@ -493,25 +531,252 @@ function ProductsSection({
 }
 
 // ─────────────────────────────────────────────────────────────
+// Single-banner editor (reused for Desktop and Mobile)
+// ─────────────────────────────────────────────────────────────
+function BannerEditor({
+  label,
+  hint,
+  config,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  config: TopBannerConfig;
+  onChange: (c: TopBannerConfig) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  const set = (patch: Partial<TopBannerConfig>) => onChange({ ...config, ...patch });
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Erro no upload");
+      set({ image: json.url });
+    } catch (err) {
+      setUploadError((err as Error).message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const orientation = config.orientation || "horizontal";
+  const padding     = config.padding     ?? 0;
+  const radius      = config.borderRadius ?? 0;
+
+  return (
+    <div style={{ border: "1px solid var(--adm-border)", borderRadius: 10, padding: "18px 20px", marginBottom: 20, background: "var(--adm-bg-elevated)" }}>
+      <h3 style={{ color: "var(--adm-text)", fontWeight: 700, fontSize: "0.95rem", marginBottom: hint ? 4 : 14 }}>{label}</h3>
+      {hint && <p style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginBottom: 14 }}>{hint}</p>}
+
+      {/* Image */}
+      <div className="admin-form-field" style={{ marginBottom: 14 }}>
+        <label className="admin-form-label">Imagem</label>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+          <label style={{
+            display: "inline-flex", alignItems: "center", gap: "6px",
+            background: "var(--adm-bg-card)", border: "1.5px dashed var(--adm-border)",
+            borderRadius: "8px", padding: "8px 14px", cursor: "pointer",
+            fontSize: "0.82rem", fontWeight: 600, color: "var(--adm-text-muted)",
+            transition: "all 0.18s ease", whiteSpace: "nowrap",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--adm-accent)"; e.currentTarget.style.color = "var(--adm-accent-bright)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--adm-border)"; e.currentTarget.style.color = "var(--adm-text-muted)"; }}
+          >
+            <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleUpload} disabled={uploading} />
+            {uploading ? "⏳ Enviando..." : "📁 Enviar arquivo"}
+          </label>
+          <span style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)" }}>ou</span>
+          <input
+            className="admin-form-input"
+            value={config.image || ""}
+            onChange={(e) => set({ image: e.target.value })}
+            placeholder="/uploads/banner.jpg  ou  https://..."
+            style={{ marginBottom: 0, flex: 1 }}
+          />
+        </div>
+        {uploadError && <p style={{ fontSize: "0.78rem", color: "#fca5a5", marginBottom: 6 }}>⚠️ {uploadError}</p>}
+        {config.image && (
+          <div style={{ marginTop: 8, position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid var(--adm-border)" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={config.image} alt="Preview" style={{ width: "100%", maxHeight: 160, objectFit: "cover", display: "block" }} />
+            <button type="button" onClick={() => set({ image: "" })}
+              style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.65)", border: "none", color: "#fca5a5", cursor: "pointer", fontSize: "0.8rem", padding: "4px 10px", borderRadius: 6, fontWeight: 600 }}
+            >✕ Remover</button>
+          </div>
+        )}
+      </div>
+
+      {/* Link */}
+      <div className="admin-form-field" style={{ marginBottom: 14 }}>
+        <label className="admin-form-label">Link ao Clicar (opcional)</label>
+        <input className="admin-form-input" value={config.link || ""} onChange={(e) => set({ link: e.target.value })} placeholder="https://... ou /produto/123" />
+      </div>
+
+      {/* Orientation */}
+      <div className="admin-form-field" style={{ marginBottom: 14 }}>
+        <label className="admin-form-label">Formato / Orientação</label>
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          {([
+            { value: "horizontal", label: "⬛ Horizontal", sub: "21:7" },
+            { value: "square",     label: "🟥 Quadrado",   sub: "1:1"  },
+            { value: "vertical",   label: "📱 Vertical",   sub: "3:4"  },
+          ] as const).map((opt) => (
+            <button key={opt.value} type="button" onClick={() => set({ orientation: opt.value })} style={{
+              flex: 1, padding: "9px 6px", borderRadius: 8,
+              fontSize: "0.8rem", fontWeight: 600, cursor: "pointer",
+              border: orientation === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)",
+              background: orientation === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-card)",
+              color: orientation === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)",
+              transition: "all 0.18s ease", textAlign: "center",
+            }}>
+              <div>{opt.label}</div>
+              <div style={{ fontSize: "0.68rem", opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Border radius */}
+      <div className="admin-form-field" style={{ marginBottom: 14 }}>
+        <label className="admin-form-label">Bordas</label>
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          {([
+            { value: 0,  label: "Retas" },
+            { value: 8,  label: "Pequenas" },
+            { value: 16, label: "Médias" },
+            { value: 24, label: "Grandes" },
+          ] as const).map((opt) => (
+            <button key={opt.value} type="button" onClick={() => set({ borderRadius: opt.value })} style={{
+              flex: 1, padding: "8px 4px", borderRadius: 8,
+              fontSize: "0.8rem", fontWeight: 600, cursor: "pointer",
+              border: radius === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)",
+              background: radius === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-card)",
+              color: radius === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)",
+              transition: "all 0.18s ease",
+            }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Padding */}
+      <div className="admin-form-field">
+        <label className="admin-form-label">
+          Espaço lateral — {padding === 0 ? "Borda a borda" : `${padding}px`}
+        </label>
+        <input
+          type="range" min={0} max={48} step={4} value={padding}
+          onChange={(e) => set({ padding: Number(e.target.value) })}
+          style={{ width: "100%", marginTop: 6, accentColor: "var(--adm-accent)" }}
+        />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.74rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
+          <span>Sem margem</span>
+          <span>48px</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Banners Section
 // ─────────────────────────────────────────────────────────────
 function BannersSection({
   banners,
+  topBannerDesktop: initialDesktop,
+  topBannerMobile: initialMobile,
+  onSaveTopBanners,
   onToggle,
   onDelete,
   onEdit,
   onAdd,
 }: {
   banners: Banner[];
+  topBannerDesktop: TopBannerConfig;
+  topBannerMobile: TopBannerConfig;
+  onSaveTopBanners: (desktop: TopBannerConfig, mobile: TopBannerConfig) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (b: Banner) => void;
   onAdd: () => void;
 }) {
+  const [desktop, setDesktop] = useState<TopBannerConfig>(initialDesktop);
+  const [mobile,  setMobile]  = useState<TopBannerConfig>(initialMobile);
+  const [enableMobile, setEnableMobile] = useState(!!initialMobile?.image);
+
   return (
     <>
+      {/* ── Banner do Topo ── */}
+      <div className="admin-card" style={{ marginBottom: 28 }}>
+        <h2 className="admin-card-title">🖼️ Banner do Topo da Loja</h2>
+        <p style={{ fontSize: "0.83rem", color: "var(--adm-text-muted)", marginBottom: 20 }}>
+          Configure um banner para desktop e, opcionalmente, um diferente para mobile. Se não houver banner mobile, o banner desktop será exibido em todos os dispositivos.
+        </p>
+
+        <BannerEditor
+          label="📱 Banner Mobile (Principal)"
+          hint="Exibido em todos os dispositivos por padrão. Recomendado: quadrado ou vertical."
+          config={mobile}
+          onChange={setMobile}
+        />
+
+        {/* Ocultar no desktop */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+          <label className="admin-toggle">
+            <input type="checkbox" checked={!!mobile.hideOnDesktop} onChange={(e) => setMobile({ ...mobile, hideOnDesktop: e.target.checked })} />
+            <span className="admin-toggle-slider" />
+          </label>
+          <span style={{ fontSize: "0.88rem", color: "var(--adm-text)", fontWeight: 500 }}>
+            Ocultar este banner no desktop
+          </span>
+        </div>
+
+        {/* Toggle desktop */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: enableMobile ? 16 : 0 }}>
+          <label className="admin-toggle">
+            <input type="checkbox" checked={enableMobile} onChange={(e) => {
+              setEnableMobile(e.target.checked);
+              if (!e.target.checked) setDesktop({});
+            }} />
+            <span className="admin-toggle-slider" />
+          </label>
+          <span style={{ fontSize: "0.88rem", color: "var(--adm-text)", fontWeight: 500 }}>
+            Usar banner diferente no desktop
+          </span>
+        </div>
+
+        {enableMobile && (
+          <BannerEditor
+            label="🖥️ Banner Desktop (Opcional)"
+            hint="Exibido apenas em telas ≥ 768px quando configurado. Recomendado: horizontal."
+            config={desktop}
+            onChange={setDesktop}
+          />
+        )}
+
+        <button
+          className="admin-btn admin-btn-primary"
+          style={{ marginTop: 8 }}
+          onClick={() => onSaveTopBanners(enableMobile ? desktop : {}, mobile)}
+        >
+          💾 Salvar Banners do Topo
+        </button>
+      </div>
+
+      {/* ── Banners Carrossel ── */}
       <div className="admin-section-header">
-        <h2 className="admin-section-title">Banners ({banners.length})</h2>
+        <h2 className="admin-section-title">Banners Carrossel ({banners.length})</h2>
         <button className="admin-btn admin-btn-primary" onClick={onAdd} id="add-banner-btn">
           + Novo Banner
         </button>
@@ -565,6 +830,61 @@ function BannersSection({
 }
 
 // ─────────────────────────────────────────────────────────────
+// SettingsGroup — card de seção com step indicator
+// ─────────────────────────────────────────────────────────────
+function SettingsGroup({ step, icon, title, children }: {
+  step: number; icon: string; title: string; children: ReactNode;
+}) {
+  return (
+    <div className="settings-group">
+      <div className="settings-group-header">
+        <span className="settings-group-step">{step}</span>
+        <span className="settings-group-icon">{icon}</span>
+        <span className="settings-group-title">{title}</span>
+      </div>
+      <div className="settings-group-body">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ColorField — input de cor sincronizado (picker + hex)
+// ─────────────────────────────────────────────────────────────
+function ColorField({ label, value, onChange, span2 }: { label: string; value: string; onChange: (v: string) => void; span2?: boolean }) {
+  const [hex, setHex] = useState(value);
+  useEffect(() => setHex(value), [value]);
+  const handleHexChange = (v: string) => {
+    setHex(v);
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) onChange(v);
+  };
+  return (
+    <div className={`admin-form-field${span2 ? " span-2" : ""}`}>
+      <label className="admin-form-label">{label}</label>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => { onChange(e.target.value); setHex(e.target.value); }}
+          style={{ width: 44, height: 40, padding: "2px", cursor: "pointer", borderRadius: 8, border: "1px solid var(--adm-border)", background: "none", flexShrink: 0 }}
+        />
+        <input
+          type="text"
+          className="admin-form-input"
+          value={hex}
+          onChange={(e) => handleHexChange(e.target.value)}
+          style={{ fontFamily: "monospace", width: 108, marginBottom: 0 }}
+          maxLength={7}
+          placeholder="#000000"
+          spellCheck={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Settings Section
 // ─────────────────────────────────────────────────────────────
 function SettingsSection({
@@ -580,7 +900,41 @@ function SettingsSection({
   const [tagline, setTagline] = useState(data.storeTagline);
   const [logo, setLogo] = useState(data.storeLogo);
   const [showHero, setShowHero] = useState(data.showHero ?? true);
+  const [stickyHeader, setStickyHeader] = useState(data.stickyHeader !== false);
   const [logoUrl, setLogoUrl] = useState(data.logoUrl || "");
+  const [logoDisplay, setLogoDisplay] = useState<"image-text" | "image-only" | "text-only">(data.logoDisplay ?? "image-text");
+  const [logoSize, setLogoSize] = useState(data.logoSize ?? 36);
+  const [logoPosition, setLogoPosition] = useState<"left" | "center" | "right">(data.logoPosition ?? "left");
+  const [fontFamily, setFontFamily] = useState(data.fontFamily || "Inter");
+  const [fontWeight, setFontWeight] = useState(data.fontWeight || 400);
+  const [cardStyle, setCardStyle] = useState<"default"|"minimal"|"clean"|"bold"|"neon"|"cinematic">(data.cardStyle ?? "default");
+  const [marqueeText1, setMarqueeText1] = useState(data.marqueeTexts?.[0] || "");
+  const [marqueeText2, setMarqueeText2] = useState(data.marqueeTexts?.[1] || "");
+  const [marqueeText3, setMarqueeText3] = useState(data.marqueeTexts?.[2] || "");
+  const [marqueePosition, setMarqueePosition] = useState<"above-nav"|"below-nav">(data.marqueePosition ?? "below-nav");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Erro no upload");
+      setLogoUrl(json.url);
+    } catch (err) {
+      setUploadError((err as Error).message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
   const [primaryColor, setPrimaryColor] = useState(data.primaryColor || "#8b5cf6");
   const [secondaryColor, setSecondaryColor] = useState(data.secondaryColor || "#ec4899");
   const [tertiaryColor, setTertiaryColor] = useState(data.tertiaryColor || "#0a0a0f");
@@ -591,12 +945,11 @@ function SettingsSection({
   const [btnTextColor, setBtnTextColor] = useState(data.btnTextColor || "#ffffff");
   const [borderRadius, setBorderRadius] = useState(data.borderRadius || "14px");
 
-  return (
-    <div className="admin-card" style={{ maxWidth: 800 }}>
-      <h2 className="admin-card-title">Configurações e Personalização</h2>
 
-      <div style={{ padding: "16px", borderRadius: "12px", background: "var(--adm-bg-elevated)", marginBottom: "20px" }}>
-        <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", fontWeight: "600", color: "var(--accent-bright)" }}>1. Informações Básicas</h3>
+  return (
+    <>
+      {/* ── 1. Identidade ── */}
+      <SettingsGroup step={1} icon="🏪" title="Identidade da Loja">
         <div className="admin-form-grid">
           <div className="admin-form-field span-2">
             <label className="admin-form-label">Nome da Loja</label>
@@ -607,137 +960,367 @@ function SettingsSection({
             <input className="admin-form-input" value={tagline} onChange={(e) => setTagline(e.target.value)} />
           </div>
           <div className="admin-form-field">
-            <label className="admin-form-label">Emoji Substitutito (ex: 🛍️)</label>
+            <label className="admin-form-label">Emoji Substituto (ex: 🛍️)</label>
             <input className="admin-form-input" value={logo} onChange={(e) => setLogo(e.target.value)} />
           </div>
           <div className="admin-form-field span-2">
-            <label className="admin-form-label">URL da Logo (Imagem Principal)</label>
-            <input className="admin-form-input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://exemplo.com/sua-logo.png" />
+            <label className="admin-form-label">Logo (Imagem Principal)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "var(--adm-bg-elevated)", border: "1.5px dashed var(--adm-border)", borderRadius: "8px", padding: "8px 14px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, color: "var(--adm-text-muted)", transition: "all 0.18s ease", whiteSpace: "nowrap" }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--adm-accent)"; e.currentTarget.style.color = "var(--adm-accent-bright)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--adm-border)"; e.currentTarget.style.color = "var(--adm-text-muted)"; }}>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoUpload} disabled={uploading} />
+                {uploading ? "⏳ Enviando..." : "📁 Upload"}
+              </label>
+              <span style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)" }}>ou</span>
+              <input className="admin-form-input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="/uploads/logo.png ou https://..." style={{ marginBottom: 0, flex: 1 }} />
+            </div>
+            {uploadError && <p style={{ fontSize: "0.8rem", color: "#fca5a5", marginBottom: "6px" }}>⚠️ {uploadError}</p>}
             {logoUrl && (
-              <img src={logoUrl} alt="Logo" style={{ marginTop: 8, height: 40, objectFit: "contain", borderRadius: 4, background: "rgba(255,255,255,0.1)", padding: 4 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt="preview" style={{ height: 48, maxWidth: 160, objectFit: "contain", borderRadius: 6, background: "rgba(255,255,255,0.08)", padding: 6, border: "1px solid var(--adm-border)" }} />
+                <button type="button" onClick={() => setLogoUrl("")} style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer", fontSize: "0.78rem" }}>✕ Remover</button>
+              </div>
             )}
           </div>
-          <div className="admin-form-field span-2" style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "10px" }}>
-            <label className="admin-toggle">
-              <input type="checkbox" checked={showHero} onChange={(e) => setShowHero(e.target.checked)} />
-              <span className="admin-toggle-slider" />
-            </label>
-            <span style={{ fontSize: "0.9rem", color: "var(--adm-text-muted)" }}>
-              Exibir Seção de Introdução (Hero) na Página Inicial
-            </span>
-          </div>
         </div>
-      </div>
+      </SettingsGroup>
 
-      <div style={{ padding: "16px", borderRadius: "12px", background: "var(--adm-bg-elevated)", marginBottom: "20px" }}>
-        <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", fontWeight: "600", color: "var(--accent-bright)" }}>2. Estrutura e Fundos</h3>
+      {/* ── 2. Navbar ── */}
+      <SettingsGroup step={2} icon="🔝" title="Navbar">
         <div className="admin-form-grid">
-          <div className="admin-form-field">
-            <label className="admin-form-label">Cor do Fundo da Loja (Terciária)</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input className="admin-form-input" type="color" value={tertiaryColor} onChange={(e) => setTertiaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{tertiaryColor}</span>
-            </div>
-          </div>
-          <div className="admin-form-field">
-            <label className="admin-form-label">Fundo do Cabeçalho (Navbar)</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input className="admin-form-input" type="color" value={headerColor} onChange={(e) => setHeaderColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{headerColor}</span>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Exibição da Logo</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              {([
+                { value: "image-text", label: "Imagem + Texto" },
+                { value: "image-only", label: "Só Imagem" },
+                { value: "text-only",  label: "Só Texto" },
+              ] as const).map((opt) => (
+                <button key={opt.value} type="button" onClick={() => setLogoDisplay(opt.value)} style={{ flex: 1, padding: "8px 6px", borderRadius: 8, fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", border: logoDisplay === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: logoDisplay === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: logoDisplay === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
           <div className="admin-form-field span-2">
-            <label className="admin-form-label">Arredondamento dos Cards (Bordas)</label>
+            <label className="admin-form-label">Posição da Logo</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              {(["left","center","right"] as const).map((pos) => (
+                <button key={pos} type="button" onClick={() => setLogoPosition(pos)} style={{ flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", border: logoPosition === pos ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: logoPosition === pos ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: logoPosition === pos ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
+                  {pos === "left" ? "⬅ Esquerda" : pos === "center" ? "↔ Centro" : "➡ Direita"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Tamanho da Logo — {logoSize}px</label>
+            <input type="range" min={20} max={110} step={2} value={logoSize} onChange={(e) => setLogoSize(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--adm-accent)", marginTop: 6 }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.74rem", color: "var(--adm-text-faint)", marginTop: 4 }}><span>20px</span><span>{logoSize}px</span><span>110px</span></div>
+          </div>
+          <ColorField label="Cor de Fundo da Navbar" value={headerColor} onChange={setHeaderColor} />
+          <div className="admin-form-field" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <label className="admin-toggle">
+              <input type="checkbox" checked={stickyHeader} onChange={(e) => setStickyHeader(e.target.checked)} />
+              <span className="admin-toggle-slider" />
+            </label>
+            <span style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>Fixar navbar no topo ao rolar</span>
+          </div>
+        </div>
+      </SettingsGroup>
+
+      {/* ── 3. Faixa de Destaque ── */}
+      <SettingsGroup step={3} icon="✨" title="Faixa de Destaque">
+        <div className="admin-form-grid">
+          <div className="admin-form-field">
+            <label className="admin-form-label">Texto 1 (obrigatório)</label>
+            <input className="admin-form-input" value={marqueeText1} onChange={(e) => setMarqueeText1(e.target.value)} placeholder="ex: 🚀 Frete Grátis" />
+          </div>
+          <div className="admin-form-field">
+            <label className="admin-form-label">Texto 2 (opcional)</label>
+            <input className="admin-form-input" value={marqueeText2} onChange={(e) => setMarqueeText2(e.target.value)} placeholder="ex: 🔒 Compra Segura" />
+          </div>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Texto 3 (opcional)</label>
+            <input className="admin-form-input" value={marqueeText3} onChange={(e) => setMarqueeText3(e.target.value)} placeholder="ex: 🎁 Até 12x sem juros" />
+          </div>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Posição da Faixa</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              {([
+                { value: "below-nav", label: "⬇ Abaixo da Navbar" },
+                { value: "above-nav", label: "⬆ Acima da Navbar" },
+              ] as const).map((opt) => (
+                <button key={opt.value} type="button" onClick={() => setMarqueePosition(opt.value)} style={{ flex: 1, padding: "9px 6px", borderRadius: 8, fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", border: marqueePosition === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: marqueePosition === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: marqueePosition === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </SettingsGroup>
+
+      {/* ── 4. Hero ── */}
+      <SettingsGroup step={4} icon="🎭" title="Seção de Boas-vindas (Hero)">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <label className="admin-toggle">
+            <input type="checkbox" checked={showHero} onChange={(e) => setShowHero(e.target.checked)} />
+            <span className="admin-toggle-slider" />
+          </label>
+          <div>
+            <div style={{ fontSize: "0.9rem", color: "var(--adm-text)", fontWeight: 500 }}>Exibir seção Hero na página inicial</div>
+            <div style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Banner de boas-vindas com título e subtítulo</div>
+          </div>
+        </div>
+      </SettingsGroup>
+
+      {/* ── 5. Cores ── */}
+      <SettingsGroup step={5} icon="🎨" title="Cores e Aparência">
+        <div className="admin-form-grid">
+          <ColorField label="Cor Principal (Botões e Hover)" value={primaryColor}   onChange={setPrimaryColor} />
+          <ColorField label="Cor Secundária (Degradês)"      value={secondaryColor} onChange={setSecondaryColor} />
+          <ColorField label="Cor de Fundo da Loja"           value={tertiaryColor}  onChange={setTertiaryColor} />
+          <div className="admin-form-field">
+            <label className="admin-form-label">Arredondamento dos Elementos</label>
             <select className="admin-form-select" value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)}>
               <option value="0px">Retos (0px)</option>
               <option value="8px">Pouco Arredondados (8px)</option>
-              <option value="14px">Arredondados (Padrão 14px)</option>
+              <option value="14px">Arredondados — Padrão (14px)</option>
               <option value="24px">Bem Arredondados (24px)</option>
             </select>
           </div>
         </div>
-      </div>
+      </SettingsGroup>
 
-      <div style={{ padding: "16px", borderRadius: "12px", background: "var(--adm-bg-elevated)", marginBottom: "20px" }}>
-        <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", fontWeight: "600", color: "var(--accent-bright)" }}>3. Ações e Destaques</h3>
+      {/* ── 6. Tipografia ── */}
+      <SettingsGroup step={6} icon="🔤" title="Tipografia">
         <div className="admin-form-grid">
-          <div className="admin-form-field">
-            <label className="admin-form-label">Cor Principal (Botões e Hover)</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input className="admin-form-input" type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{primaryColor}</span>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Fonte Principal</label>
+            <select className="admin-form-select" value={fontFamily} onChange={(e) => setFontFamily(e.target.value)}>
+              {["Inter","Roboto","Poppins","Montserrat","Raleway","Nunito","Lato","Oswald","Playfair Display","DM Sans"].map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Peso / Boldness</label>
+            <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+              {([
+                { value: 300, label: "Light" },
+                { value: 400, label: "Regular" },
+                { value: 500, label: "Medium" },
+                { value: 600, label: "Semibold" },
+                { value: 700, label: "Bold" },
+              ] as const).map((opt) => (
+                <button key={opt.value} type="button" onClick={() => setFontWeight(opt.value)} style={{ flex: 1, minWidth: 60, padding: "8px 4px", borderRadius: 8, fontSize: "0.78rem", fontWeight: opt.value, cursor: "pointer", border: fontWeight === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: fontWeight === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: fontWeight === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="admin-form-field">
-            <label className="admin-form-label">Cor Secundária (Degradês)</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input className="admin-form-input" type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{secondaryColor}</span>
-            </div>
-          </div>
+          <ColorField label="Cor dos Títulos"   value={titleColor}   onChange={setTitleColor} />
+          <ColorField label="Cor das Descrições" value={textColor}    onChange={setTextColor} />
+          <ColorField label="Cor dos Preços"     value={priceColor}   onChange={setPriceColor} />
+          <ColorField label="Texto dos Botões"   value={btnTextColor} onChange={setBtnTextColor} />
         </div>
-      </div>
+      </SettingsGroup>
 
-      <div style={{ padding: "16px", borderRadius: "12px", background: "var(--adm-bg-elevated)", marginBottom: "20px" }}>
-        <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", fontWeight: "600", color: "var(--accent-bright)" }}>4. Fontes e Textos</h3>
-        <div className="admin-form-grid">
-          <div className="admin-form-field">
-            <label className="admin-form-label">Cor dos Títulos Principais</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input className="admin-form-input" type="color" value={titleColor} onChange={(e) => setTitleColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{titleColor}</span>
-            </div>
-          </div>
-          <div className="admin-form-field">
-            <label className="admin-form-label">Cor das Descrições</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input className="admin-form-input" type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{textColor}</span>
-            </div>
-          </div>
-          <div className="admin-form-field">
-            <label className="admin-form-label">Cor dos Preços</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input className="admin-form-input" type="color" value={priceColor} onChange={(e) => setPriceColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{priceColor}</span>
-            </div>
-          </div>
-          <div className="admin-form-field">
-            <label className="admin-form-label">Texto Dentro dos Botões</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <input className="admin-form-input" type="color" value={btnTextColor} onChange={(e) => setBtnTextColor(e.target.value)} style={{ width: 60, padding: "2px", height: 40 }} />
-              <span style={{ fontFamily: "monospace", color: "var(--adm-text-muted)" }}>{btnTextColor}</span>
-            </div>
-          </div>
+      {/* ── 7. Cards ── */}
+      <SettingsGroup step={7} icon="🃏" title="Design dos Cards de Produto">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          {([
+            { value: "default",   label: "Padrão",     sub: "Borda + sombra suave",       icon: "🟦" },
+            { value: "minimal",   label: "Minimal",    sub: "Sem borda, sombra leve",     icon: "⬜" },
+            { value: "clean",     label: "Clean",      sub: "Sem moldura, só conteúdo",   icon: "✦" },
+            { value: "bold",      label: "Bold",       sub: "Tipografia forte, barra accent", icon: "▰" },
+            { value: "neon",      label: "Neon",       sub: "Borda brilhante no hover",   icon: "◈" },
+            { value: "cinematic", label: "Cinemático", sub: "Texto sobre imagem",         icon: "🎬" },
+          ] as const).map((opt) => (
+            <button key={opt.value} type="button" onClick={() => setCardStyle(opt.value)} style={{ padding: "12px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center", border: cardStyle === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: cardStyle === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: cardStyle === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
+              <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>{opt.icon}</div>
+              <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>{opt.label}</div>
+              <div style={{ fontSize: "0.69rem", opacity: 0.65, marginTop: 3 }}>{opt.sub}</div>
+            </button>
+          ))}
         </div>
-      </div>
+      </SettingsGroup>
 
-      <hr className="admin-divider" />
-
-      <div style={{ background: "var(--adm-bg-elevated)", borderRadius: "10px", padding: "16px", fontSize: "0.875rem" }}>
-        <p style={{ fontWeight: 700, marginBottom: "10px" }}>🔌 Integração Pix PHP</p>
-        <p style={{ color: "var(--adm-text-muted)", fontSize: "0.82rem", marginBottom: "8px" }}>
-          Configure a URL do PHP no arquivo <code style={{ background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: "4px" }}>.env.local</code>:
-        </p>
-        <pre style={{ background: "rgba(0,0,0,0.3)", padding: "12px", borderRadius: "8px", fontSize: "0.78rem", color: "#a78bfa", overflow:"auto" }}>
-{`PHP_PIX_URL=http://localhost:8080/pix-widget.php?action=create-payment
-PHP_PIX_STATUS_URL=http://localhost:8080/pix-widget.php?action=check-status`}
-        </pre>
-      </div>
-
-      <div style={{ marginTop: "20px" }}>
+      {/* ── Salvar ── */}
+      <div style={{ position: "sticky", bottom: 0, background: "var(--adm-bg)", borderTop: "1px solid var(--adm-border)", padding: "16px 0", marginTop: 8 }}>
         <button
           className="admin-btn admin-btn-primary"
+          style={{ width: "100%" }}
           disabled={saving}
-          onClick={() => onSave({ 
-            storeName, storeTagline: tagline, storeLogo: logo, 
-            logoUrl, primaryColor, secondaryColor, tertiaryColor, borderRadius,
-            headerColor, titleColor, textColor, priceColor, btnTextColor, showHero
-          })}
           id="save-settings-btn"
+          onClick={() => onSave({
+            storeName, storeTagline: tagline, storeLogo: logo,
+            logoUrl, logoDisplay, logoSize, logoPosition,
+            fontFamily, fontWeight, cardStyle,
+            marqueeTexts: [marqueeText1, marqueeText2, marqueeText3].filter(Boolean),
+            marqueePosition,
+            primaryColor, secondaryColor, tertiaryColor, borderRadius,
+            headerColor, stickyHeader, titleColor, textColor, priceColor, btnTextColor, showHero
+          })}
         >
-          {saving ? "Salvando..." : "💾 Salvar Configurações"}
+          {saving ? "⏳ Salvando..." : "💾 Salvar todas as configurações"}
         </button>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Bulk Import Modal
+// ─────────────────────────────────────────────────────────────
+function BulkImportModal({
+  onImport,
+  onClose,
+}: {
+  onImport: (items: AdminProduct[]) => void;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [preview, setPreview] = useState<{ name: string; price: number; oldPrice?: number }[]>([]);
+  const [error, setError] = useState("");
+
+  const parsePrice = (raw: string): number => {
+    // Remove "R$", spaces, and convert comma to dot
+    const cleaned = raw.replace(/R\$\s*/g, "").replace(/\./g, "").replace(",", ".").trim();
+    const val = parseFloat(cleaned);
+    return isNaN(val) ? 0 : val;
+  };
+
+  const parseLines = (input: string) => {
+    const lines = input.split("\n").map((l) => l.trim()).filter(Boolean);
+    const result: { name: string; price: number; oldPrice?: number }[] = [];
+    const errors: string[] = [];
+
+    for (const line of lines) {
+      // Remove leading number prefix like "1." "1)" "1-"
+      const clean = line.replace(/^\d+[\.\)\-]\s*/, "").trim();
+      if (!clean) continue;
+
+      // Support formats:
+      // "Nome - PreçoAtual" 
+      // "Nome - PreçoAntigo > PreçoAtual"  or "Nome - PreçoAntigo / PreçoAtual"
+      // "Nome | Preço"
+      const sepMatch = clean.match(/^(.+?)\s*[-|:]\s*(.+)$/);
+      if (!sepMatch) { errors.push(`Linha ignorada: "${line}"`); continue; }
+
+      const name = sepMatch[1].trim();
+      const priceStr = sepMatch[2].trim();
+
+      // Check for two prices: "99,90 > 79,90" or "99,90 / 79,90"
+      const twoPrices = priceStr.match(/^(.+?)\s*[>\/]\s*(.+)$/);
+      if (twoPrices) {
+        const oldPrice = parsePrice(twoPrices[1]);
+        const price    = parsePrice(twoPrices[2]);
+        result.push({ name, price, oldPrice: oldPrice > 0 ? oldPrice : undefined });
+      } else {
+        const price = parsePrice(priceStr);
+        result.push({ name, price });
+      }
+    }
+
+    return { result, errors };
+  };
+
+  const handlePreview = () => {
+    setError("");
+    const { result, errors } = parseLines(text);
+    if (result.length === 0) {
+      setError("Nenhum produto reconhecido. Verifique o formato.");
+      setPreview([]);
+      return;
+    }
+    if (errors.length > 0) setError(`${errors.length} linha(s) ignorada(s).`);
+    setPreview(result);
+  };
+
+  const handleImport = () => {
+    const { result } = parseLines(text);
+    const now = new Date().toISOString();
+    const products: AdminProduct[] = result.map((r, i) => ({
+      id: `prod-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+      name: r.name,
+      description: "",
+      price: r.price,
+      oldPrice: r.oldPrice,
+      image: "/products/placeholder.jpg",
+      category: "Geral",
+      stock: 10,
+      active: true,
+      createdAt: now,
+    }));
+    onImport(products);
+  };
+
+  return (
+    <div className="admin-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="admin-modal" style={{ maxWidth: 640 }}>
+        <div className="admin-modal-header">
+          <h2 className="admin-modal-title">📋 Importar Produtos em Massa</h2>
+          <button className="admin-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{ marginBottom: 14, background: "var(--adm-bg-elevated)", borderRadius: 8, padding: "12px 14px", fontSize: "0.82rem", color: "var(--adm-text-muted)", lineHeight: 1.7 }}>
+          <strong style={{ color: "var(--adm-text)", display: "block", marginBottom: 6 }}>Formatos aceitos:</strong>
+          <code style={{ display: "block", color: "var(--adm-accent-bright)" }}>1. Nome do produto - Preço</code>
+          <code style={{ display: "block", color: "var(--adm-accent-bright)" }}>2. Nome do produto - PreçoAntigo &gt; PreçoAtual</code>
+          <span style={{ fontSize: "0.78rem" }}>Separador pode ser <code>-</code>, <code>|</code> ou <code>:</code> · Preço: <code>19,90</code> ou <code>R$19,90</code></span>
+        </div>
+
+        <div className="admin-form-field">
+          <label className="admin-form-label">Lista de Produtos</label>
+          <textarea
+            className="admin-form-textarea"
+            rows={10}
+            placeholder={`1. Cesta Premium - 149,90\n2. Vinho Tinto - 89,90 > 69,90\n3. Kit Queijos - R$59,90`}
+            value={text}
+            onChange={(e) => { setText(e.target.value); setPreview([]); }}
+            style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
+          />
+        </div>
+
+        {error && (
+          <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, padding: "8px 12px", fontSize: "0.82rem", color: "#fcd34d", marginBottom: 12 }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {preview.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--adm-text-muted)", marginBottom: 8 }}>
+              Prévia — {preview.length} produto(s) reconhecido(s):
+            </p>
+            <div style={{ maxHeight: 200, overflowY: "auto", background: "var(--adm-bg-elevated)", borderRadius: 8, padding: "8px 0" }}>
+              {preview.map((p, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 14px", fontSize: "0.85rem", borderBottom: "1px solid var(--adm-border)" }}>
+                  <span style={{ color: "var(--adm-text)" }}>{p.name}</span>
+                  <span style={{ color: "var(--adm-accent-bright)", fontWeight: 600, flexShrink: 0, marginLeft: 12 }}>
+                    {p.oldPrice ? <><s style={{ color: "var(--adm-text-faint)", fontWeight: 400 }}>R${p.oldPrice.toFixed(2).replace(".", ",")}</s> → </> : ""}
+                    R${p.price.toFixed(2).replace(".", ",")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button className="admin-btn admin-btn-secondary" onClick={onClose}>Cancelar</button>
+          {preview.length === 0 ? (
+            <button className="admin-btn admin-btn-primary" onClick={handlePreview} disabled={!text.trim()}>
+              👁 Pré-visualizar
+            </button>
+          ) : (
+            <button className="admin-btn admin-btn-primary" onClick={handleImport}>
+              ✅ Importar {preview.length} produtos
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -805,8 +1388,17 @@ function ProductModal({
               <input className="admin-form-input" value={variationsStr} onChange={(e) => set("variations", e.target.value)} placeholder="Deixe em branco se não houver" />
             </div>
             <div className="admin-form-field">
-              <label className="admin-form-label">Preço (R$) *</label>
+              <label className="admin-form-label">Preço Atual (R$) *</label>
               <input className="admin-form-input" type="number" step="0.01" min="0" value={form.price} onChange={(e) => set("price", parseFloat(e.target.value))} required />
+            </div>
+            <div className="admin-form-field">
+              <label className="admin-form-label">Preço Antigo / De (R$)</label>
+              <input className="admin-form-input" type="number" step="0.01" min="0" value={form.oldPrice ?? ""} onChange={(e) => set("oldPrice", e.target.value ? parseFloat(e.target.value) : undefined)} placeholder="Deixe vazio se não houver" />
+              {form.oldPrice && form.oldPrice > form.price && (
+                <span style={{ fontSize: "0.78rem", color: "var(--adm-success)", marginTop: 4, display: "block" }}>
+                  Desconto: -{Math.round((1 - form.price / form.oldPrice) * 100)}%
+                </span>
+              )}
             </div>
             <div className="admin-form-field">
               <label className="admin-form-label">Estoque</label>

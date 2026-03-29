@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -9,57 +9,113 @@ import { formatPrice } from "@/lib/products";
 import { useToast } from "@/components/ToastProvider";
 import { AdminProduct } from "@/lib/admin-types";
 
-// Mock user comments for the store
-const MOCK_COMMENTS = [
-  { name: "Carlos S.", rating: 5, date: "há 2 dias", text: "Produto excelente! Entrega super rápida via Pix. Recomendo muito." },
-  { name: "Amanda M.", rating: 5, date: "há 1 semana", text: "Qualidade muito superior ao que eu esperava pelo preço. Perfeito!" },
-  { name: "Roberto T.", rating: 4, date: "há 2 semanas", text: "Chegou certinho, bem embalado. Apenas a caixa que deu uma pequena amassada, mas o produto está 100%." },
-];
+function IconTruck() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="1" y="3" width="15" height="13" rx="1" />
+      <path d="M16 8h4l3 5v4h-7V8z" />
+      <circle cx="5.5" cy="18.5" r="2.5" />
+      <circle cx="18.5" cy="18.5" r="2.5" />
+    </svg>
+  );
+}
+
+function IconRefresh() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
+function IconPix() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" opacity="0"/>
+      <path d="M11.748 3.14a.5.5 0 0 1 .504 0l8 4.619A.5.5 0 0 1 20.5 8.23v7.54a.5.5 0 0 1-.248.432l-8 4.619a.5.5 0 0 1-.504 0l-8-4.619A.5.5 0 0 1 3.5 15.77V8.23a.5.5 0 0 1 .248-.432z"/>
+    </svg>
+  );
+}
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { add } = useCart();
   const { showToast } = useToast();
-  
+
   const [product, setProduct] = useState<AdminProduct | null>(null);
+  const [related, setRelated] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState<string>("");
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollCarousel = useCallback((dir: "prev" | "next") => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const cardWidth = el.querySelector(".pdp-rel-card")?.clientWidth ?? 220;
+    el.scrollBy({ left: dir === "next" ? cardWidth * 2 : -cardWidth * 2, behavior: "smooth" });
+  }, []);
+
+  const handleRelatedAdd = (e: React.MouseEvent, p: AdminProduct) => {
+    e.preventDefault();
+    add(p, 1);
+    showToast(`${p.name} adicionado ao carrinho!`);
+    setAddedIds((prev) => new Set(prev).add(p.id));
+    setTimeout(() => setAddedIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; }), 1200);
+  };
 
   useEffect(() => {
     fetch(`/api/store/products/${params.id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
+      .then((res) => { if (!res.ok) throw new Error(); return res.json(); })
       .then((data: AdminProduct) => {
         setProduct(data);
-        if (data.variations && data.variations.length > 0) {
-          setSelectedVariation(data.variations[0]);
-        }
+        if (data.variations?.length) setSelectedVariation(data.variations[0]);
       })
       .catch(() => router.push("/"))
       .finally(() => setLoading(false));
+
+    // Buscar produtos relacionados
+    fetch("/api/store/products")
+      .then((r) => r.json())
+      .then((all: AdminProduct[]) => {
+        const others = all.filter((p) => p.active && p.id !== params.id);
+        setRelated(others.slice(0, 8));
+      })
+      .catch(() => {});
   }, [params.id, router]);
+
+  const allImages = product
+    ? [product.image, ...(product.images?.filter((img) => img && img !== product.image) ?? [])]
+    : [];
+
+  const currentImage = allImages[selectedImage] ?? "";
+
+  const discount =
+    product?.oldPrice && product.oldPrice > product.price
+      ? Math.round((1 - product.price / product.oldPrice) * 100)
+      : null;
 
   const handleAddToCart = () => {
     if (!product) return;
     add(product, quantity, selectedVariation || undefined);
-    showToast(`Adicionado ${quantity}x ${product.name} ao carrinho`);
+    showToast(`${quantity}x ${product.name} adicionado ao carrinho!`);
   };
 
-  const handleBuyNow = () => {
+  const handleBuy = () => {
     handleAddToCart();
     router.push("/checkout");
   };
 
   if (loading) {
     return (
-      <div className="container" style={{ padding: "80px 24px", textAlign: "center", color: "var(--text-muted)" }}>
-        <p style={{ fontSize: "2rem", marginBottom: "16px", animation: "pulse 1.5s infinite" }}>⏳</p>
-        Carregando produto...
+      <div style={{ padding: "80px 24px", textAlign: "center", color: "var(--text-muted)" }}>
+        <div className="pdp-spinner" />
       </div>
     );
   }
@@ -67,82 +123,86 @@ export default function ProductDetailPage() {
   if (!product) return null;
 
   return (
-    <div className="product-page">
-      <div className="container" style={{ paddingTop: "40px", paddingBottom: "80px" }}>
-        {/* Breadcrumbs */}
-        <nav className="breadcrumb" style={{ marginBottom: "24px" }}>
+    <div className="pdp-page">
+      <div className="container">
+        {/* Breadcrumb */}
+        <nav className="pdp-breadcrumb">
           <Link href="/">Início</Link>
-          <span className="breadcrumb-sep">›</span>
-          <span style={{ color: "var(--text)" }}>{product.category}</span>
-          <span className="breadcrumb-sep">›</span>
-          <span style={{ fontWeight: 600 }}>{product.name}</span>
+          <span>›</span>
+          <span>{product.category}</span>
         </nav>
 
-        {/* Product Top */}
-        <div className="product-detail-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px", marginBottom: "60px", alignItems: "start" }}>
-          {/* Gallery */}
-          <div className="product-gallery" style={{ background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", overflow: "hidden", aspectRatio: "1" }}>
-            <Image
-              src={product.image}
-              alt={product.name}
-              width={600}
-              height={600}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              priority
-            />
+        {/* ── Layout principal ── */}
+        <div className="pdp-layout">
+
+          {/* Galeria */}
+          <div className="pdp-gallery">
+            {/* Thumbnails — só exibe se houver mais de 1 imagem */}
+            {allImages.length > 1 && (
+              <div className="pdp-thumbs">
+                {allImages.map((img, i) => (
+                  <button
+                    key={i}
+                    className={`pdp-thumb ${selectedImage === i ? "active" : ""}`}
+                    onClick={() => setSelectedImage(i)}
+                    aria-label={`Imagem ${i + 1}`}
+                  >
+                    <Image src={img} alt={`${product.name} ${i + 1}`} fill style={{ objectFit: "cover" }} sizes="72px" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Imagem principal */}
+            <div className="pdp-main-img">
+              {discount !== null && (
+                <span className="pdp-discount-badge">-{discount}%</span>
+              )}
+              <Image
+                src={currentImage}
+                alt={product.name}
+                fill
+                style={{ objectFit: "cover" }}
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority
+              />
+            </div>
           </div>
 
-          {/* Info */}
-          <div className="product-info-panel">
-            {product.badge && (
-              <span className="badge" style={{ marginBottom: "12px", display: "inline-block" }}>{product.badge}</span>
+          {/* Painel de informações */}
+          <div className="pdp-info">
+            {product.category && (
+              <p className="pdp-category">{product.category}</p>
             )}
-            <h1 style={{ fontSize: "2.5rem", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "16px", lineHeight: 1.1 }}>
-              {product.name}
-            </h1>
-            
-            {/* Reviews summary */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "20px" }}>
-              <span style={{ color: "#f59e0b" }}>★★★★★</span>
-              <span>4.8 (124 avaliações)</span>
-              <span>•</span>
-              <span style={{ color: "var(--success)" }}>Mais vendido</span>
+
+            <h1 className="pdp-title">{product.name}</h1>
+
+            {/* Preços */}
+            <div className="pdp-price-block">
+              {product.oldPrice && product.oldPrice > product.price && (
+                <span className="pdp-old-price">{formatPrice(product.oldPrice)}</span>
+              )}
+              <span className="pdp-price">{formatPrice(product.price)}</span>
+              <span className="pdp-installment">
+                Em até 10x de <strong>{formatPrice(product.price / 10)}</strong> sem juros
+              </span>
+              {discount !== null && (
+                <span className="pdp-pix-badge">
+                  <IconPix /> {discount}% OFF no Pix
+                </span>
+              )}
             </div>
 
-            <p style={{ color: "var(--text-muted)", fontSize: "1.05rem", lineHeight: 1.6, marginBottom: "32px" }}>
-              {product.description}
-            </p>
-
-            <div style={{ marginBottom: "32px" }}>
-              <div style={{ fontSize: "2.8rem", fontWeight: 900, color: "var(--price-color, var(--text))", letterSpacing: "-1px" }}>
-                {formatPrice(product.price)}
-              </div>
-              <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "4px" }}>
-                ou até 12x sem juros de {formatPrice(product.price / 12)} no cartão
-              </p>
-            </div>
-
-            {/* Variations */}
+            {/* Variações */}
             {product.variations && product.variations.length > 0 && (
-              <div style={{ marginBottom: "24px" }}>
-                <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 700, marginBottom: "10px" }}>
-                  Selecione a Opção:
-                </label>
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <div className="pdp-variations">
+                <label>Selecione a Opção:</label>
+                <div className="pdp-var-list">
                   {product.variations.map((v) => (
                     <button
                       key={v}
+                      className={`pdp-var-btn ${selectedVariation === v ? "active" : ""}`}
                       onClick={() => setSelectedVariation(v)}
-                      style={{
-                        padding: "10px 18px",
-                        border: selectedVariation === v ? "2px solid var(--accent)" : "1px solid var(--border)",
-                        background: selectedVariation === v ? "rgba(var(--accent-rgb), 0.1)" : "var(--bg-elevated)",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontWeight: selectedVariation === v ? 700 : 500,
-                        color: selectedVariation === v ? "var(--accent-bright)" : "var(--text)",
-                        transition: "all 0.2s ease"
-                      }}
                     >
                       {v}
                     </button>
@@ -151,87 +211,123 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Quantity */}
-            <div style={{ marginBottom: "32px" }}>
-              <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 700, marginBottom: "10px" }}>
-                Quantidade:
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "8px", overflow: "hidden" }}>
-                  <button 
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    style={{ background: "var(--gradient, var(--accent))", border: "none", padding: "12px 18px", cursor: "pointer", color: "var(--btn-text, white)", fontSize: "1.1rem" }}
-                  >
-                    −
-                  </button>
-                  <span style={{ width: "40px", textAlign: "center", fontWeight: 600 }}>{quantity}</span>
-                  <button 
-                    onClick={() => setQuantity(quantity + 1)}
-                    style={{ background: "var(--gradient, var(--accent))", border: "none", padding: "12px 18px", cursor: "pointer", color: "var(--btn-text, white)", fontSize: "1.1rem" }}
-                  >
-                    +
-                  </button>
-                </div>
-                <span style={{ fontSize: "0.85rem", color: product.stock < 10 ? "#fca5a5" : "var(--success)" }}>
-                  {product.stock < 10 ? `Restam apenas ${product.stock} em estoque!` : `Em estoque (${product.stock} disponíveis)`}
-                </span>
+            {/* Quantidade */}
+            <div className="pdp-qty-row">
+              <div className="pdp-qty">
+                <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button>
+                <span>{quantity}</span>
+                <button onClick={() => setQuantity(quantity + 1)}>+</button>
               </div>
+              <span className={`pdp-stock ${product.stock < 10 ? "low" : ""}`}>
+                {product.stock < 10
+                  ? `Restam apenas ${product.stock}!`
+                  : `${product.stock} disponíveis`}
+              </span>
             </div>
 
-            {/* Actions */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-              <button onClick={handleAddToCart} className="btn btn-secondary" style={{ padding: "16px", fontSize: "1.1rem" }}>
-                Adicionar ao Carrinho
-              </button>
-              <button onClick={handleBuyNow} className="btn btn-primary" style={{ padding: "16px", fontSize: "1.1rem", display: "flex", gap: "8px", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontSize: "1.3rem" }}>⚡</span> Comprar Agora
-              </button>
-            </div>
-            
-            <div style={{ marginTop: "20px", display: "flex", alignItems: "center", gap: "12px", fontSize: "0.85rem", color: "var(--text-muted)", padding: "16px", background: "rgba(16,185,129,0.05)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: "8px" }}>
-              <span style={{ fontSize: "1.2rem" }}>🔒</span>
-              Compra 100% segura através de Pix. Código liberado automaticamente após aprovação.
+            {/* Botão Comprar */}
+            <button onClick={handleBuy} className="pdp-buy-btn">
+              COMPRAR
+            </button>
+
+            <p className="pdp-payment-label">Formas de Pagamento</p>
+
+            {/* Benefícios */}
+            <div className="pdp-benefits">
+              <div className="pdp-benefit-item">
+                <IconTruck />
+                <div>
+                  <strong>Frete Grátis</strong>
+                  <span>Frete grátis em pedidos acima de R$ 199. Entrega via Correios/Transportadora.</span>
+                </div>
+              </div>
+              <div className="pdp-benefit-item">
+                <IconRefresh />
+                <div>
+                  <strong>Devolução Gratuita</strong>
+                  <span>Sua compra está protegida. Caso insatisfeito, devolva gratuitamente. 7 dias após o recebimento da mercadoria.</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Long Description */}
-        {product.longDescription && (
-          <div style={{ marginBottom: "60px", padding: "40px", background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)" }}>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid var(--border)" }}>Detalhes do Produto</h2>
-            <div style={{ whiteSpace: "pre-line", lineHeight: 1.8, color: "var(--text-muted)", fontSize: "1.05rem" }}>
-              {product.longDescription}
+        {/* Descrição */}
+        {(product.description || product.longDescription) && (
+          <div className="pdp-description">
+            <h2 className="pdp-section-title">DESCRIÇÃO</h2>
+            <div className="pdp-description-body">
+              {product.longDescription
+                ? product.longDescription.split("\n").map((line, i) =>
+                    line.trim() ? <p key={i}>{line}</p> : <br key={i} />
+                  )
+                : <p>{product.description}</p>
+              }
             </div>
           </div>
         )}
 
-        {/* Comments Section */}
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "30px" }}>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Avaliações de Clientes</h2>
-            <button className="btn btn-secondary" style={{ padding: "8px 16px", fontSize: "0.85rem" }}>Escrever avaliação</button>
-          </div>
-          
-          <div style={{ display: "grid", gap: "20px" }}>
-            {MOCK_COMMENTS.map((c, i) => (
-              <div key={i} style={{ padding: "24px", background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                  <div>
-                    <div style={{ fontWeight: 700, marginBottom: "4px" }}>{c.name}</div>
-                    <div style={{ display: "flex", gap: "2px", color: "#f59e0b", fontSize: "0.9rem" }}>
-                      {Array.from({ length: 5 }).map((_, j) => (
-                        <span key={j} style={{ opacity: j < c.rating ? 1 : 0.3 }}>★</span>
-                      ))}
-                    </div>
-                  </div>
-                  <span style={{ fontSize: "0.8rem", color: "var(--text-faint)" }}>{c.date}</span>
+        {/* Carrossel de produtos relacionados */}
+        {related.length > 0 && (
+          <div className="pdp-related">
+            <div className="pdp-related-header">
+              <h2 className="pdp-section-title">VOCÊ TAMBÉM PODE GOSTAR</h2>
+              {related.length > 3 && (
+                <div className="pdp-carousel-arrows">
+                  <button onClick={() => scrollCarousel("prev")} aria-label="Anterior">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <button onClick={() => scrollCarousel("next")} aria-label="Próximo">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
                 </div>
-                <p style={{ color: "var(--text-muted)", lineHeight: 1.6, fontSize: "0.95rem" }}>{c.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+              )}
+            </div>
 
+            <div className="pdp-related-track" ref={carouselRef}>
+              {related.map((p) => {
+                const relDiscount = p.oldPrice && p.oldPrice > p.price
+                  ? Math.round((1 - p.price / p.oldPrice) * 100)
+                  : null;
+                const wasAdded = addedIds.has(p.id);
+                return (
+                  <Link key={p.id} href={`/product/${p.id}`} className="pdp-rel-card">
+                    <div className="pdp-rel-img">
+                      <Image
+                        src={p.image}
+                        alt={p.name}
+                        fill
+                        style={{ objectFit: "cover" }}
+                        sizes="220px"
+                      />
+                      {relDiscount !== null && (
+                        <span className="pdp-rel-badge">-{relDiscount}%</span>
+                      )}
+                    </div>
+                    <div className="pdp-rel-body">
+                      <p className="pdp-rel-name">{p.name}</p>
+                      {p.oldPrice && p.oldPrice > p.price && (
+                        <span className="pdp-rel-old">{formatPrice(p.oldPrice)}</span>
+                      )}
+                      <span className="pdp-rel-price">{formatPrice(p.price)}</span>
+                      {p.price >= 10 && (
+                        <span className="pdp-rel-installment">
+                          Em até 10x de {formatPrice(p.price / 10)}
+                        </span>
+                      )}
+                      <button
+                        className={`pdp-rel-add ${wasAdded ? "added" : ""}`}
+                        onClick={(e) => handleRelatedAdd(e, p)}
+                      >
+                        {wasAdded ? "✓ Adicionado" : "Adicionar ao Carrinho"}
+                      </button>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,34 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { AdminProduct } from "@/lib/admin-types";
-import { CATEGORIES } from "@/lib/products";
+import React, { useState, useEffect } from "react";
+import { AdminProduct, TopBannerConfig } from "@/lib/admin-types";
 import ProductCard from "@/components/ProductCard";
 
-const marqueeItems = [
-  "🚀 Frete Grátis",
-  "⚡ Pix — Aprovação Instantânea",
-  "🔒 Compra 100% Segura",
-  "🎁 Até 12x sem juros",
-  "📦 Entrega em Todo Brasil",
-  "💎 Produtos Selecionados",
-];
-
 export default function StorePage() {
-  const [products, setProducts] = useState<AdminProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showHero, setShowHero] = useState(true);
-  const [activeCategory, setActiveCategory] = useState("Todos");
-  const [search, setSearch] = useState("");
+  const [products,          setProducts]          = useState<AdminProduct[]>([]);
+  const [loading,           setLoading]           = useState(true);
+  const [showHero,          setShowHero]          = useState(true);
+  const [cardStyle,         setCardStyle]         = useState("default");
+  const [topBannerDesktop,  setTopBannerDesktop]  = useState<TopBannerConfig | null>(null);
+  const [topBannerMobile,   setTopBannerMobile]   = useState<TopBannerConfig | null>(null);
+  const [search,            setSearch]            = useState("");
 
   useEffect(() => {
-    // Fetch store config
     fetch("/api/store/info")
       .then((r) => r.json())
-      .then((data) => setShowHero(data.showHero !== false))
+      .then((data) => {
+        setShowHero(data.showHero !== false);
+        setCardStyle(data.cardStyle || "default");
+        setTopBannerDesktop(data.topBannerDesktop || null);
+        setTopBannerMobile(data.topBannerMobile   || null);
+      })
       .catch(() => {});
 
-    // Fetch products
     fetch("/api/store/products")
       .then((r) => r.json())
       .then((data) => setProducts(Array.isArray(data) ? data : []))
@@ -36,24 +31,44 @@ export default function StorePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = products.filter((p) => {
-    const matchCat = activeCategory === "Todos" || p.category === activeCategory;
-    const matchSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const filtered = products.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.description.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <>
-      {/* Marquee Banner */}
-      <div className="marquee-bar" aria-hidden>
-        <div className="marquee-track">
-          {[...marqueeItems, ...marqueeItems].map((item, i) => (
-            <span key={i} className="marquee-item">{item}</span>
-          ))}
-        </div>
-      </div>
+      {/* Top Banner */}
+      {(topBannerDesktop?.image || topBannerMobile?.image) && (() => {
+        const hasDesktop = !!topBannerDesktop?.image;
+
+        function renderBanner(cfg: TopBannerConfig, extraClass?: string) {
+          const { image, link, orientation = "horizontal", padding = 0, borderRadius = 0 } = cfg;
+          if (!image) return null;
+          const cls = ["top-banner", `top-banner--${orientation}`, extraClass || ""].filter(Boolean).join(" ");
+          const wrapStyle: React.CSSProperties = padding > 0 ? { padding: `${padding}px ${padding}px 0` } : {};
+          const imgStyle:  React.CSSProperties = borderRadius > 0 ? { borderRadius } : {};
+          const inner = (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={image} alt="Banner" style={imgStyle} />
+          );
+          return link ? (
+            <a key={extraClass} href={link} className={cls} style={wrapStyle} target="_blank" rel="noopener noreferrer">{inner}</a>
+          ) : (
+            <div key={extraClass} className={cls} style={wrapStyle}>{inner}</div>
+          );
+        }
+
+        return (
+          <>
+            {topBannerMobile?.image && renderBanner(
+              topBannerMobile,
+              (hasDesktop || topBannerMobile.hideOnDesktop) ? "top-banner--mobile-only" : undefined
+            )}
+            {hasDesktop && renderBanner(topBannerDesktop!, "top-banner--desktop-only")}
+          </>
+        );
+      })()}
 
       {/* Hero */}
       {showHero && (
@@ -71,38 +86,22 @@ export default function StorePage() {
       )}
 
       {/* Products Section */}
-      <div className="container">
-        <div style={{ marginBottom: "12px" }}>
+      <div className="container products-section">
+        <div className="products-search-bar">
           <input
             type="search"
             placeholder="🔍 Buscar produtos..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="form-input"
-            style={{ maxWidth: 380 }}
+            style={{ maxWidth: 420 }}
             id="search-input"
             aria-label="Buscar produtos"
           />
         </div>
 
-        <div className="filter-bar">
-          <span className="filter-label">Categoria:</span>
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              id={`filter-${cat}`}
-              className={`filter-chip ${activeCategory === cat ? "active" : ""}`}
-              onClick={() => setActiveCategory(cat)}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
         <div className="section-header">
-          <h2 className="section-title">
-            {activeCategory === "Todos" ? "Todos os Produtos" : activeCategory}
-          </h2>
+          <h2 className="section-title">Todos os Produtos</h2>
           <span className="product-count">{filtered.length} produtos</span>
         </div>
 
@@ -123,10 +122,10 @@ export default function StorePage() {
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted)" }}>
             <p style={{ fontSize: "2rem", marginBottom: "12px" }}>🔍</p>
             <p style={{ fontWeight: 600 }}>Nenhum produto encontrado</p>
-            <p style={{ fontSize: "0.875rem", marginTop: "6px" }}>Tente outro filtro ou busca</p>
+            <p style={{ fontSize: "0.875rem", marginTop: "6px" }}>Tente outra busca</p>
           </div>
         ) : (
-          <div className="product-grid">
+          <div className={`product-grid cards-${cardStyle}`}>
             {filtered.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

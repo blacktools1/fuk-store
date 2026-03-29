@@ -15,6 +15,7 @@ export interface AdminProduct {
   description: string;
   longDescription?: string;
   price: number;
+  oldPrice?: number;
   image: string;
   images?: string[];
   category: string;
@@ -25,11 +26,30 @@ export interface AdminProduct {
   createdAt: string;
 }
 
+export interface TopBannerConfig {
+  image?: string;
+  link?: string;
+  orientation?: "horizontal" | "vertical" | "square";
+  padding?: number;      // 0–48px
+  borderRadius?: number; // 0=reto, 8=pequeno, 16=médio, 24=grande
+  hideOnDesktop?: boolean;
+}
+
 export interface StoreData {
   storeName: string;
   storeTagline: string;
   storeLogo: string;
   logoUrl?: string;
+  logoDisplay?: "image-text" | "image-only" | "text-only";
+  logoSize?: number;
+  logoPosition?: "left" | "center" | "right";
+  fontFamily?: string;
+  fontWeight?: number;
+  cardStyle?: "default" | "minimal" | "clean" | "bold" | "neon" | "cinematic";
+  marqueeTexts?: string[];
+  marqueePosition?: "above-nav" | "below-nav";
+  topBannerDesktop?: TopBannerConfig;
+  topBannerMobile?: TopBannerConfig;
   primaryColor?: string;
   secondaryColor?: string;
   tertiaryColor?: string;
@@ -40,6 +60,7 @@ export interface StoreData {
   btnTextColor?: string;
   borderRadius?: string;
   showHero?: boolean;
+  stickyHeader?: boolean;
   banners: Banner[];
   products: AdminProduct[];
 }

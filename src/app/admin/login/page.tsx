@@ -41,8 +41,6 @@ export default function AdminLoginPage() {
     <div className="admin-login-page">
       <div className="admin-login-card">
         <div className="admin-login-logo">
-          <span className="admin-logo-icon">🛍️</span>
-          <h1>Minha Loja</h1>
           <p>Área Administrativa</p>
         </div>
 

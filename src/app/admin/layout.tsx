@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "../globals.css";
 import "./admin.css";
 
 export const metadata: Metadata = {
@@ -13,11 +12,5 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <html lang="pt-BR">
-      <body className="admin-body">
-        {children}
-      </body>
-    </html>
-  );
+  return <div className="admin-body">{children}</div>;
 }

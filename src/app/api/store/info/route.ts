@@ -5,10 +5,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const store = readStoreData();
-  // Return only non-sensitive public config
   return NextResponse.json({
-    showHero: store.showHero ?? true,
-    storeName: store.storeName,
-    tagline: store.storeTagline
+    showHero:         store.showHero ?? true,
+    storeName:        store.storeName,
+    tagline:          store.storeTagline,
+    cardStyle:        store.cardStyle     ?? "default",
+    topBannerDesktop: store.topBannerDesktop ?? null,
+    topBannerMobile:  store.topBannerMobile  ?? null,
   });
 }
