@@ -10,9 +10,9 @@ export function middleware(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-tenant-host", host);
 
-  // On master domain: redirect root → /master-admin
+  // On master domain: only /master-admin routes are allowed — redirect everything else
   if (MASTER_DOMAIN && host === MASTER_DOMAIN) {
-    if (pathname === "/" || pathname === "/admin") {
+    if (!pathname.startsWith("/master-admin") && !pathname.startsWith("/api/master-admin")) {
       return NextResponse.redirect(new URL("/master-admin", req.url));
     }
   }
