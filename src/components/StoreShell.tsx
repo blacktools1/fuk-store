@@ -17,8 +17,9 @@ export default function StoreShell({
 }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
+  const isMaster = pathname.startsWith("/master-admin");
 
-  if (isAdmin) return <>{children}</>;
+  if (isAdmin || isMaster) return <>{children}</>;
 
   return (
     <>
