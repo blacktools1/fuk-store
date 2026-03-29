@@ -9,6 +9,7 @@ import StoreShell from "@/components/StoreShell";
 import MarqueeBanner from "@/components/MarqueeBanner";
 import Footer from "@/components/Footer";
 import { readStoreData } from "@/lib/store-data";
+import { getTenant } from "@/lib/tenant";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,8 @@ const GOOGLE_FONT_MAP: Record<string, string> = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const store = readStoreData();
+  const tenant = await getTenant();
+  const store = readStoreData(tenant);
   return {
     title: `${store.storeName} — ${store.storeTagline}`,
     description: store.storeTagline,
@@ -35,8 +37,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const store = readStoreData();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const tenant = await getTenant();
+  const store = readStoreData(tenant);
 
   // Convert hex to rgb for CSS variables
   let primaryRgb = "139, 92, 246";

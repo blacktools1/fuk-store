@@ -1,4 +1,5 @@
 import { readStoreData } from "@/lib/store-data";
+import { getTenant } from "@/lib/tenant";
 
 const DEFAULT_ITEMS = [
   "🚀 Frete Grátis",
@@ -9,8 +10,9 @@ const DEFAULT_ITEMS = [
   "💎 Produtos Selecionados",
 ];
 
-export default function MarqueeBanner() {
-  const store = readStoreData();
+export default async function MarqueeBanner() {
+  const tenant = await getTenant();
+  const store = readStoreData(tenant);
   const texts = store.marqueeTexts?.filter(Boolean);
   const items = texts && texts.length > 0 ? texts : DEFAULT_ITEMS;
   // Repeat enough times so the animation loops smoothly

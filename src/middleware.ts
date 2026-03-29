@@ -1,35 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET ||
-    "minha-loja-admin-secret-key-change-this-in-production-2024"
-);
+const MASTER_DOMAIN = process.env.MASTER_DOMAIN ?? "";
 
-export async function middleware(req: NextRequest) {
+export function middleware(req: NextRequest) {
+  const host = req.headers.get("host")?.split(":")[0] ?? "localhost";
   const { pathname } = req.nextUrl;
 
-  // Protect all /admin routes except /admin/login
-  if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
-    const token = req.cookies.get("admin_token")?.value;
+  // Inject tenant into request headers so all server components / API routes can read it
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-tenant-host", host);
 
-    if (!token) {
-      return NextResponse.redirect(new URL("/admin/login", req.url));
-    }
-
-    try {
-      await jwtVerify(token, JWT_SECRET);
-      return NextResponse.next();
-    } catch {
-      const res = NextResponse.redirect(new URL("/admin/login", req.url));
-      res.cookies.delete("admin_token");
-      return res;
+  // On master domain: redirect root → /master-admin
+  if (MASTER_DOMAIN && host === MASTER_DOMAIN) {
+    if (pathname === "/" || pathname === "/admin") {
+      return NextResponse.redirect(new URL("/master-admin", req.url));
     }
   }
 
-  return NextResponse.next();
+  // Block /master-admin from non-master hosts
+  if (pathname.startsWith("/master-admin")) {
+    if (!MASTER_DOMAIN || host !== MASTER_DOMAIN) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+  }
+
+  // Block /api/master-admin from non-master hosts
+  if (pathname.startsWith("/api/master-admin")) {
+    if (!MASTER_DOMAIN || host !== MASTER_DOMAIN) {
+      return NextResponse.json({ message: "Não autorizado" }, { status: 403 });
+    }
+  }
+
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

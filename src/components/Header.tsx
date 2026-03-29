@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { readStoreData } from "@/lib/store-data";
+import { getTenant } from "@/lib/tenant";
 import HeaderActions from "./HeaderActions";
 
 export default async function Header() {
-  headers(); // Force dynamic render — never serve cached version
-  const store = readStoreData();
+  const tenant = await getTenant();
+  const store = readStoreData(tenant);
 
   const mode     = store.logoDisplay  ?? "image-text";
   const size     = store.logoSize     ?? 36;

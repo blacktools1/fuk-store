@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SignJWT, jwtVerify } from "jose";
+import { getTenantFromRequest } from "@/lib/tenant";
 
-const JWT_SECRET = new TextEncoder().encode(
+export const JWT_SECRET = new TextEncoder().encode(
   process.env.ADMIN_JWT_SECRET ||
     "minha-loja-admin-secret-key-change-this-in-production-2024"
 );
@@ -11,10 +12,10 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin@2024!";
 
 export async function POST(req: NextRequest) {
   try {
+    const tenant = getTenantFromRequest(req);
     const { username, password } = await req.json();
 
     if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
-      // Delay on wrong credentials to prevent brute-force
       await new Promise((r) => setTimeout(r, 1000));
       return NextResponse.json(
         { message: "Usuário ou senha incorretos" },
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const token = await new SignJWT({ username, role: "admin" })
+    const token = await new SignJWT({ username, role: "admin", tenant })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("8h")
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 8, // 8 hours
+      maxAge: 60 * 60 * 8,
       path: "/",
     });
 
@@ -54,11 +55,14 @@ export async function GET(req: NextRequest) {
   if (!token) return NextResponse.json({ auth: false }, { status: 401 });
 
   try {
-    await jwtVerify(token, JWT_SECRET);
+    const tenant = getTenantFromRequest(req);
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    // Verify token belongs to this tenant (or is a legacy token without tenant)
+    if (payload.tenant && payload.tenant !== tenant) {
+      return NextResponse.json({ auth: false }, { status: 401 });
+    }
     return NextResponse.json({ auth: true });
   } catch {
     return NextResponse.json({ auth: false }, { status: 401 });
   }
 }
-
-export { JWT_SECRET };
