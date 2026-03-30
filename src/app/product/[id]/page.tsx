@@ -98,8 +98,14 @@ export default function ProductDetailPage() {
       .catch(() => {});
   }, [params.id, router]);
 
+  const PLACEHOLDER = "/products/placeholder.jpg";
   const allImages = product
-    ? [product.image, ...(product.images?.filter((img) => img && img !== product.image) ?? [])]
+    ? [
+        product.image,
+        ...(product.images?.filter(
+          (img) => img && img !== product.image && img !== PLACEHOLDER
+        ) ?? []),
+      ].filter((img) => img && img !== PLACEHOLDER)
     : [];
 
   const currentImage = allImages[selectedImage] ?? "";
@@ -167,6 +173,7 @@ export default function ProductDetailPage() {
                 <span className="pdp-discount-badge">-{discount}%</span>
               )}
               <Image
+                key={currentImage}
                 src={currentImage}
                 alt={product.name}
                 fill

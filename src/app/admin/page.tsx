@@ -1467,7 +1467,11 @@ function ProductModal({
     const finalVariations = typeof form.variations === "string"
       ? (form.variations as string).split(",").map((s) => s.trim()).filter(Boolean)
       : form.variations;
-    onSave({ ...form, variations: finalVariations });
+    onSave({
+      ...form,
+      variations: finalVariations,
+      images: form.images ?? [],
+    });
   };
 
   const variationsStr = Array.isArray(form.variations) ? form.variations.join(", ") : (form.variations || "");
