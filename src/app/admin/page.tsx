@@ -372,11 +372,12 @@ function DashboardSection({
   const [pixEnabled, setPixEnabled]       = useState(storeData?.pixDiscountEnabled ?? true);
   const [pixPct, setPixPct]               = useState(storeData?.pixDiscount ?? 5);
   const [freeShip, setFreeShip]           = useState(storeData?.freeShippingMin ?? 199);
+  const [checkoutUrl, setCheckoutUrl]     = useState(storeData?.checkoutUrl ?? "");
   const [saving, setSaving]               = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
-    await onSaveConfig({ pixDiscountEnabled: pixEnabled, pixDiscount: pixPct, freeShippingMin: freeShip });
+    await onSaveConfig({ pixDiscountEnabled: pixEnabled, pixDiscount: pixPct, freeShippingMin: freeShip, checkoutUrl });
     setSaving(false);
   };
 
@@ -450,6 +451,22 @@ function DashboardSection({
                 style={{ width: 100, marginBottom: 0 }}
               />
             </div>
+          </div>
+
+          {/* URL do Checkout Externo */}
+          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16 }}>
+            <div style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--adm-text)", marginBottom: 4 }}>URL do Checkout (PIX)</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginBottom: 8 }}>
+              Link do seu projeto de checkout com PIX. O carrinho será enviado automaticamente ao clicar em &quot;Finalizar Compra&quot;. Deixe em branco para usar o checkout interno.
+            </div>
+            <input
+              className="admin-form-input"
+              type="url"
+              placeholder="https://checkout.seudominio.com"
+              value={checkoutUrl}
+              onChange={(e) => setCheckoutUrl(e.target.value)}
+              style={{ marginBottom: 0 }}
+            />
           </div>
 
           <button

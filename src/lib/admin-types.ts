@@ -72,6 +72,7 @@ export interface StoreData {
   pixDiscountEnabled?: boolean;
   pixDiscount?: number;
   freeShippingMin?: number;
+  checkoutUrl?: string;
   showHero?: boolean;
   stickyHeader?: boolean;
   banners: Banner[];

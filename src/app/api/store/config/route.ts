@@ -13,5 +13,6 @@ export async function GET(req: NextRequest) {
     pixDiscountEnabled: data.pixDiscountEnabled ?? true,
     pixDiscount: data.pixDiscount ?? 5,
     freeShippingMin: data.freeShippingMin ?? 199,
+    checkoutUrl: data.checkoutUrl ?? "",
   });
 }
