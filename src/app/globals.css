@@ -555,9 +555,11 @@ button {
 
 .product-card-img {
   position: relative;
+  width: 100%;
   aspect-ratio: 1;
   overflow: hidden;
   background: var(--bg-elevated);
+  flex-shrink: 0;
 }
 
 .product-card-img img {
