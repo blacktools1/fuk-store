@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     await writeFile(path.join(uploadsDir, filename), Buffer.from(bytes));
 
-    return NextResponse.json({ url: `/uploads/${safeTenant}/${filename}` });
+    return NextResponse.json({ url: `/api/uploads/${safeTenant}/${filename}` });
   } catch {
     return NextResponse.json({ message: "Erro ao fazer upload" }, { status: 500 });
   }

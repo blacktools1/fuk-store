@@ -59,29 +59,37 @@ function migrateUploadsDir(tenant: string): void {
 }
 
 /**
- * Replaces /uploads/{old-tenant}/ with /uploads/{safe-tenant}/ in a URL.
- * No-op for external URLs or when tenant already uses underscores.
+ * Normalizes a single image URL:
+ * - Converts /uploads/{any-tenant}/file  → /api/uploads/{safeName}/file
+ * - Leaves /api/uploads/ URLs unchanged (already correct)
+ * - Leaves external URLs (http/https) unchanged
  */
-function normalizeUrl(url: string | undefined, oldName: string, newName: string): string {
-  if (!url || !url.startsWith("/uploads/") || oldName === newName) return url ?? "";
-  const prefix = `/uploads/${oldName}/`;
-  if (url.startsWith(prefix)) return `/uploads/${newName}/${url.slice(prefix.length)}`;
-  return url;
+function normalizeUrl(url: string | undefined, safeName: string): string {
+  if (!url) return "";
+  // Already using the API route — no change needed
+  if (url.startsWith("/api/uploads/")) return url;
+  // Not an upload URL (external URL, placeholder, etc.) — leave as-is
+  if (!url.startsWith("/uploads/")) return url;
+
+  // /uploads/{tenant}/{filename...} → /api/uploads/{safeName}/{filename...}
+  const parts = url.split("/"); // ["", "uploads", "{tenant}", ...rest]
+  if (parts.length < 4) return url;
+  const filename = parts.slice(3).join("/");
+  return `/api/uploads/${safeName}/${filename}`;
 }
 
 /**
- * Normalizes all image paths in a StoreData object, converting old dot-format
- * upload URLs to the current underscore-format. Returns { data, changed }.
+ * Normalizes all image paths in a StoreData object:
+ *  - /uploads/{any}/  → /api/uploads/{safeTenant}/
+ *  - /api/uploads/    → unchanged
+ * Returns { data, changed }.
  */
 function normalizePaths(data: StoreData, tenant: string): { data: StoreData; changed: boolean } {
-  const oldName = sanitizeTenant(tenant);
   const newName = safeTenantName(tenant);
-  if (oldName === newName) return { data, changed: false };
-
   let changed = false;
 
   const fix = (url: string | undefined) => {
-    const n = normalizeUrl(url, oldName, newName);
+    const n = normalizeUrl(url, newName);
     if (n !== (url ?? "")) changed = true;
     return n;
   };
@@ -129,10 +137,12 @@ export function readStoreData(tenant: string = "localhost"): StoreData {
   const raw = fs.readFileSync(file, "utf-8");
   const parsed = JSON.parse(raw) as StoreData;
 
-  // Normalize image URLs (dots → underscores in tenant segment)
+  // Normalize all image URLs:
+  //  • /uploads/{any-tenant}/  → /api/uploads/{safeTenant}/  (fixes runtime-serving issue)
+  //  • fixes dots in tenant segment (legacy format)
   const { data, changed } = normalizePaths(parsed, tenant);
   if (changed) {
-    // Save back so migration only runs once
+    // Persist so migration only runs once per URL
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
   }
 
