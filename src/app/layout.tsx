@@ -8,6 +8,7 @@ import ToastProvider from "@/components/ToastProvider";
 import StoreShell from "@/components/StoreShell";
 import MarqueeBanner from "@/components/MarqueeBanner";
 import Footer from "@/components/Footer";
+import PixelScripts from "@/components/PixelScripts";
 import { readStoreData } from "@/lib/store-data";
 import { getTenant } from "@/lib/tenant";
 
@@ -94,6 +95,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         '--success':          secondaryStr,
         '--gradient':         `linear-gradient(135deg, ${store.primaryColor || "#a78bfa"}, ${secondaryStr})`,
       } as React.CSSProperties}>
+        <PixelScripts pixels={store.pixels ?? []} />
         <UserProvider>
           <CartProvider>
             <ToastProvider>

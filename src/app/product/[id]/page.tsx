@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/lib/products";
 import { useToast } from "@/components/ToastProvider";
 import { AdminProduct } from "@/lib/admin-types";
+import { firePixelEvent } from "@/lib/pixel";
 
 function IconTruck() {
   return (
@@ -76,6 +77,13 @@ export default function ProductDetailPage() {
       .then((data: AdminProduct) => {
         setProduct(data);
         if (data.variations?.length) setSelectedVariation(data.variations[0]);
+        firePixelEvent("ViewContent", {
+          content_ids: [data.id],
+          content_name: data.name,
+          content_type: "product",
+          value: data.price,
+          currency: "BRL",
+        });
       })
       .catch(() => router.push("/"))
       .finally(() => setLoading(false));

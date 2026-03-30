@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { StoreData, AdminProduct, Banner, TopBannerConfig } from "@/lib/admin-types";
+import { StoreData, AdminProduct, Banner, TopBannerConfig, StorePixel } from "@/lib/admin-types";
 import { formatPrice } from "@/lib/products";
 
 // ─────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ function useAdminToast() {
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
-type Section = "dashboard" | "products" | "banners" | "settings";
+type Section = "dashboard" | "products" | "banners" | "settings" | "pixels";
 // ─────────────────────────────────────────────────────────────
 // Main Admin Page
 // ─────────────────────────────────────────────────────────────
@@ -189,6 +189,7 @@ export default function AdminPage() {
               { key: "settings",  icon: "🎨", label: "Aparência" },
               { key: "banners",   icon: "🖼️", label: "Banners" },
               { key: "products",  icon: "📦", label: "Produtos" },
+              { key: "pixels",    icon: "📡", label: "Pixels" },
             ] as { key: Section; icon: string; label: string }[]).map((item) => (
               <button
                 key={item.key}
@@ -231,6 +232,7 @@ export default function AdminPage() {
               {section === "products"  && "Produtos"}
               {section === "banners"   && "Banners"}
               {section === "settings"  && "Aparência da Loja"}
+              {section === "pixels"    && "Pixels de Rastreamento"}
             </h1>
           </div>
           <div className="admin-topbar-actions">
@@ -312,6 +314,15 @@ export default function AdminPage() {
           {/* ── Settings ── */}
           {section === "settings" && data && (
             <SettingsSection data={data} onSave={save} saving={saving} />
+          )}
+
+          {/* ── Pixels ── */}
+          {section === "pixels" && data && (
+            <PixelsSection
+              pixels={data.pixels ?? []}
+              onSave={(pixels) => save({ pixels })}
+              saving={saving}
+            />
           )}
         </div>
       </div>
@@ -1502,6 +1513,175 @@ function BannerModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Pixels Section
+// ─────────────────────────────────────────────────────────────
+function PixelsSection({
+  pixels,
+  onSave,
+  saving,
+}: {
+  pixels: StorePixel[];
+  onSave: (pixels: StorePixel[]) => void;
+  saving: boolean;
+}) {
+  const [list, setList] = useState<StorePixel[]>(pixels);
+  const [newType, setNewType] = useState<"facebook" | "tiktok">("facebook");
+  const [newId, setNewId] = useState("");
+  const [dirty, setDirty] = useState(false);
+
+  const update = (updated: StorePixel[]) => { setList(updated); setDirty(true); };
+
+  const addPixel = () => {
+    const trimmed = newId.trim();
+    if (!trimmed) return;
+    update([
+      ...list,
+      { id: `pixel-${Date.now()}`, type: newType, pixelId: trimmed, active: true },
+    ]);
+    setNewId("");
+  };
+
+  const toggle = (id: string) =>
+    update(list.map((p) => (p.id === id ? { ...p, active: !p.active } : p)));
+
+  const remove = (id: string) => update(list.filter((p) => p.id !== id));
+
+  const PIXEL_LABELS: Record<string, string> = {
+    facebook: "Facebook / Meta Pixel",
+    tiktok: "TikTok Pixel",
+  };
+
+  const PIXEL_ICONS: Record<string, string> = {
+    facebook: "📘",
+    tiktok: "🎵",
+  };
+
+  return (
+    <div>
+      <div className="settings-group" style={{ marginBottom: 24 }}>
+        <h3 className="settings-group-title">Adicionar Pixel</h3>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div className="admin-form-field" style={{ flex: "0 0 180px", marginBottom: 0 }}>
+            <label className="admin-form-label">Plataforma</label>
+            <select
+              className="admin-form-select"
+              value={newType}
+              onChange={(e) => setNewType(e.target.value as "facebook" | "tiktok")}
+            >
+              <option value="facebook">Facebook / Meta</option>
+              <option value="tiktok">TikTok</option>
+            </select>
+          </div>
+          <div className="admin-form-field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+            <label className="admin-form-label">ID do Pixel</label>
+            <input
+              className="admin-form-input"
+              value={newId}
+              onChange={(e) => setNewId(e.target.value)}
+              placeholder={newType === "facebook" ? "Ex: 1234567890123456" : "Ex: CABCDE12345678901234"}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPixel(); } }}
+            />
+          </div>
+          <button
+            type="button"
+            className="admin-btn admin-btn-primary"
+            style={{ marginBottom: 0, height: 40 }}
+            onClick={addPixel}
+          >
+            + Adicionar
+          </button>
+        </div>
+        <p style={{ fontSize: "0.78rem", color: "var(--adm-text-muted)", marginTop: 8 }}>
+          Você pode adicionar múltiplos pixels do mesmo tipo ou de plataformas diferentes.
+        </p>
+      </div>
+
+      <div className="settings-group">
+        <h3 className="settings-group-title">Pixels Configurados</h3>
+        {list.length === 0 ? (
+          <p style={{ color: "var(--adm-text-muted)", fontSize: "0.875rem" }}>
+            Nenhum pixel configurado ainda.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {list.map((px) => (
+              <div
+                key={px.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 16px",
+                  background: "var(--adm-bg-card)",
+                  border: "1px solid var(--adm-border)",
+                  borderRadius: 10,
+                  opacity: px.active ? 1 : 0.5,
+                }}
+              >
+                <span style={{ fontSize: "1.4rem" }}>{PIXEL_ICONS[px.type]}</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem" }}>
+                    {PIXEL_LABELS[px.type]}
+                  </p>
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--adm-text-muted)", fontFamily: "monospace" }}>
+                    {px.pixelId}
+                  </p>
+                </div>
+                <label className="admin-toggle" title={px.active ? "Ativo" : "Inativo"}>
+                  <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
+                  <span className="admin-toggle-slider" />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => remove(px.id)}
+                  style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer", fontSize: "1.1rem", padding: "4px" }}
+                  title="Remover pixel"
+                >
+                  🗑️
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="settings-group" style={{ marginTop: 24 }}>
+        <h3 className="settings-group-title">Eventos Rastreados Automaticamente</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            { event: "PageView",         desc: "Cada página visitada na loja" },
+            { event: "ViewContent",      desc: "Página de produto visualizada" },
+            { event: "AddToCart",        desc: "Produto adicionado ao carrinho" },
+            { event: "InitiateCheckout", desc: "Início do checkout / pagamento" },
+            { event: "Purchase",         desc: "Compra concluída com sucesso" },
+          ].map(({ event, desc }) => (
+            <div key={event} style={{ display: "flex", gap: 12, alignItems: "center", fontSize: "0.85rem" }}>
+              <span style={{ background: "var(--adm-accent)", color: "#fff", borderRadius: 6, padding: "2px 8px", fontFamily: "monospace", fontSize: "0.78rem", whiteSpace: "nowrap" }}>
+                {event}
+              </span>
+              <span style={{ color: "var(--adm-text-muted)" }}>{desc}</span>
+              <span style={{ marginLeft: "auto", color: "#4ade80", fontSize: "0.75rem" }}>✓ automático</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {dirty && (
+        <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            className="admin-btn admin-btn-primary"
+            onClick={() => { onSave(list); setDirty(false); }}
+            disabled={saving}
+          >
+            {saving ? "Salvando..." : "💾 Salvar Pixels"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

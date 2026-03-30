@@ -35,6 +35,13 @@ export interface TopBannerConfig {
   hideOnDesktop?: boolean;
 }
 
+export interface StorePixel {
+  id: string;
+  type: "facebook" | "tiktok";
+  pixelId: string;
+  active: boolean;
+}
+
 export interface StoreData {
   storeName: string;
   storeTagline: string;
@@ -63,4 +70,5 @@ export interface StoreData {
   stickyHeader?: boolean;
   banners: Banner[];
   products: AdminProduct[];
+  pixels?: StorePixel[];
 }

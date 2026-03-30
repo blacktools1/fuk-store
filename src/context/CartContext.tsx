@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { CartItem, addToCart, removeFromCart, updateQuantity } from "@/lib/cart";
 import { Product } from "@/lib/products";
+import { firePixelEvent } from "@/lib/pixel";
 
 interface CartState {
   items: CartItem[];
@@ -85,7 +86,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value: CartContextValue = {
     ...state,
-    add: (product, qty, variation) => dispatch({ type: "ADD", product, qty, variation }),
+    add: (product, qty, variation) => {
+      dispatch({ type: "ADD", product, qty, variation });
+      firePixelEvent("AddToCart", {
+        content_ids: [product.id],
+        content_name: product.name,
+        content_type: "product",
+        value: product.price,
+        currency: "BRL",
+      });
+    },
     remove: (id) => dispatch({ type: "REMOVE", id }),
     update: (id, quantity) => dispatch({ type: "UPDATE", id, quantity }),
     clear: () => dispatch({ type: "CLEAR" }),
