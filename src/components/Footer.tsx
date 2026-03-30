@@ -56,7 +56,7 @@ export default function Footer({ store }: { store: StoreData }) {
             </div>
             <div className="footer-benefit">
               <IconTag />
-              <span>ATÉ 15% DE DESCONTO<br />NO PIX</span>
+              <span>ATÉ {store.pixDiscountEnabled !== false ? (store.pixDiscount ?? 5) : 5}% DE DESCONTO<br />NO PIX</span>
             </div>
             <div className="footer-benefit">
               <IconPhone />

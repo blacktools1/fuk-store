@@ -69,6 +69,7 @@ export default function ProductDetailPage() {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [pixDiscountEnabled, setPixDiscountEnabled] = useState(true);
   const [pixDiscountPct, setPixDiscountPct] = useState(5);
+  const [freeShippingMin, setFreeShippingMin] = useState(199);
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -113,12 +114,13 @@ export default function ProductDetailPage() {
       })
       .catch(() => {});
 
-    // Buscar config pública da loja (desconto PIX)
+    // Buscar config pública da loja (desconto PIX + frete grátis)
     fetch("/api/store/config")
       .then((r) => r.json())
-      .then((cfg: { pixDiscountEnabled: boolean; pixDiscount: number }) => {
+      .then((cfg: { pixDiscountEnabled: boolean; pixDiscount: number; freeShippingMin: number }) => {
         setPixDiscountEnabled(cfg.pixDiscountEnabled);
         setPixDiscountPct(cfg.pixDiscount);
+        setFreeShippingMin(cfg.freeShippingMin ?? 199);
       })
       .catch(() => {});
   }, [params.id, router]);
@@ -307,7 +309,7 @@ export default function ProductDetailPage() {
                 <IconTruck />
                 <div>
                   <strong>Frete Grátis</strong>
-                  <span>Frete grátis em pedidos acima de R$ 199. Entrega via Correios/Transportadora.</span>
+                  <span>Frete grátis em pedidos acima de R$ {freeShippingMin.toLocaleString("pt-BR")}. Entrega via Correios/Transportadora.</span>
                 </div>
               </div>
               <div className="pdp-benefit-item">

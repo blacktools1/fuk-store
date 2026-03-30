@@ -1006,6 +1006,7 @@ function SettingsSection({
   const [cardRadius,   setCardRadius]   = useState(data.cardRadius   || data.borderRadius || "14px");
   const [pixDiscountEnabled, setPixDiscountEnabled] = useState(data.pixDiscountEnabled ?? true);
   const [pixDiscount, setPixDiscount]               = useState(data.pixDiscount ?? 5);
+  const [freeShippingMin, setFreeShippingMin]       = useState(data.freeShippingMin ?? 199);
 
   return (
     <>
@@ -1211,6 +1212,22 @@ function SettingsSection({
               </div>
             )}
           </div>
+
+          {/* Free Shipping Min */}
+          <div className="admin-form-field span-2" style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16 }}>
+            <label className="admin-form-label">Valor Mínimo para Frete Grátis (R$)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+              <span style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>R$</span>
+              <input
+                className="admin-form-input"
+                type="number" min="0" step="1"
+                value={freeShippingMin}
+                onChange={(e) => setFreeShippingMin(Math.max(0, parseInt(e.target.value) || 0))}
+                style={{ width: 100, marginBottom: 0 }}
+              />
+              <span style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)" }}>Exibido na página do produto e rodapé da loja</span>
+            </div>
+          </div>
         </div>
       </SettingsGroup>
 
@@ -1277,7 +1294,7 @@ function SettingsSection({
             marqueeTexts: [marqueeText1, marqueeText2, marqueeText3].filter(Boolean),
             marqueePosition,
             primaryColor, secondaryColor, tertiaryColor, borderRadius, cardRadius,
-            pixDiscountEnabled, pixDiscount,
+            pixDiscountEnabled, pixDiscount, freeShippingMin,
             headerColor, stickyHeader, titleColor, textColor, priceColor, btnTextColor, showHero
           })}
         >

@@ -71,6 +71,7 @@ export interface StoreData {
   cardRadius?: string;
   pixDiscountEnabled?: boolean;
   pixDiscount?: number;
+  freeShippingMin?: number;
   showHero?: boolean;
   stickyHeader?: boolean;
   banners: Banner[];

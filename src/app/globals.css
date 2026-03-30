@@ -556,7 +556,7 @@ button {
 .product-card-img {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
   background: var(--bg-elevated);
   flex-shrink: 0;
@@ -633,9 +633,9 @@ button {
 }
 
 .quick-add-btn {
-  background: rgba(10, 10, 15, 0.9);
-  border: 1px solid var(--border-hover);
-  color: var(--accent-bright);
+  background: rgba(10, 10, 15, 0.88);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #ffffff;
   padding: 8px 20px;
   border-radius: 100px;
   font-size: 0.82rem;
@@ -2200,16 +2200,12 @@ button {
 /* Sales count social proof */
 .pdp-sales-count {
   display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: var(--accent);
-  background: var(--accent-dim);
-  border: 1px solid var(--accent-dim);
-  padding: 3px 10px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 10px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
 }
 
 /* Payment methods */
