@@ -7,6 +7,7 @@ export interface Product {
   name: string;
   description: string;
   price: number; // in BRL (R$)
+  oldPrice?: number; // preço "de" (opcional, mesmo campo do admin)
   image: string;
   category: string;
   badge?: string; // e.g. "Novo", "Oferta", "Popular"
