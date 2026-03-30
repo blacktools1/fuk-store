@@ -33,9 +33,23 @@ function IconRefresh() {
 
 function IconPix() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" opacity="0"/>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M11.748 3.14a.5.5 0 0 1 .504 0l8 4.619A.5.5 0 0 1 20.5 8.23v7.54a.5.5 0 0 1-.248.432l-8 4.619a.5.5 0 0 1-.504 0l-8-4.619A.5.5 0 0 1 3.5 15.77V8.23a.5.5 0 0 1 .248-.432z"/>
+    </svg>
+  );
+}
+function IconCard() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+      <line x1="1" y1="10" x2="23" y2="10"/>
+    </svg>
+  );
+}
+function IconBoleto() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <rect x="2" y="4" width="2" height="16"/><rect x="6" y="4" width="1" height="16"/><rect x="9" y="4" width="3" height="16"/><rect x="14" y="4" width="1" height="16"/><rect x="17" y="4" width="2" height="16"/><rect x="21" y="4" width="1" height="16"/>
     </svg>
   );
 }
@@ -53,6 +67,8 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState<string>("");
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [pixDiscountEnabled, setPixDiscountEnabled] = useState(true);
+  const [pixDiscountPct, setPixDiscountPct] = useState(5);
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +112,15 @@ export default function ProductDetailPage() {
         setRelated(others.slice(0, 8));
       })
       .catch(() => {});
+
+    // Buscar config pública da loja (desconto PIX)
+    fetch("/api/store/config")
+      .then((r) => r.json())
+      .then((cfg: { pixDiscountEnabled: boolean; pixDiscount: number }) => {
+        setPixDiscountEnabled(cfg.pixDiscountEnabled);
+        setPixDiscountPct(cfg.pixDiscount);
+      })
+      .catch(() => {});
   }, [params.id, router]);
 
   const PLACEHOLDER = "/products/placeholder.jpg";
@@ -112,10 +137,16 @@ export default function ProductDetailPage() {
 
   const currentImage = allImages[selectedImage] ?? "";
 
+  // oldPrice discount badge on the image
   const discount =
     product?.oldPrice && product.oldPrice > product.price
       ? Math.round((1 - product.price / product.oldPrice) * 100)
       : null;
+
+  // PIX discount: fixed store-level %, applied over current price
+  const pixPrice = product && pixDiscountEnabled
+    ? product.price * (1 - pixDiscountPct / 100)
+    : null;
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -145,7 +176,7 @@ export default function ProductDetailPage() {
         <nav className="pdp-breadcrumb">
           <Link href="/">Início</Link>
           <span>›</span>
-          <span>{product.category}</span>
+          <span>{product.name}</span>
         </nav>
 
         {/* ── Layout principal ── */}
@@ -188,11 +219,14 @@ export default function ProductDetailPage() {
 
           {/* Painel de informações */}
           <div className="pdp-info">
-            {product.category && (
-              <p className="pdp-category">{product.category}</p>
-            )}
-
             <h1 className="pdp-title">{product.name}</h1>
+
+            {/* Prova social — vendas */}
+            {product.salesCount && product.salesCount > 0 ? (
+              <p className="pdp-sales-count">
+                ⭐ <strong>{product.salesCount.toLocaleString("pt-BR")}</strong> pessoas já compraram
+              </p>
+            ) : null}
 
             {/* Preços */}
             <div className="pdp-price-block">
@@ -203,9 +237,9 @@ export default function ProductDetailPage() {
               <span className="pdp-installment">
                 Em até 10x de <strong>{formatPrice(product.price / 10)}</strong> sem juros
               </span>
-              {discount !== null && (
+              {pixPrice !== null && (
                 <span className="pdp-pix-badge">
-                  <IconPix /> {discount}% OFF no Pix
+                  <IconPix /> {pixDiscountPct}% OFF no Pix — {formatPrice(pixPrice)}
                 </span>
               )}
             </div>
@@ -235,11 +269,6 @@ export default function ProductDetailPage() {
                 <span>{quantity}</span>
                 <button onClick={() => setQuantity(quantity + 1)}>+</button>
               </div>
-              <span className={`pdp-stock ${product.stock < 10 ? "low" : ""}`}>
-                {product.stock < 10
-                  ? `Restam apenas ${product.stock}!`
-                  : `${product.stock} disponíveis`}
-              </span>
             </div>
 
             {/* Botão Comprar */}
@@ -247,7 +276,30 @@ export default function ProductDetailPage() {
               COMPRAR
             </button>
 
-            <p className="pdp-payment-label">Formas de Pagamento</p>
+            {/* Métodos de pagamento */}
+            {(() => {
+              const methods = product.paymentMethods?.length
+                ? product.paymentMethods
+                : ["Pix", "Cartão de Crédito", "Cartão de Débito", "Boleto"];
+              const icons: Record<string, React.ReactNode> = {
+                "Pix":              <IconPix />,
+                "Cartão de Crédito": <IconCard />,
+                "Cartão de Débito":  <IconCard />,
+                "Boleto":            <IconBoleto />,
+              };
+              return (
+                <div className="pdp-payment-methods">
+                  <p className="pdp-payment-label">Formas de Pagamento</p>
+                  <div className="pdp-payment-list">
+                    {methods.map((m) => (
+                      <span key={m} className="pdp-payment-badge">
+                        {icons[m] ?? null} {m}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Benefícios */}
             <div className="pdp-benefits">

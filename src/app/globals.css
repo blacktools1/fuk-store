@@ -2197,11 +2197,45 @@ button {
   transform: translateY(-1px);
 }
 
+/* Sales count social proof */
+.pdp-sales-count {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.pdp-sales-count strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Payment methods */
+.pdp-payment-methods {
+  margin-bottom: 16px;
+}
 .pdp-payment-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.pdp-payment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pdp-payment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
   font-size: 0.75rem;
   color: var(--text-muted);
-  text-align: center;
-  margin-bottom: 20px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 /* Benefícios */

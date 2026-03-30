@@ -23,6 +23,8 @@ export interface AdminProduct {
   stock: number;
   active: boolean;
   variations?: string[];
+  salesCount?: number;
+  paymentMethods?: string[];
   createdAt: string;
 }
 
@@ -67,6 +69,8 @@ export interface StoreData {
   btnTextColor?: string;
   borderRadius?: string;
   cardRadius?: string;
+  pixDiscountEnabled?: boolean;
+  pixDiscount?: number;
   showHero?: boolean;
   stickyHeader?: boolean;
   banners: Banner[];

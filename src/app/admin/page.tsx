@@ -1004,7 +1004,8 @@ function SettingsSection({
   const [btnTextColor, setBtnTextColor] = useState(data.btnTextColor || "#ffffff");
   const [borderRadius, setBorderRadius] = useState(data.borderRadius || "14px");
   const [cardRadius,   setCardRadius]   = useState(data.cardRadius   || data.borderRadius || "14px");
-
+  const [pixDiscountEnabled, setPixDiscountEnabled] = useState(data.pixDiscountEnabled ?? true);
+  const [pixDiscount, setPixDiscount]               = useState(data.pixDiscount ?? 5);
 
   return (
     <>
@@ -1185,6 +1186,31 @@ function SettingsSection({
           <ColorField label="Cor das Descrições" value={textColor}    onChange={setTextColor} />
           <ColorField label="Cor dos Preços"     value={priceColor}   onChange={setPriceColor} />
           <ColorField label="Texto dos Botões"   value={btnTextColor} onChange={setBtnTextColor} />
+          {/* PIX Discount */}
+          <div className="admin-form-field span-2" style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16, marginTop: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: pixDiscountEnabled ? 12 : 0 }}>
+              <div>
+                <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Desconto no Pix</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Exibido na página do produto como "X% OFF no Pix"</div>
+              </div>
+              <label className="admin-toggle">
+                <input type="checkbox" checked={pixDiscountEnabled} onChange={(e) => setPixDiscountEnabled(e.target.checked)} />
+                <span className="admin-toggle-slider" />
+              </label>
+            </div>
+            {pixDiscountEnabled && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <input
+                  className="admin-form-input"
+                  type="number" min="1" max="50" step="1"
+                  value={pixDiscount}
+                  onChange={(e) => setPixDiscount(Math.min(50, Math.max(1, parseInt(e.target.value) || 5)))}
+                  style={{ width: 80, marginBottom: 0 }}
+                />
+                <span style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>% de desconto sobre o preço atual</span>
+              </div>
+            )}
+          </div>
         </div>
       </SettingsGroup>
 
@@ -1251,6 +1277,7 @@ function SettingsSection({
             marqueeTexts: [marqueeText1, marqueeText2, marqueeText3].filter(Boolean),
             marqueePosition,
             primaryColor, secondaryColor, tertiaryColor, borderRadius, cardRadius,
+            pixDiscountEnabled, pixDiscount,
             headerColor, stickyHeader, titleColor, textColor, priceColor, btnTextColor, showHero
           })}
         >
@@ -1522,10 +1549,6 @@ function ProductModal({
               <input className="admin-form-input" value={form.name} onChange={(e) => set("name", e.target.value)} required />
             </div>
             <div className="admin-form-field span-2">
-              <label className="admin-form-label">Resumo</label>
-              <textarea className="admin-form-textarea" value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} />
-            </div>
-            <div className="admin-form-field span-2">
               <label className="admin-form-label">Descrição Longa (Detalhes)</label>
               <textarea className="admin-form-textarea" value={form.longDescription || ""} onChange={(e) => set("longDescription", e.target.value)} rows={4} placeholder="Mais especificações e detalhes para a página do produto..." />
             </div>
@@ -1547,8 +1570,37 @@ function ProductModal({
               )}
             </div>
             <div className="admin-form-field">
-              <label className="admin-form-label">Estoque</label>
+              <label className="admin-form-label">Estoque (interno)</label>
               <input className="admin-form-input" type="number" min="0" value={form.stock} onChange={(e) => set("stock", parseInt(e.target.value))} />
+            </div>
+            <div className="admin-form-field">
+              <label className="admin-form-label">Vendas Realizadas</label>
+              <input className="admin-form-input" type="number" min="0" value={form.salesCount ?? ""} onChange={(e) => set("salesCount", e.target.value ? parseInt(e.target.value) : undefined)} placeholder="Ex: 1248" />
+              <span style={{ fontSize: "0.74rem", color: "var(--adm-text-faint)", marginTop: 4, display: "block" }}>Exibido na página do produto como prova social</span>
+            </div>
+            <div className="admin-form-field span-2">
+              <label className="admin-form-label">Métodos de Pagamento Aceitos</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                {(["Pix", "Cartão de Crédito", "Cartão de Débito", "Boleto"] as const).map((method) => {
+                  const active = (form.paymentMethods ?? ["Pix","Cartão de Crédito","Cartão de Débito","Boleto"]).includes(method);
+                  return (
+                    <button key={method} type="button"
+                      onClick={() => {
+                        const current = form.paymentMethods ?? ["Pix","Cartão de Crédito","Cartão de Débito","Boleto"];
+                        set("paymentMethods", active ? current.filter((m) => m !== method) : [...current, method]);
+                      }}
+                      style={{
+                        padding: "7px 14px", borderRadius: 8, fontSize: "0.82rem", fontWeight: 600, cursor: "pointer",
+                        border: active ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)",
+                        background: active ? "var(--adm-accent-dim)" : "var(--adm-bg-card)",
+                        color: active ? "var(--adm-accent-bright)" : "var(--adm-text-muted)",
+                        transition: "all 0.18s ease",
+                      }}>
+                      {method}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="admin-form-field">
               <label className="admin-form-label">Categoria</label>
