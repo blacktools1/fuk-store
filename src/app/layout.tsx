@@ -99,6 +99,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         '--radius-lg':        store.borderRadius ? `calc(${store.borderRadius} * 1.5)` : "20px",
         '--radius-xl':        store.borderRadius ? `calc(${store.borderRadius} * 2)`   : "28px",
         '--radius-sm':        store.borderRadius ? `calc(${store.borderRadius} * 0.6)` : "8px",
+        '--card-radius':      store.cardRadius   || store.borderRadius || "14px",
         '--success':          secondaryStr,
         '--gradient':         `linear-gradient(135deg, ${store.primaryColor || "#a78bfa"}, ${secondaryStr})`,
       } as React.CSSProperties}>

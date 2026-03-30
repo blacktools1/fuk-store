@@ -66,6 +66,7 @@ export interface StoreData {
   priceColor?: string;
   btnTextColor?: string;
   borderRadius?: string;
+  cardRadius?: string;
   showHero?: boolean;
   stickyHeader?: boolean;
   banners: Banner[];

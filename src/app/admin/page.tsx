@@ -1003,6 +1003,7 @@ function SettingsSection({
   const [priceColor, setPriceColor] = useState(data.priceColor || "#ffffff");
   const [btnTextColor, setBtnTextColor] = useState(data.btnTextColor || "#ffffff");
   const [borderRadius, setBorderRadius] = useState(data.borderRadius || "14px");
+  const [cardRadius,   setCardRadius]   = useState(data.cardRadius   || data.borderRadius || "14px");
 
 
   return (
@@ -1141,12 +1142,13 @@ function SettingsSection({
           <ColorField label="Cor Secundária (Degradês)"      value={secondaryColor} onChange={setSecondaryColor} />
           <ColorField label="Cor de Fundo da Loja"           value={tertiaryColor}  onChange={setTertiaryColor} />
           <div className="admin-form-field">
-            <label className="admin-form-label">Arredondamento dos Elementos</label>
+            <label className="admin-form-label">Arredondamento Geral — Botões, Modais, Inputs</label>
             <select className="admin-form-select" value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)}>
               <option value="0px">Retos (0px)</option>
               <option value="8px">Pouco Arredondados (8px)</option>
               <option value="14px">Arredondados — Padrão (14px)</option>
               <option value="24px">Bem Arredondados (24px)</option>
+              <option value="999px">Pílula / Totalmente Arredondados</option>
             </select>
           </div>
         </div>
@@ -1188,21 +1190,50 @@ function SettingsSection({
 
       {/* ── 7. Cards ── */}
       <SettingsGroup step={7} icon="🃏" title="Design dos Cards de Produto">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-          {([
-            { value: "default",   label: "Padrão",     sub: "Borda + sombra suave",       icon: "🟦" },
-            { value: "minimal",   label: "Minimal",    sub: "Sem borda, sombra leve",     icon: "⬜" },
-            { value: "clean",     label: "Clean",      sub: "Sem moldura, só conteúdo",   icon: "✦" },
-            { value: "bold",      label: "Bold",       sub: "Tipografia forte, barra accent", icon: "▰" },
-            { value: "neon",      label: "Neon",       sub: "Borda brilhante no hover",   icon: "◈" },
-            { value: "cinematic", label: "Cinemático", sub: "Texto sobre imagem",         icon: "🎬" },
-          ] as const).map((opt) => (
-            <button key={opt.value} type="button" onClick={() => setCardStyle(opt.value)} style={{ padding: "12px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center", border: cardStyle === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: cardStyle === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: cardStyle === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
-              <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>{opt.icon}</div>
-              <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>{opt.label}</div>
-              <div style={{ fontSize: "0.69rem", opacity: 0.65, marginTop: 3 }}>{opt.sub}</div>
-            </button>
-          ))}
+        {/* Card style */}
+        <div style={{ marginBottom: 20 }}>
+          <label className="admin-form-label" style={{ marginBottom: 10, display: "block" }}>Estilo do Card</label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            {([
+              { value: "default",   label: "Padrão",     sub: "Borda + sombra suave",       icon: "🟦" },
+              { value: "minimal",   label: "Minimal",    sub: "Sem borda, sombra leve",     icon: "⬜" },
+              { value: "clean",     label: "Clean",      sub: "Sem moldura, só conteúdo",   icon: "✦" },
+              { value: "bold",      label: "Bold",       sub: "Tipografia forte, barra accent", icon: "▰" },
+              { value: "neon",      label: "Neon",       sub: "Borda brilhante no hover",   icon: "◈" },
+              { value: "cinematic", label: "Cinemático", sub: "Texto sobre imagem",         icon: "🎬" },
+            ] as const).map((opt) => (
+              <button key={opt.value} type="button" onClick={() => setCardStyle(opt.value)} style={{ padding: "12px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center", border: cardStyle === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: cardStyle === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: cardStyle === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
+                <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>{opt.icon}</div>
+                <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>{opt.label}</div>
+                <div style={{ fontSize: "0.69rem", opacity: 0.65, marginTop: 3 }}>{opt.sub}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Card border radius */}
+        <div>
+          <label className="admin-form-label" style={{ marginBottom: 10, display: "block" }}>Arredondamento dos Cards</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            {([
+              { value: "0px",   label: "Reto",      preview: "0" },
+              { value: "8px",   label: "Suave",     preview: "8" },
+              { value: "14px",  label: "Médio",     preview: "14" },
+              { value: "20px",  label: "Arredond.", preview: "20" },
+              { value: "28px",  label: "Grande",    preview: "28" },
+            ] as const).map((opt) => (
+              <button key={opt.value} type="button" onClick={() => setCardRadius(opt.value)}
+                style={{ flex: 1, padding: "10px 4px", cursor: "pointer", textAlign: "center",
+                  border: cardRadius === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)",
+                  background: cardRadius === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)",
+                  color: cardRadius === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)",
+                  borderRadius: 8, transition: "all 0.18s ease",
+                }}>
+                <div style={{ width: 28, height: 22, margin: "0 auto 6px", background: "currentColor", opacity: 0.5, borderRadius: opt.value }} />
+                <div style={{ fontSize: "0.75rem", fontWeight: 700 }}>{opt.label}</div>
+              </button>
+            ))}
+          </div>
         </div>
       </SettingsGroup>
 
@@ -1219,7 +1250,7 @@ function SettingsSection({
             fontFamily, fontWeight, cardStyle,
             marqueeTexts: [marqueeText1, marqueeText2, marqueeText3].filter(Boolean),
             marqueePosition,
-            primaryColor, secondaryColor, tertiaryColor, borderRadius,
+            primaryColor, secondaryColor, tertiaryColor, borderRadius, cardRadius,
             headerColor, stickyHeader, titleColor, textColor, priceColor, btnTextColor, showHero
           })}
         >
