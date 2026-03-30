@@ -69,6 +69,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href={googleFontsUrl} />
+        <script
+          src="https://cdn.utmify.com.br/scripts/utms/latest.js"
+          data-utmify-prevent-xcod-sck=""
+          data-utmify-prevent-subids=""
+          async
+          defer
+        />
       </head>
       <body style={{
         '--font-body':        `'${fontFamily}'`,
