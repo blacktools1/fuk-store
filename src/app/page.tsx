@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { AdminProduct, TopBannerConfig } from "@/lib/admin-types";
 import ProductCard from "@/components/ProductCard";
+
+const PER_PAGE_DESKTOP = 16;
+const PER_PAGE_MOBILE  = 14;
 
 export default function StorePage() {
   const [products,          setProducts]          = useState<AdminProduct[]>([]);
@@ -12,6 +15,16 @@ export default function StorePage() {
   const [topBannerDesktop,  setTopBannerDesktop]  = useState<TopBannerConfig | null>(null);
   const [topBannerMobile,   setTopBannerMobile]   = useState<TopBannerConfig | null>(null);
   const [search,            setSearch]            = useState("");
+  const [page,              setPage]              = useState(1);
+  const [isMobile,          setIsMobile]          = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   useEffect(() => {
     fetch("/api/store/info")
@@ -35,6 +48,18 @@ export default function StorePage() {
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.description.toLowerCase().includes(search.toLowerCase())
   );
+
+  const perPage   = isMobile ? PER_PAGE_MOBILE : PER_PAGE_DESKTOP;
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paginated  = filtered.slice((page - 1) * perPage, page * perPage);
+
+  const goToPage = useCallback((p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Reset page when search changes
+  useEffect(() => { setPage(1); }, [search]);
 
   return (
     <>
@@ -125,11 +150,54 @@ export default function StorePage() {
             <p style={{ fontSize: "0.875rem", marginTop: "6px" }}>Tente outra busca</p>
           </div>
         ) : (
-          <div className={`product-grid cards-${cardStyle}`}>
-            {filtered.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className={`product-grid cards-${cardStyle}`}>
+              {paginated.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="pagination-btn"
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page === 1}
+                >
+                  ←
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === "..." ? (
+                      <span key={`ellipsis-${i}`} className="pagination-ellipsis">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        className={`pagination-btn${page === p ? " pagination-btn--active" : ""}`}
+                        onClick={() => goToPage(p as number)}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+
+                <button
+                  className="pagination-btn"
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page === totalPages}
+                >
+                  →
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>
