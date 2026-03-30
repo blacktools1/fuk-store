@@ -1407,10 +1407,17 @@ function ProductModal({
   const set = (field: keyof AdminProduct, value: unknown) =>
     setForm((f) => ({ ...f, [field]: value }));
 
-  // All images: main first, then extras
+  const PLACEHOLDER = "/products/placeholder.jpg";
+
+  // All real images (excluding placeholder)
   const allImages: string[] = [
-    ...(form.image ? [form.image] : []),
-    ...(form.images?.filter((img) => img && img !== form.image) ?? []),
+    ...(form.image && form.image !== PLACEHOLDER ? [form.image] : []),
+    ...(form.images?.filter((img) => img && img !== form.image && img !== PLACEHOLDER) ?? []),
+  ];
+
+  const getImagesFromForm = (f: AdminProduct): string[] => [
+    ...(f.image && f.image !== PLACEHOLDER ? [f.image] : []),
+    ...(f.images?.filter((img) => img && img !== f.image && img !== PLACEHOLDER) ?? []),
   ];
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1429,12 +1436,8 @@ function ProductModal({
         uploaded.push(json.url);
       }
       setForm((f) => {
-        const existing = [
-          ...(f.image ? [f.image] : []),
-          ...(f.images?.filter((img) => img && img !== f.image) ?? []),
-        ];
-        const merged = [...existing, ...uploaded];
-        return { ...f, image: merged[0] ?? "", images: merged.slice(1) };
+        const merged = [...getImagesFromForm(f), ...uploaded];
+        return { ...f, image: merged[0] ?? PLACEHOLDER, images: merged.slice(1) };
       });
     } catch (err) {
       setUploadError((err as Error).message);
@@ -1446,14 +1449,14 @@ function ProductModal({
 
   const removeImage = (url: string) => {
     setForm((f) => {
-      const remaining = allImages.filter((img) => img !== url);
-      return { ...f, image: remaining[0] ?? "", images: remaining.slice(1) };
+      const remaining = getImagesFromForm(f).filter((img) => img !== url);
+      return { ...f, image: remaining[0] ?? PLACEHOLDER, images: remaining.slice(1) };
     });
   };
 
   const setMain = (url: string) => {
     setForm((f) => {
-      const rest = allImages.filter((img) => img !== url);
+      const rest = getImagesFromForm(f).filter((img) => img !== url);
       return { ...f, image: url, images: rest };
     });
   };
