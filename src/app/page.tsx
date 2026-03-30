@@ -46,11 +46,8 @@ export default function StorePage() {
           const { image, link, orientation = "horizontal", padding = 0, borderRadius = 0 } = cfg;
           if (!image) return null;
           const cls = ["top-banner", `top-banner--${orientation}`, extraClass || ""].filter(Boolean).join(" ");
-          const wrapStyle: React.CSSProperties = {
-            ...(padding > 0 ? { padding: `${padding}px ${padding}px 0` } : {}),
-            ...(borderRadius > 0 ? { borderRadius } : {}),
-          };
-          const imgStyle: React.CSSProperties = {};
+          const wrapStyle: React.CSSProperties = padding > 0 ? { padding: `${padding}px ${padding}px 0` } : {};
+          const imgStyle:  React.CSSProperties = borderRadius > 0 ? { borderRadius } : {};
           const inner = (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={image} alt="Banner" style={imgStyle} />
