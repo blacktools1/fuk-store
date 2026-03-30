@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const tenant = getTenantFromRequest(req);
-    const safeTenant = sanitizeTenant(tenant);
+    // Replace dots with underscores for URL-safe directory names
+    const safeTenant = sanitizeTenant(tenant).replace(/\./g, "_");
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
