@@ -219,14 +219,14 @@ export default function ProductDetailPage() {
 
           {/* Painel de informações */}
           <div className="pdp-info">
-            <h1 className="pdp-title">{product.name}</h1>
-
             {/* Prova social — vendas */}
             {product.salesCount && product.salesCount > 0 ? (
               <p className="pdp-sales-count">
-                ⭐ <strong>{product.salesCount.toLocaleString("pt-BR")}</strong> pessoas já compraram
+                {product.salesCount.toLocaleString("pt-BR")} VENDIDOS
               </p>
             ) : null}
+
+            <h1 className="pdp-title">{product.name}</h1>
 
             {/* Preços */}
             <div className="pdp-price-block">
