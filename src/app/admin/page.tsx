@@ -1871,9 +1871,19 @@ function PixelsSection({
     if (!trimmed) return;
     update([
       ...list,
-      { id: `pixel-${Date.now()}`, type: newType, pixelId: trimmed, active: true },
+      {
+        id: `pixel-${Date.now()}`,
+        type: newType,
+        pixelId: trimmed,
+        active: true,
+        ...(newType === "facebook" ? { accessToken: "" } : {}),
+      },
     ]);
     setNewId("");
+  };
+
+  const setPixelField = (id: string, patch: Partial<StorePixel>) => {
+    update(list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   };
 
   const toggle = (id: string) =>
@@ -1895,8 +1905,8 @@ function PixelsSection({
     <div>
       <div className="settings-group" style={{ marginBottom: 24 }}>
         <h3 className="settings-group-title">Adicionar Pixel</h3>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div className="admin-form-field" style={{ flex: "0 0 180px", marginBottom: 0 }}>
+        <div className="admin-pixels-add-row">
+          <div className="admin-form-field" style={{ flex: "0 0 auto", minWidth: "100%", marginBottom: 0 }}>
             <label className="admin-form-label">Plataforma</label>
             <select
               className="admin-form-select"
@@ -1907,7 +1917,7 @@ function PixelsSection({
               <option value="tiktok">TikTok</option>
             </select>
           </div>
-          <div className="admin-form-field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+          <div className="admin-form-field" style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
             <label className="admin-form-label">ID do Pixel</label>
             <input
               className="admin-form-input"
@@ -1920,7 +1930,7 @@ function PixelsSection({
           <button
             type="button"
             className="admin-btn admin-btn-primary"
-            style={{ marginBottom: 0, height: 40 }}
+            style={{ width: "100%", marginBottom: 0, minHeight: 44 }}
             onClick={addPixel}
           >
             + Adicionar
@@ -1938,42 +1948,61 @@ function PixelsSection({
             Nenhum pixel configurado ainda.
           </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {list.map((px) => (
               <div
                 key={px.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "12px 16px",
-                  background: "var(--adm-bg-card)",
-                  border: "1px solid var(--adm-border)",
-                  borderRadius: 10,
-                  opacity: px.active ? 1 : 0.5,
-                }}
+                className="admin-pixels-card"
+                style={{ opacity: px.active ? 1 : 0.55 }}
               >
-                <span style={{ fontSize: "1.4rem" }}>{PIXEL_ICONS[px.type]}</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem" }}>
-                    {PIXEL_LABELS[px.type]}
-                  </p>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--adm-text-muted)", fontFamily: "monospace" }}>
-                    {px.pixelId}
-                  </p>
+                <div className="admin-pixels-card__top">
+                  <span style={{ fontSize: "1.5rem", lineHeight: 1 }}>{PIXEL_ICONS[px.type]}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: "0 0 6px", fontWeight: 600, fontSize: "0.9rem" }}>
+                      {PIXEL_LABELS[px.type]}
+                    </p>
+                    <label className="admin-form-label" style={{ marginBottom: 4 }}>ID do Pixel</label>
+                    <input
+                      className="admin-form-input"
+                      value={px.pixelId}
+                      onChange={(e) => setPixelField(px.id, { pixelId: e.target.value })}
+                      style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.82rem" }}
+                    />
+                    {px.type === "facebook" && (
+                      <>
+                        <label className="admin-form-label" style={{ marginTop: 10, marginBottom: 4 }}>
+                          Token da API de Conversões (Meta CAPI) — opcional
+                        </label>
+                        <input
+                          className="admin-form-input"
+                          type="password"
+                          autoComplete="new-password"
+                          value={px.accessToken ?? ""}
+                          onChange={(e) => setPixelField(px.id, { accessToken: e.target.value })}
+                          placeholder="EAAB... (Gerenciador de Eventos → Configurações → API de Conversões)"
+                          style={{ fontSize: "0.8rem" }}
+                        />
+                        <p style={{ fontSize: "0.72rem", color: "var(--adm-text-faint)", marginTop: 6, lineHeight: 1.45 }}>
+                          O script do pixel no navegador usa só o ID acima. Este token fica salvo no servidor (não vai para o HTML da loja) e pode ser usado para eventos server-side no futuro. O checkout PHP separado tem o próprio CAPI em <code style={{ fontSize: "0.7rem" }}>pixels.json</code>.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <div className="admin-pixels-card__actions">
+                    <label className="admin-toggle" title={px.active ? "Ativo" : "Inativo"}>
+                      <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
+                      <span className="admin-toggle-slider" />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => remove(px.id)}
+                      style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer", fontSize: "1.15rem", padding: "4px 6px" }}
+                      title="Remover pixel"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
-                <label className="admin-toggle" title={px.active ? "Ativo" : "Inativo"}>
-                  <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
-                  <span className="admin-toggle-slider" />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => remove(px.id)}
-                  style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer", fontSize: "1.1rem", padding: "4px" }}
-                  title="Remover pixel"
-                >
-                  🗑️
-                </button>
               </div>
             ))}
           </div>
@@ -1981,21 +2010,24 @@ function PixelsSection({
       </div>
 
       <div className="settings-group" style={{ marginTop: 24 }}>
-        <h3 className="settings-group-title">Eventos Rastreados Automaticamente</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <h3 className="settings-group-title">Eventos no navegador (automáticos)</h3>
+        <p style={{ fontSize: "0.78rem", color: "var(--adm-text-muted)", marginBottom: 12, lineHeight: 1.5 }}>
+          Estes eventos são disparados pelo JavaScript da loja (fbq / ttq). A API de Conversões é outra camada: envia os mesmos eventos do servidor da Meta, com melhor atribuição quando cookies são bloqueados — no checkout externo em PHP ela já está no projeto PIX; aqui na loja o token fica guardado para integração futura ou uso manual.
+        </p>
+        <div className="admin-pixels-events">
           {[
             { event: "PageView",         desc: "Cada página visitada na loja" },
             { event: "ViewContent",      desc: "Página de produto visualizada" },
             { event: "AddToCart",        desc: "Produto adicionado ao carrinho" },
-            { event: "InitiateCheckout", desc: "Início do checkout / pagamento" },
-            { event: "Purchase",         desc: "Compra concluída com sucesso" },
+            { event: "InitiateCheckout", desc: "Quando o pixel dispara no fluxo interno" },
+            { event: "Purchase",         desc: "Quando implementado no fluxo interno" },
           ].map(({ event, desc }) => (
-            <div key={event} style={{ display: "flex", gap: 12, alignItems: "center", fontSize: "0.85rem" }}>
-              <span style={{ background: "var(--adm-accent)", color: "#fff", borderRadius: 6, padding: "2px 8px", fontFamily: "monospace", fontSize: "0.78rem", whiteSpace: "nowrap" }}>
+            <div key={event} className="admin-pixels-event-row">
+              <span style={{ background: "var(--adm-accent)", color: "#fff", borderRadius: 6, padding: "3px 8px", fontFamily: "monospace", fontSize: "0.76rem", whiteSpace: "nowrap", width: "fit-content" }}>
                 {event}
               </span>
-              <span style={{ color: "var(--adm-text-muted)" }}>{desc}</span>
-              <span style={{ marginLeft: "auto", color: "#4ade80", fontSize: "0.75rem" }}>✓ automático</span>
+              <span style={{ color: "var(--adm-text-muted)", flex: 1 }}>{desc}</span>
+              <span style={{ color: "#4ade80", fontSize: "0.75rem", whiteSpace: "nowrap" }}>✓ navegador</span>
             </div>
           ))}
         </div>

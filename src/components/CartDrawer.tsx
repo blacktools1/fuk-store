@@ -5,6 +5,7 @@ import { useCart } from "@/context/CartContext";
 import { cartCount, cartTotal } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
 import { useEffect, useState } from "react";
+import { buildExternalCheckoutUrl } from "@/lib/checkout-redirect";
 
 export default function CartDrawer() {
   const { items, isOpen, closeCart, remove, update } = useCart();
@@ -21,16 +22,15 @@ export default function CartDrawer() {
 
   function handleCheckout() {
     closeCart();
-    if (checkoutUrl && items.length > 0) {
-      const cartData = items.map((item) => ({
+    if (checkoutUrl.trim() && items.length > 0) {
+      const lines = items.map((item) => ({
         id: item.product.id,
         name: item.product.name,
         qty: item.quantity,
         price: item.product.price,
         ...(item.product.oldPrice ? { oldPrice: item.product.oldPrice } : {}),
       }));
-      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(cartData))));
-      window.location.href = `${checkoutUrl}?cart=${encoded}`;
+      window.location.href = buildExternalCheckoutUrl(checkoutUrl, lines);
     } else {
       window.location.href = "/checkout";
     }

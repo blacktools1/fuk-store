@@ -103,7 +103,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         '--success':          secondaryStr,
         '--gradient':         `linear-gradient(135deg, ${store.primaryColor || "#a78bfa"}, ${secondaryStr})`,
       } as React.CSSProperties}>
-        <PixelScripts pixels={store.pixels ?? []} />
+        <PixelScripts
+          pixels={(store.pixels ?? []).map(({ accessToken: _omit, ...safe }) => safe)}
+        />
         <UserProvider>
           <CartProvider>
             <ToastProvider>

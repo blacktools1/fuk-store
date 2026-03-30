@@ -41,6 +41,8 @@ export interface StorePixel {
   id: string;
   type: "facebook" | "tiktok";
   pixelId: string;
+  /** Token da API de Conversões (CAPI) — só Meta; não é enviado ao navegador; uso futuro em eventos server-side */
+  accessToken?: string;
   active: boolean;
 }
 
