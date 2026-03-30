@@ -1401,24 +1401,73 @@ function ProductModal({
   onClose: () => void;
 }) {
   const [form, setForm] = useState({ ...product });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const set = (field: keyof AdminProduct, value: unknown) =>
     setForm((f) => ({ ...f, [field]: value }));
 
+  // All images: main first, then extras
+  const allImages: string[] = [
+    ...(form.image ? [form.image] : []),
+    ...(form.images?.filter((img) => img && img !== form.image) ?? []),
+  ];
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const uploaded: string[] = [];
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Erro no upload");
+        uploaded.push(json.url);
+      }
+      setForm((f) => {
+        const existing = [
+          ...(f.image ? [f.image] : []),
+          ...(f.images?.filter((img) => img && img !== f.image) ?? []),
+        ];
+        const merged = [...existing, ...uploaded];
+        return { ...f, image: merged[0] ?? "", images: merged.slice(1) };
+      });
+    } catch (err) {
+      setUploadError((err as Error).message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const removeImage = (url: string) => {
+    setForm((f) => {
+      const remaining = allImages.filter((img) => img !== url);
+      return { ...f, image: remaining[0] ?? "", images: remaining.slice(1) };
+    });
+  };
+
+  const setMain = (url: string) => {
+    setForm((f) => {
+      const rest = allImages.filter((img) => img !== url);
+      return { ...f, image: url, images: rest };
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || form.price <= 0) return;
-    
-    // Convert variations comma-separated string back to array if modified
-    let finalVariations = typeof form.variations === 'string' 
-      ? (form.variations as string).split(',').map(s => s.trim()).filter(Boolean)
+    const finalVariations = typeof form.variations === "string"
+      ? (form.variations as string).split(",").map((s) => s.trim()).filter(Boolean)
       : form.variations;
-      
     onSave({ ...form, variations: finalVariations });
   };
 
-  // Convert array to string for the input field
-  const variationsStr = Array.isArray(form.variations) ? form.variations.join(', ') : (form.variations || "");
+  const variationsStr = Array.isArray(form.variations) ? form.variations.join(", ") : (form.variations || "");
 
   return (
     <div className="admin-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -1443,8 +1492,8 @@ function ProductModal({
               <textarea className="admin-form-textarea" value={form.longDescription || ""} onChange={(e) => set("longDescription", e.target.value)} rows={4} placeholder="Mais especificações e detalhes para a página do produto..." />
             </div>
             <div className="admin-form-field span-2">
-              <label className="admin-form-label">Variações (Separadas por vírgula, ex: P, M, G ou Branco, Preto)</label>
-              <input className="admin-form-input" value={variationsStr} onChange={(e) => set("variations", e.target.value)} placeholder="Deixe em branco se não houver" />
+              <label className="admin-form-label">Variações (Separadas por vírgula)</label>
+              <input className="admin-form-input" value={variationsStr} onChange={(e) => set("variations", e.target.value)} placeholder="Ex: P, M, G ou Branco, Preto" />
             </div>
             <div className="admin-form-field">
               <label className="admin-form-label">Preço Atual (R$) *</label>
@@ -1475,11 +1524,90 @@ function ProductModal({
                 {BADGES.map((b) => <option key={b} value={b}>{b || "(nenhum)"}</option>)}
               </select>
             </div>
+
+            {/* ── Image Manager ── */}
             <div className="admin-form-field span-2">
-              <label className="admin-form-label">URL da Imagem</label>
-              <input className="admin-form-input" value={form.image} onChange={(e) => set("image", e.target.value)} placeholder="/products/foto.jpg" />
-              {form.image && (
-                <img src={form.image} alt="preview" className="admin-img-preview" style={{ marginTop: "8px" }} />
+              <label className="admin-form-label">Imagens do Produto</label>
+
+              {/* Upload button */}
+              <label style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "8px 16px", borderRadius: 8, cursor: "pointer",
+                background: "var(--adm-accent)", color: "#fff",
+                fontSize: "0.875rem", fontWeight: 600,
+                opacity: uploading ? 0.7 : 1,
+              }}>
+                {uploading ? "Enviando..." : "📤 Upload de Imagens"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={handleUpload}
+                  disabled={uploading}
+                />
+              </label>
+              <span style={{ fontSize: "0.75rem", color: "var(--adm-text-muted)", marginLeft: 10 }}>
+                Selecione uma ou mais imagens (JPG, PNG, WebP, GIF)
+              </span>
+
+              {uploadError && (
+                <p style={{ color: "#fca5a5", fontSize: "0.8rem", marginTop: 6 }}>{uploadError}</p>
+              )}
+
+              {/* Image gallery */}
+              {allImages.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
+                  {allImages.map((url, i) => (
+                    <div key={url} style={{ position: "relative", width: 90, flexShrink: 0 }}>
+                      <img
+                        src={url}
+                        alt={`Imagem ${i + 1}`}
+                        style={{
+                          width: 90, height: 90, objectFit: "cover", borderRadius: 8,
+                          border: i === 0 ? "2px solid var(--adm-accent)" : "2px solid var(--adm-border)",
+                          display: "block",
+                        }}
+                      />
+                      {i === 0 && (
+                        <span style={{
+                          position: "absolute", bottom: 4, left: 0, right: 0,
+                          textAlign: "center", fontSize: "0.65rem", fontWeight: 700,
+                          background: "var(--adm-accent)", color: "#fff", padding: "1px 0",
+                          borderRadius: "0 0 6px 6px",
+                        }}>
+                          PRINCIPAL
+                        </span>
+                      )}
+                      <div style={{ display: "flex", gap: 3, marginTop: 5, justifyContent: "center" }}>
+                        {i !== 0 && (
+                          <button
+                            type="button"
+                            title="Definir como principal"
+                            onClick={() => setMain(url)}
+                            style={{ background: "var(--adm-bg-elevated)", border: "1px solid var(--adm-border)", borderRadius: 5, padding: "2px 6px", fontSize: "0.7rem", cursor: "pointer", color: "var(--adm-text)" }}
+                          >
+                            ★
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          title="Remover imagem"
+                          onClick={() => removeImage(url)}
+                          style={{ background: "var(--adm-bg-elevated)", border: "1px solid var(--adm-border)", borderRadius: 5, padding: "2px 6px", fontSize: "0.7rem", cursor: "pointer", color: "#fca5a5" }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {allImages.length === 0 && (
+                <p style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)", marginTop: 10 }}>
+                  Nenhuma imagem adicionada. Faça upload acima.
+                </p>
               )}
             </div>
           </div>
