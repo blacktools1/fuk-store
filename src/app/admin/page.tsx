@@ -258,6 +258,7 @@ export default function AdminPage() {
               onToggle={toggleProduct}
               onDelete={deleteProduct}
               onEdit={(p) => setProductModal({ open: true, product: p })}
+              onReorder={(products) => save({ products })}
               onBulkImport={(items) => {
                 const products = [...data.products, ...items];
                 save({ products });
@@ -422,6 +423,7 @@ function ProductsSection({
   onEdit,
   onAdd,
   onBulkImport,
+  onReorder,
 }: {
   products: AdminProduct[];
   onToggle: (id: string) => void;
@@ -429,12 +431,34 @@ function ProductsSection({
   onEdit: (p: AdminProduct) => void;
   onAdd: () => void;
   onBulkImport: (items: AdminProduct[]) => void;
+  onReorder: (products: AdminProduct[]) => void;
 }) {
   const [search, setSearch] = useState("");
   const [showBulk, setShowBulk] = useState(false);
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
+  const isSearching = search.trim().length > 0;
+  const filtered = isSearching
+    ? products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+    : products;
+
+  const handleDragStart = (index: number) => setDragIndex(index);
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOver(index);
+  };
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === dropIndex) { setDragIndex(null); setDragOver(null); return; }
+    const reordered = [...products];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(dropIndex, 0, moved);
+    onReorder(reordered);
+    setDragIndex(null);
+    setDragOver(null);
+  };
+  const handleDragEnd = () => { setDragIndex(null); setDragOver(null); };
 
   return (
     <>
@@ -460,6 +484,12 @@ function ProductsSection({
         </div>
       </div>
 
+      {isSearching && (
+        <p style={{ fontSize: "0.8rem", color: "var(--adm-text-muted)", marginBottom: 12 }}>
+          ℹ️ Limpe a busca para reordenar produtos arrastando.
+        </p>
+      )}
+
       {showBulk && (
         <BulkImportModal
           onImport={(items) => { onBulkImport(items); setShowBulk(false); }}
@@ -471,6 +501,7 @@ function ProductsSection({
         <table className="admin-table">
           <thead>
             <tr>
+              {!isSearching && <th style={{ width: 32 }}></th>}
               <th>Produto</th>
               <th>Categoria</th>
               <th>Preço</th>
@@ -482,13 +513,30 @@ function ProductsSection({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "var(--adm-text-faint)" }}>
+                <td colSpan={isSearching ? 6 : 7} style={{ textAlign: "center", padding: "32px", color: "var(--adm-text-faint)" }}>
                   Nenhum produto encontrado
                 </td>
               </tr>
             ) : (
-              filtered.map((p) => (
-                <tr key={p.id}>
+              filtered.map((p, idx) => (
+                <tr
+                  key={p.id}
+                  draggable={!isSearching}
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  style={{
+                    opacity: dragIndex === idx ? 0.4 : 1,
+                    background: dragOver === idx && dragIndex !== idx ? "var(--adm-accent-dim)" : undefined,
+                    transition: "background 0.15s",
+                  }}
+                >
+                  {!isSearching && (
+                    <td style={{ cursor: "grab", color: "var(--adm-text-faint)", fontSize: "1.1rem", userSelect: "none", paddingRight: 4 }}>
+                      ⠿
+                    </td>
+                  )}
                   <td>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <Image
