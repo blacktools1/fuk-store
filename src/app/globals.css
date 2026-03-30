@@ -543,6 +543,8 @@ button {
   transition: all var(--transition-slow);
   cursor: pointer;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .product-card:hover {
@@ -647,6 +649,9 @@ button {
 
 .product-card-body {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .product-card-category {
@@ -674,12 +679,14 @@ button {
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.5;
+  flex-shrink: 0;
 }
 
 .product-card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-top: auto;
 }
 
 .product-price {
