@@ -668,6 +668,7 @@ button {
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
+  min-height: calc(0.98rem * 1.4 * 2);
 }
 
 .product-card-desc {
@@ -698,8 +699,10 @@ button {
 .product-price-block {
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: 1px;
   color: var(--price-color, var(--text));
+  min-height: calc(0.75rem + 1px + 1.15rem * 1.2);
 }
 
 .product-old-price {
