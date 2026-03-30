@@ -99,7 +99,7 @@ export default function ProductDetailPage() {
   }, [params.id, router]);
 
   const PLACEHOLDER = "/products/placeholder.jpg";
-  const allImages = product
+  const realImages = product
     ? [
         product.image,
         ...(product.images?.filter(
@@ -107,6 +107,8 @@ export default function ProductDetailPage() {
         ) ?? []),
       ].filter((img) => img && img !== PLACEHOLDER)
     : [];
+  // Se não há imagens reais, usa o placeholder para não quebrar o layout
+  const allImages = realImages.length > 0 ? realImages : product ? [product.image] : [];
 
   const currentImage = allImages[selectedImage] ?? "";
 
