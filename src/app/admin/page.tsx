@@ -248,6 +248,8 @@ export default function AdminPage() {
               activeProducts={activeProducts}
               activeBanners={activeBanners}
               totalBanners={data?.banners.length ?? 0}
+              storeData={data}
+              onSaveConfig={save}
             />
           )}
 
@@ -357,12 +359,27 @@ function DashboardSection({
   activeProducts,
   activeBanners,
   totalBanners,
+  storeData,
+  onSaveConfig,
 }: {
   totalProducts: number;
   activeProducts: number;
   activeBanners: number;
   totalBanners: number;
+  storeData: StoreData | null;
+  onSaveConfig: (patch: Partial<StoreData>) => Promise<void>;
 }) {
+  const [pixEnabled, setPixEnabled]       = useState(storeData?.pixDiscountEnabled ?? true);
+  const [pixPct, setPixPct]               = useState(storeData?.pixDiscount ?? 5);
+  const [freeShip, setFreeShip]           = useState(storeData?.freeShippingMin ?? 199);
+  const [saving, setSaving]               = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSaveConfig({ pixDiscountEnabled: pixEnabled, pixDiscount: pixPct, freeShippingMin: freeShip });
+    setSaving(false);
+  };
+
   return (
     <>
       <div className="admin-stats-grid">
@@ -385,6 +402,64 @@ function DashboardSection({
           <span className="admin-stat-icon">⚡</span>
           <div className="admin-stat-value">{activeBanners}</div>
           <div className="admin-stat-label">Banners Ativos</div>
+        </div>
+      </div>
+
+      {/* ── Configurações Rápidas ── */}
+      <div className="admin-card">
+        <h2 className="admin-card-title">⚙️ Configurações Rápidas</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* PIX */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--adm-text)" }}>Desconto no PIX</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Exibido como "X% OFF no Pix" na página do produto</div>
+              </div>
+              <label className="admin-toggle">
+                <input type="checkbox" checked={pixEnabled} onChange={(e) => setPixEnabled(e.target.checked)} />
+                <span className="admin-toggle-slider" />
+              </label>
+            </div>
+            {pixEnabled && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <input
+                  className="admin-form-input"
+                  type="number" min="1" max="50" step="1"
+                  value={pixPct}
+                  onChange={(e) => setPixPct(Math.min(50, Math.max(1, parseInt(e.target.value) || 5)))}
+                  style={{ width: 80, marginBottom: 0 }}
+                />
+                <span style={{ fontSize: "0.85rem", color: "var(--adm-text-muted)" }}>% sobre o preço atual</span>
+              </div>
+            )}
+          </div>
+
+          {/* Frete Grátis */}
+          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16 }}>
+            <div style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--adm-text)", marginBottom: 4 }}>Frete Grátis a partir de</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginBottom: 10 }}>Exibido na página do produto e no rodapé da loja</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)", fontWeight: 600 }}>R$</span>
+              <input
+                className="admin-form-input"
+                type="number" min="0" step="1"
+                value={freeShip}
+                onChange={(e) => setFreeShip(Math.max(0, parseInt(e.target.value) || 0))}
+                style={{ width: 100, marginBottom: 0 }}
+              />
+            </div>
+          </div>
+
+          <button
+            className="admin-btn-primary"
+            onClick={handleSave}
+            disabled={saving}
+            style={{ alignSelf: "flex-start" }}
+          >
+            {saving ? "Salvando…" : "Salvar Configurações"}
+          </button>
         </div>
       </div>
 
@@ -1004,9 +1079,6 @@ function SettingsSection({
   const [btnTextColor, setBtnTextColor] = useState(data.btnTextColor || "#ffffff");
   const [borderRadius, setBorderRadius] = useState(data.borderRadius || "14px");
   const [cardRadius,   setCardRadius]   = useState(data.cardRadius   || data.borderRadius || "14px");
-  const [pixDiscountEnabled, setPixDiscountEnabled] = useState(data.pixDiscountEnabled ?? true);
-  const [pixDiscount, setPixDiscount]               = useState(data.pixDiscount ?? 5);
-  const [freeShippingMin, setFreeShippingMin]       = useState(data.freeShippingMin ?? 199);
 
   return (
     <>
@@ -1187,47 +1259,6 @@ function SettingsSection({
           <ColorField label="Cor das Descrições" value={textColor}    onChange={setTextColor} />
           <ColorField label="Cor dos Preços"     value={priceColor}   onChange={setPriceColor} />
           <ColorField label="Texto dos Botões"   value={btnTextColor} onChange={setBtnTextColor} />
-          {/* PIX Discount */}
-          <div className="admin-form-field span-2" style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16, marginTop: 4 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: pixDiscountEnabled ? 12 : 0 }}>
-              <div>
-                <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Desconto no Pix</div>
-                <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Exibido na página do produto como "X% OFF no Pix"</div>
-              </div>
-              <label className="admin-toggle">
-                <input type="checkbox" checked={pixDiscountEnabled} onChange={(e) => setPixDiscountEnabled(e.target.checked)} />
-                <span className="admin-toggle-slider" />
-              </label>
-            </div>
-            {pixDiscountEnabled && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <input
-                  className="admin-form-input"
-                  type="number" min="1" max="50" step="1"
-                  value={pixDiscount}
-                  onChange={(e) => setPixDiscount(Math.min(50, Math.max(1, parseInt(e.target.value) || 5)))}
-                  style={{ width: 80, marginBottom: 0 }}
-                />
-                <span style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>% de desconto sobre o preço atual</span>
-              </div>
-            )}
-          </div>
-
-          {/* Free Shipping Min */}
-          <div className="admin-form-field span-2" style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16 }}>
-            <label className="admin-form-label">Valor Mínimo para Frete Grátis (R$)</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
-              <span style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>R$</span>
-              <input
-                className="admin-form-input"
-                type="number" min="0" step="1"
-                value={freeShippingMin}
-                onChange={(e) => setFreeShippingMin(Math.max(0, parseInt(e.target.value) || 0))}
-                style={{ width: 100, marginBottom: 0 }}
-              />
-              <span style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)" }}>Exibido na página do produto e rodapé da loja</span>
-            </div>
-          </div>
         </div>
       </SettingsGroup>
 
@@ -1294,7 +1325,6 @@ function SettingsSection({
             marqueeTexts: [marqueeText1, marqueeText2, marqueeText3].filter(Boolean),
             marqueePosition,
             primaryColor, secondaryColor, tertiaryColor, borderRadius, cardRadius,
-            pixDiscountEnabled, pixDiscount, freeShippingMin,
             headerColor, stickyHeader, titleColor, textColor, priceColor, btnTextColor, showHero
           })}
         >
