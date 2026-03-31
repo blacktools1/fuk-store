@@ -16,8 +16,8 @@ export default function StoreShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const isAdmin = pathname.startsWith("/admin");
-  const isMaster = pathname.startsWith("/master-admin");
+  const isAdmin  = pathname.startsWith("/admin");
+  const isMaster = pathname.startsWith("/master-admin") || pathname.startsWith("/master-home");
 
   if (isAdmin || isMaster) return <>{children}</>;
 

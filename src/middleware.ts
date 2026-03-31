@@ -14,19 +14,18 @@ export function middleware(req: NextRequest) {
 
   const isMasterDomain = MASTER_DOMAIN !== "" && host === MASTER_DOMAIN;
 
-  // On master domain: / → landing page (rewrite, not redirect, for proxy compatibility)
+  // On master domain: / → landing page; other non-master paths → master-admin
   if (isMasterDomain) {
     if (pathname === "/" || pathname === "") {
-      return NextResponse.rewrite(new URL("/master-home", req.url), {
-        request: { headers: requestHeaders },
-      });
+      // redirect (not rewrite) so the browser URL becomes /master-home,
+      // allowing StoreShell to detect it and skip store chrome.
+      const res = NextResponse.redirect(new URL("/master-home", req.url));
+      return res;
     }
     if (
       !pathname.startsWith("/master-admin") &&
       !pathname.startsWith("/master-home") &&
-      !pathname.startsWith("/api/master-admin") &&
-      !pathname.startsWith("/api/uploads") &&
-      !pathname.startsWith("/api/tenant-type")
+      !pathname.startsWith("/api/")
     ) {
       return NextResponse.redirect(new URL("/master-admin", req.url));
     }
