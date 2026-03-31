@@ -9,7 +9,6 @@ import { formatPrice } from "@/lib/products";
 import { useToast } from "@/components/ToastProvider";
 import { AdminProduct } from "@/lib/admin-types";
 import { firePixelEvent } from "@/lib/pixel";
-import { buildExternalCheckoutUrl } from "@/lib/checkout-redirect";
 
 function IconTruck() {
   return (
@@ -157,32 +156,10 @@ export default function ProductDetailPage() {
     showToast(`${quantity}x ${product.name} adicionado ao carrinho!`);
   };
 
-  const handleBuy = async () => {
+  const handleBuy = () => {
     if (!product) return;
     handleAddToCart();
-    try {
-      const res = await fetch("/api/store/config");
-      const cfg = await res.json();
-      const external = typeof cfg.checkoutUrl === "string" ? cfg.checkoutUrl.trim() : "";
-      if (external) {
-        const lines = [
-          {
-            id: product.id,
-            name: product.name,
-            qty: quantity,
-            price: product.price,
-            ...(product.oldPrice && product.oldPrice > product.price
-              ? { oldPrice: product.oldPrice }
-              : {}),
-          },
-        ];
-        window.location.href = buildExternalCheckoutUrl(external, lines);
-        return;
-      }
-    } catch {
-      /* fallback abaixo */
-    }
-    router.push("/checkout");
+    router.push("/carrinho");
   };
 
   if (loading) {

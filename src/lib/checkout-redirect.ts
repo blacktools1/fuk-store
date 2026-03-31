@@ -7,6 +7,7 @@ export type CheckoutCartLine = {
   qty: number;
   price: number;
   oldPrice?: number;
+  image?: string;
 };
 
 export function encodeCartQueryParam(lines: CheckoutCartLine[]): string {
