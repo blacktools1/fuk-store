@@ -21,25 +21,18 @@ export default function StorePage() {
   const [search,            setSearch]            = useState("");
   const [page,              setPage]              = useState(1);
   const [isMobile,          setIsMobile]          = useState(false);
-  // Previne flash da loja enquanto redireciona para a landing page
-  const [masterChecked,     setMasterChecked]     = useState(false);
 
-  // Verificação via window.location.hostname — 100% confiável, sem depender
-  // de headers de proxy ou de chamadas de API.
+  // Redireciona para a landing page se estiver no master domain.
+  // window.location.hostname é 100% confiável — sem depender de headers de proxy.
+  // Todos os hooks são declarados antes deste useEffect (regra dos hooks).
   useEffect(() => {
     if (
       MASTER_DOMAIN_PUBLIC &&
       window.location.hostname.toLowerCase() === MASTER_DOMAIN_PUBLIC
     ) {
       window.location.replace("/master-home");
-      // Não marca como checked para manter a tela em branco durante o redirect
-      return;
     }
-    setMasterChecked(true);
   }, []);
-
-  // Aguarda a verificação antes de renderizar a loja
-  if (!masterChecked) return null;
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
