@@ -7,6 +7,10 @@ import ProductCard from "@/components/ProductCard";
 const PER_PAGE_DESKTOP = 16;
 const PER_PAGE_MOBILE  = 14;
 
+// NEXT_PUBLIC_MASTER_DOMAIN é embutido no bundle em build-time.
+// Defina essa variável no EasyPanel com o mesmo valor de MASTER_DOMAIN.
+const MASTER_DOMAIN_PUBLIC = (process.env.NEXT_PUBLIC_MASTER_DOMAIN ?? "").trim().toLowerCase();
+
 export default function StorePage() {
   const [products,          setProducts]          = useState<AdminProduct[]>([]);
   const [loading,           setLoading]           = useState(true);
@@ -17,18 +21,25 @@ export default function StorePage() {
   const [search,            setSearch]            = useState("");
   const [page,              setPage]              = useState(1);
   const [isMobile,          setIsMobile]          = useState(false);
+  // Previne flash da loja enquanto redireciona para a landing page
+  const [masterChecked,     setMasterChecked]     = useState(false);
 
-  // Fallback: se estiver no master domain, redireciona para a landing page.
-  // O middleware tenta fazer isso, mas caso falhe (problemas de proxy/header),
-  // esta verificação server-side via API garante o comportamento correto.
+  // Verificação via window.location.hostname — 100% confiável, sem depender
+  // de headers de proxy ou de chamadas de API.
   useEffect(() => {
-    fetch("/api/tenant-type")
-      .then((r) => r.json())
-      .then(({ isMaster }) => {
-        if (isMaster) window.location.replace("/master-home");
-      })
-      .catch(() => {});
+    if (
+      MASTER_DOMAIN_PUBLIC &&
+      window.location.hostname.toLowerCase() === MASTER_DOMAIN_PUBLIC
+    ) {
+      window.location.replace("/master-home");
+      // Não marca como checked para manter a tela em branco durante o redirect
+      return;
+    }
+    setMasterChecked(true);
   }, []);
+
+  // Aguarda a verificação antes de renderizar a loja
+  if (!masterChecked) return null;
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
