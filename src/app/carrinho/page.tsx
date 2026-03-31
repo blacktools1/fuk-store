@@ -38,10 +38,12 @@ export default function CartPage() {
     }));
     if (checkoutUrl.trim()) {
       let url = buildExternalCheckoutUrl(checkoutUrl, lines);
-      // Passa os IDs de pixels TikTok para o checkout PHP usar os mesmos pixels
+      // Passa os IDs de pixels TikTok para o checkout PHP usar os mesmos pixels.
+      // encodeURIComponent garante que os chars '+', '/' e '=' do base64 não
+      // sejam interpretados como espaços ou delimitadores pelo PHP.
       if (ttPixelIds.length > 0) {
-        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(ttPixelIds))));
-        url += `&tt_pixels=${encoded}`;
+        const raw = btoa(unescape(encodeURIComponent(JSON.stringify(ttPixelIds))));
+        url += `&tt_pixels=${encodeURIComponent(raw)}`;
       }
       window.location.href = url;
     } else {
@@ -93,9 +95,15 @@ export default function CartPage() {
               {/* Frete grátis progress */}
               {!freeShipping && (
                 <div className="cart-free-shipping-bar">
-                  <span>
-                    Faltam <strong>{formatPrice(remaining)}</strong> para frete grátis!
-                  </span>
+                  <div className="cart-free-top">
+                    <span className="cart-free-icon">🚚</span>
+                    <span className="cart-free-text">
+                      Faltam <strong>{formatPrice(remaining)}</strong> para frete grátis
+                    </span>
+                    <span className="cart-free-pct">
+                      {Math.round((total / freeShippingMin) * 100)}%
+                    </span>
+                  </div>
                   <div className="cart-free-progress">
                     <div className="cart-free-progress-fill" style={{ width: `${Math.min((total / freeShippingMin) * 100, 100)}%` }} />
                   </div>
@@ -103,17 +111,13 @@ export default function CartPage() {
               )}
               {freeShipping && (
                 <div className="cart-free-shipping-bar success">
-                  🎉 Parabéns! Você ganhou <strong>frete grátis</strong>!
+                  <div className="cart-free-success-icon">✓</div>
+                  <div className="cart-free-success-text">
+                    Frete grátis desbloqueado!{" "}
+                    <span>Seu pedido qualifica para entrega gratuita.</span>
+                  </div>
                 </div>
               )}
-
-              {/* Cabeçalho da tabela — desktop */}
-              <div className="cart-table-header">
-                <span style={{ flex: 2 }}>PRODUTO</span>
-                <span className="cart-th-center">PREÇO</span>
-                <span className="cart-th-center">QUANTIDADE</span>
-                <span className="cart-th-center">SUBTOTAL</span>
-              </div>
 
               {/* Itens */}
               <div className="cart-page-items">
@@ -121,6 +125,52 @@ export default function CartPage() {
                   const lineTotal = item.product.price * item.quantity;
                   return (
                     <div key={item.id} className="cart-page-row">
+                      {/* Imagem */}
+                      <div className="cart-row-img">
+                        <Image
+                          src={item.product.image}
+                          alt={item.product.name}
+                          fill
+                          sizes="100px"
+                          style={{ objectFit: "cover" }}
+                        />
+                      </div>
+
+                      {/* Info: nome + preço */}
+                      <div className="cart-row-info">
+                        <Link href={`/product/${item.product.id}`} className="cart-row-name-link">
+                          {item.product.name}
+                        </Link>
+                        {item.variation && (
+                          <span className="cart-row-variation">Variação: {item.variation}</span>
+                        )}
+                        <div className="cart-row-prices">
+                          {item.product.oldPrice && item.product.oldPrice > item.product.price && (
+                            <span className="cart-row-old">{formatPrice(item.product.oldPrice)}</span>
+                          )}
+                          <span className="cart-row-price-current">{formatPrice(item.product.price)}</span>
+                        </div>
+                      </div>
+
+                      {/* Qty + Subtotal */}
+                      <div className="cart-row-right">
+                        <span className="cart-row-subtotal">{formatPrice(lineTotal)}</span>
+                        <div className="cart-row-qty">
+                          <button onClick={() => update(item.id, item.quantity - 1)} className="qty-btn">−</button>
+                          <input
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value);
+                              if (!isNaN(v) && v > 0) update(item.id, v);
+                            }}
+                            className="cart-qty-input"
+                          />
+                          <button onClick={() => update(item.id, item.quantity + 1)} className="qty-btn">+</button>
+                        </div>
+                      </div>
+
                       {/* Remove */}
                       <button
                         className="cart-row-remove"
@@ -129,54 +179,6 @@ export default function CartPage() {
                       >
                         ×
                       </button>
-
-                      {/* Imagem */}
-                      <div className="cart-row-img">
-                        <Image
-                          src={item.product.image}
-                          alt={item.product.name}
-                          fill
-                          sizes="80px"
-                          style={{ objectFit: "cover", borderRadius: 6 }}
-                        />
-                      </div>
-
-                      {/* Nome */}
-                      <div className="cart-row-name">
-                        <Link href={`/product/${item.product.id}`}>{item.product.name}</Link>
-                        {item.variation && (
-                          <span className="cart-row-variation">Opção: {item.variation}</span>
-                        )}
-                      </div>
-
-                      {/* Preço */}
-                      <div className="cart-row-price">
-                        {item.product.oldPrice && item.product.oldPrice > item.product.price && (
-                          <span className="cart-row-old">{formatPrice(item.product.oldPrice)}</span>
-                        )}
-                        <span>{formatPrice(item.product.price)}</span>
-                      </div>
-
-                      {/* Quantidade */}
-                      <div className="cart-row-qty">
-                        <button onClick={() => update(item.id, item.quantity - 1)} className="qty-btn">−</button>
-                        <input
-                          type="number"
-                          min={1}
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const v = parseInt(e.target.value);
-                            if (!isNaN(v) && v > 0) update(item.id, v);
-                          }}
-                          className="cart-qty-input"
-                        />
-                        <button onClick={() => update(item.id, item.quantity + 1)} className="qty-btn">+</button>
-                      </div>
-
-                      {/* Subtotal */}
-                      <div className="cart-row-subtotal">
-                        {formatPrice(lineTotal)}
-                      </div>
                     </div>
                   );
                 })}
@@ -228,8 +230,8 @@ export default function CartPage() {
               </button>
 
               <div className="cart-security-badges">
-                <span>🔒 Compra 100% Segura</span>
-                <span>⚡ Pix com aprovação imediata</span>
+                <span>Compra 100% Segura</span>
+                <span>PIX · Aprovação Imediata</span>
               </div>
             </aside>
 

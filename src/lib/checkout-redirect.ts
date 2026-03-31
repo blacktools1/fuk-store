@@ -18,5 +18,7 @@ export function encodeCartQueryParam(lines: CheckoutCartLine[]): string {
 export function buildExternalCheckoutUrl(checkoutBaseUrl: string, lines: CheckoutCartLine[]): string {
   const base = checkoutBaseUrl.trim().replace(/\/$/, "");
   const cart = encodeCartQueryParam(lines);
-  return `${base}?cart=${cart}`;
+  // encodeURIComponent é obrigatório: btoa() produz '+', '/' e '='
+  // que não são URL-safe — PHP interpreta '+' como espaço em $_GET.
+  return `${base}?cart=${encodeURIComponent(cart)}`;
 }
