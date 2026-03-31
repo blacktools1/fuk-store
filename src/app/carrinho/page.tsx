@@ -65,17 +65,17 @@ export default function CartPage() {
         <div className="cart-stepper">
           <div className="cart-step active">
             <span className="cart-step-num">1</span>
-            <span className="cart-step-label">Carrinho de Compras</span>
+            <span className="cart-step-label">Carrinho</span>
           </div>
           <div className="cart-step-sep" />
           <div className="cart-step">
             <span className="cart-step-num">2</span>
-            <span className="cart-step-label">Detalhes da Compra</span>
+            <span className="cart-step-label">Pagamento</span>
           </div>
           <div className="cart-step-sep" />
           <div className="cart-step">
             <span className="cart-step-num">3</span>
-            <span className="cart-step-label">Pedido Completo</span>
+            <span className="cart-step-label">Conclusão</span>
           </div>
         </div>
 
@@ -92,15 +92,14 @@ export default function CartPage() {
             {/* Tabela de produtos */}
             <div className="cart-page-main">
 
-              {/* Frete grátis progress */}
+              {/* Frete grátis */}
               {!freeShipping && (
                 <div className="cart-free-shipping-bar">
-                  <div className="cart-free-top">
-                    <span className="cart-free-icon">🚚</span>
-                    <span className="cart-free-text">
+                  <div className="cart-free-label">
+                    <span className="cart-free-label-text">
                       Faltam <strong>{formatPrice(remaining)}</strong> para frete grátis
                     </span>
-                    <span className="cart-free-pct">
+                    <span className="cart-free-label-pct">
                       {Math.round((total / freeShippingMin) * 100)}%
                     </span>
                   </div>
@@ -111,10 +110,9 @@ export default function CartPage() {
               )}
               {freeShipping && (
                 <div className="cart-free-shipping-bar success">
-                  <div className="cart-free-success-icon">✓</div>
                   <div className="cart-free-success-text">
-                    Frete grátis desbloqueado!{" "}
-                    <span>Seu pedido qualifica para entrega gratuita.</span>
+                    Frete grátis desbloqueado —{" "}
+                    <span>seu pedido qualifica para entrega gratuita.</span>
                   </div>
                 </div>
               )}
