@@ -9,10 +9,15 @@ export async function GET(req: NextRequest) {
   const tenant = getTenantFromRequest(req);
   const data = readStoreData(tenant);
 
+  const activeTikTokPixelIds = (data.pixels ?? [])
+    .filter((p) => p.active && p.type === "tiktok")
+    .map((p) => p.pixelId);
+
   return NextResponse.json({
     pixDiscountEnabled: data.pixDiscountEnabled ?? true,
     pixDiscount: data.pixDiscount ?? 5,
     freeShippingMin: data.freeShippingMin ?? 199,
     checkoutUrl: data.checkoutUrl ?? "",
+    ttPixelIds: activeTikTokPixelIds,
   });
 }

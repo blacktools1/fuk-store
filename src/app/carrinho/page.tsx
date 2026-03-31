@@ -14,6 +14,7 @@ export default function CartPage() {
   const total = cartTotal(items);
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const [freeShippingMin, setFreeShippingMin] = useState(199);
+  const [ttPixelIds, setTtPixelIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/store/config")
@@ -21,6 +22,7 @@ export default function CartPage() {
       .then((cfg) => {
         setCheckoutUrl(cfg.checkoutUrl || "");
         setFreeShippingMin(cfg.freeShippingMin ?? 199);
+        setTtPixelIds(cfg.ttPixelIds ?? []);
       })
       .catch(() => {});
   }, []);
@@ -35,7 +37,13 @@ export default function CartPage() {
       image: item.product.image,
     }));
     if (checkoutUrl.trim()) {
-      window.location.href = buildExternalCheckoutUrl(checkoutUrl, lines);
+      let url = buildExternalCheckoutUrl(checkoutUrl, lines);
+      // Passa os IDs de pixels TikTok para o checkout PHP usar os mesmos pixels
+      if (ttPixelIds.length > 0) {
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(ttPixelIds))));
+        url += `&tt_pixels=${encoded}`;
+      }
+      window.location.href = url;
     } else {
       window.location.href = "/checkout";
     }
