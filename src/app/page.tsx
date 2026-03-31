@@ -18,6 +18,18 @@ export default function StorePage() {
   const [page,              setPage]              = useState(1);
   const [isMobile,          setIsMobile]          = useState(false);
 
+  // Fallback: se estiver no master domain, redireciona para a landing page.
+  // O middleware tenta fazer isso, mas caso falhe (problemas de proxy/header),
+  // esta verificação server-side via API garante o comportamento correto.
+  useEffect(() => {
+    fetch("/api/tenant-type")
+      .then((r) => r.json())
+      .then(({ isMaster }) => {
+        if (isMaster) window.location.replace("/master-home");
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
     setIsMobile(mq.matches);
