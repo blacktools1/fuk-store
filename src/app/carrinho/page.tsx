@@ -14,15 +14,12 @@ export default function CartPage() {
   const total = cartTotal(items);
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const [freeShippingMin, setFreeShippingMin] = useState(199);
-  const [ttPixelIds, setTtPixelIds] = useState<string[]>([]);
-
   useEffect(() => {
     fetch("/api/store/config")
       .then((r) => r.json())
       .then((cfg) => {
         setCheckoutUrl(cfg.checkoutUrl || "");
         setFreeShippingMin(cfg.freeShippingMin ?? 199);
-        setTtPixelIds(cfg.ttPixelIds ?? []);
       })
       .catch(() => {});
   }, []);
@@ -37,15 +34,9 @@ export default function CartPage() {
       image: item.product.image,
     }));
     if (checkoutUrl.trim()) {
-      let url = buildExternalCheckoutUrl(checkoutUrl, lines);
-      // Passa os IDs de pixels TikTok para o checkout PHP usar os mesmos pixels.
-      // encodeURIComponent garante que os chars '+', '/' e '=' do base64 não
-      // sejam interpretados como espaços ou delimitadores pelo PHP.
-      if (ttPixelIds.length > 0) {
-        const raw = btoa(unescape(encodeURIComponent(JSON.stringify(ttPixelIds))));
-        url += `&tt_pixels=${encodeURIComponent(raw)}`;
-      }
-      window.location.href = url;
+      // O PHP checkout busca os pixel IDs diretamente da API da loja via cURL
+      // (STORE_BASE_URL + /api/store/config) — não precisa passar pela URL.
+      window.location.href = buildExternalCheckoutUrl(checkoutUrl, lines);
     } else {
       window.location.href = "/checkout";
     }
