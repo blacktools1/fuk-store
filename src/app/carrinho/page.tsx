@@ -14,12 +14,15 @@ export default function CartPage() {
   const total = cartTotal(items);
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const [freeShippingMin, setFreeShippingMin] = useState(199);
+  const [ttPixelIds, setTtPixelIds] = useState<string[]>([]);
+
   useEffect(() => {
     fetch("/api/store/config")
       .then((r) => r.json())
       .then((cfg) => {
         setCheckoutUrl(cfg.checkoutUrl || "");
         setFreeShippingMin(cfg.freeShippingMin ?? 199);
+        setTtPixelIds(cfg.ttPixelIds ?? []);
       })
       .catch(() => {});
   }, []);
@@ -34,9 +37,31 @@ export default function CartPage() {
       image: item.product.image,
     }));
     if (checkoutUrl.trim()) {
-      // O PHP checkout busca os pixel IDs diretamente da API da loja via cURL
-      // (STORE_BASE_URL + /api/store/config) — não precisa passar pela URL.
-      window.location.href = buildExternalCheckoutUrl(checkoutUrl, lines);
+      let url = buildExternalCheckoutUrl(checkoutUrl, lines);
+
+      // IDs do pixel TikTok em texto simples, separados por vírgula
+      if (ttPixelIds.length > 0) {
+        url += `&tt_pixels=${encodeURIComponent(ttPixelIds.join(","))}`;
+      }
+
+      // UTMs: lê do localStorage onde o SDK UTMify salva, e também do URL atual.
+      // Como o checkout PHP é outro domínio, precisamos passá-las via URL.
+      try {
+        const utmKeys = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "src", "sck"];
+        const urlParams = new URLSearchParams(window.location.search);
+        utmKeys.forEach((key) => {
+          // Prioridade: URL atual → localStorage (onde UTMify salvou)
+          const val =
+            urlParams.get(key) ||
+            localStorage.getItem(`utmify_${key}`) ||
+            "";
+          if (val) url += `&${key}=${encodeURIComponent(val)}`;
+        });
+      } catch (_) {
+        // localStorage indisponível — segue sem UTMs
+      }
+
+      window.location.href = url;
     } else {
       window.location.href = "/checkout";
     }
