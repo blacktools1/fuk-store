@@ -546,7 +546,6 @@ function CheckoutSection({
   const [isTest, setIsTest]               = useState(storeData?.checkoutConfig?.utmifyIsTest ?? false);
   const [orderbumps, setOrderbumps]       = useState<import("@/lib/admin-types").Orderbump[]>(storeData?.checkoutConfig?.orderbumps ?? []);
   const [addBump, setAddBump]             = useState({ title: "", description: "", price: "0", offerHash: "" });
-  const [checkoutTheme, setCheckoutTheme] = useState<"theme1" | "theme2" | "theme3">(storeData?.checkoutConfig?.checkoutTheme ?? "theme1");
   const [pixProvider, setPixProvider]     = useState<string>(storeData?.checkoutConfig?.pixProvider ?? "paradise");
 
   // UTMify — múltiplas contas
@@ -588,7 +587,6 @@ function CheckoutSection({
           utmifyAccounts,
           utmifyIsTest: isTest,
           orderbumps,
-          checkoutTheme,
         },
       });
       setSaveStatus("saved");
@@ -654,41 +652,6 @@ function CheckoutSection({
                 : "Preencha a Chave da API Paradise abaixo para ativar o checkout integrado."}
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Design do Checkout */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">🎨 Design do Checkout</h2>
-        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
-          Escolha o visual da página de finalização que seus clientes verão.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {(
-            [
-              { id: "theme1" as const, emoji: "🌗", label: "Padrão", desc: "Duas colunas, adapta ao tema da loja" },
-              { id: "theme2" as const, emoji: "☀️", label: "Claro", desc: "Coluna única, cards brancos, com endereço" },
-              { id: "theme3" as const, emoji: "🌙", label: "Escuro", desc: "Coluna única, fundo escuro, minimalista" },
-            ]
-          ).map((t) => (
-            <div
-              key={t.id}
-              onClick={() => { setCheckoutTheme(t.id); markDirty(); }}
-              style={{
-                border: `2px solid ${checkoutTheme === t.id ? "var(--accent)" : "var(--adm-border)"}`,
-                borderRadius: 8,
-                padding: "14px 10px",
-                cursor: "pointer",
-                textAlign: "center",
-                background: checkoutTheme === t.id ? "rgba(16,185,129,.07)" : "transparent",
-                transition: "all .18s",
-              }}
-            >
-              <div style={{ fontSize: "1.6rem", marginBottom: 6 }}>{t.emoji}</div>
-              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--adm-text)", marginBottom: 4 }}>{t.label}</div>
-              <div style={{ fontSize: "0.7rem", color: "var(--adm-text-faint)", lineHeight: 1.4 }}>{t.desc}</div>
-            </div>
-          ))}
         </div>
       </div>
 
