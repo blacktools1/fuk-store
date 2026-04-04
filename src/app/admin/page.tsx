@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { StoreData, AdminProduct, Banner, TopBannerConfig, StorePixel } from "@/lib/admin-types";
@@ -2549,15 +2549,87 @@ function PixelsSection({
 
   const remove = (id: string) => update(list.filter((p) => p.id !== id));
 
-  const PIXEL_LABELS: Record<string, string> = {
-    facebook: "Facebook / Meta Pixel",
-    tiktok: "TikTok Pixel",
-  };
-
   const PIXEL_ICONS: Record<string, string> = {
     facebook: "📘",
     tiktok: "🎵",
   };
+
+  const metaPixels = useMemo(
+    () => list.filter((p) => p.type === "facebook").sort((a, b) => a.pixelId.localeCompare(b.pixelId)),
+    [list]
+  );
+  const tiktokPixels = useMemo(
+    () => list.filter((p) => p.type === "tiktok").sort((a, b) => a.pixelId.localeCompare(b.pixelId)),
+    [list]
+  );
+
+  function renderPixelCard(px: StorePixel, indexInGroup: number) {
+    return (
+      <div
+        key={px.id}
+        className="admin-pixels-card"
+        style={{ opacity: px.active ? 1 : 0.62 }}
+      >
+        <div className="admin-pixels-card__topbar">
+          <span className="admin-pixels-card__icon" aria-hidden>{PIXEL_ICONS[px.type]}</span>
+          <div className="admin-pixels-card__title-block">
+            <p className="admin-pixels-card__platform">
+              {px.type === "facebook" ? "Meta Pixel" : "TikTok Pixel"}
+              <span className="admin-pixels-card__index">#{indexInGroup + 1}</span>
+            </p>
+            {!px.active && (
+              <span className="admin-pixels-card__status">Inativo</span>
+            )}
+          </div>
+          <div className="admin-pixels-card__toggle">
+            <label className="admin-toggle" title={px.active ? "Ativo — clique para desativar" : "Inativo — clique para ativar"}>
+              <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
+              <span className="admin-toggle-slider" />
+            </label>
+          </div>
+        </div>
+
+        <div className="admin-pixels-card__fields">
+          <div className="admin-pixels-field">
+            <label className="admin-form-label">ID do Pixel</label>
+            <input
+              className="admin-form-input admin-pixels-input-mono"
+              value={px.pixelId}
+              onChange={(e) => setPixelField(px.id, { pixelId: e.target.value })}
+            />
+          </div>
+          {px.type === "facebook" && (
+            <div className="admin-pixels-field admin-pixels-field--token">
+              <label className="admin-form-label">Token da API de Conversões (Meta CAPI) — opcional</label>
+              <input
+                className="admin-form-input"
+                type="password"
+                autoComplete="new-password"
+                value={px.accessToken ?? ""}
+                onChange={(e) => setPixelField(px.id, { accessToken: e.target.value })}
+                placeholder="EAAB... (Gerenciador de Eventos → Configurações → API de Conversões)"
+                style={{ fontSize: "0.8rem" }}
+              />
+              <p className="admin-pixels-field-help">
+                O script do pixel no navegador usa só o ID acima. Este token fica salvo no servidor (não vai para o HTML da loja) e pode ser usado para eventos server-side no futuro. O checkout PHP separado tem o próprio CAPI em <code>pixels.json</code>.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="admin-pixels-card__danger">
+          <button
+            type="button"
+            className="admin-btn admin-btn-danger admin-btn-sm"
+            onClick={() => remove(px.id)}
+            title="Remove este pixel da loja"
+          >
+            Remover pixel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -2613,66 +2685,42 @@ function PixelsSection({
           {list.length === 0 ? (
             <p className="admin-pixels-empty">Nenhum pixel configurado ainda.</p>
           ) : (
-            <div className="admin-pixels-list">
-              {list.map((px) => (
-                <div
-                  key={px.id}
-                  className="admin-pixels-card"
-                  style={{ opacity: px.active ? 1 : 0.62 }}
-                >
-                  <div className="admin-pixels-card__topbar">
-                    <span className="admin-pixels-card__icon" aria-hidden>{PIXEL_ICONS[px.type]}</span>
-                    <div className="admin-pixels-card__title-block">
-                      <p className="admin-pixels-card__platform">{PIXEL_LABELS[px.type]}</p>
-                      {!px.active && (
-                        <span className="admin-pixels-card__status">Inativo</span>
-                      )}
-                    </div>
-                    <div className="admin-pixels-card__toggle">
-                      <label className="admin-toggle" title={px.active ? "Ativo — clique para desativar" : "Inativo — clique para ativar"}>
-                        <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
-                        <span className="admin-toggle-slider" />
-                      </label>
-                    </div>
+            <div className="admin-pixels-grouped">
+              <div className="admin-pixels-platform-section admin-pixels-platform-section--meta">
+                <div className="admin-pixels-platform-head">
+                  <span className="admin-pixels-platform-head__icon" aria-hidden>📘</span>
+                  <div className="admin-pixels-platform-head__text">
+                    <h4 className="admin-pixels-platform-head__title">Meta (Facebook)</h4>
+                    <p className="admin-pixels-platform-head__sub">Pixel + eventos no navegador (fbq). Token opcional para CAPI.</p>
                   </div>
-
-                  <div className="admin-pixels-card__fields">
-                    <div className="admin-pixels-field">
-                      <label className="admin-form-label">ID do Pixel</label>
-                      <input
-                        className="admin-form-input admin-pixels-input-mono"
-                        value={px.pixelId}
-                        onChange={(e) => setPixelField(px.id, { pixelId: e.target.value })}
-                      />
-                    </div>
-                    {px.type === "facebook" && (
-                      <div className="admin-pixels-field admin-pixels-field--token">
-                        <label className="admin-form-label">Token da API de Conversões (Meta CAPI) — opcional</label>
-                        <input
-                          className="admin-form-input"
-                          type="password"
-                          autoComplete="new-password"
-                          value={px.accessToken ?? ""}
-                          onChange={(e) => setPixelField(px.id, { accessToken: e.target.value })}
-                          placeholder="EAAB... (Gerenciador de Eventos → Configurações → API de Conversões)"
-                          style={{ fontSize: "0.8rem" }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="admin-pixels-card__danger">
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn-danger admin-btn-sm"
-                      onClick={() => remove(px.id)}
-                      title="Remove este pixel da loja"
-                    >
-                      Remover pixel
-                    </button>
-                  </div>
+                  <span className="admin-pixels-platform-head__count">{metaPixels.length}</span>
                 </div>
-              ))}
+                {metaPixels.length === 0 ? (
+                  <p className="admin-pixels-platform-empty">Nenhum pixel Meta cadastrado. Use &quot;Adicionar Pixel&quot; com plataforma Facebook / Meta.</p>
+                ) : (
+                  <div className="admin-pixels-list">
+                    {metaPixels.map((px, i) => renderPixelCard(px, i))}
+                  </div>
+                )}
+              </div>
+
+              <div className="admin-pixels-platform-section admin-pixels-platform-section--tiktok">
+                <div className="admin-pixels-platform-head">
+                  <span className="admin-pixels-platform-head__icon" aria-hidden>🎵</span>
+                  <div className="admin-pixels-platform-head__text">
+                    <h4 className="admin-pixels-platform-head__title">TikTok</h4>
+                    <p className="admin-pixels-platform-head__sub">Pixel e eventos no navegador (ttq).</p>
+                  </div>
+                  <span className="admin-pixels-platform-head__count">{tiktokPixels.length}</span>
+                </div>
+                {tiktokPixels.length === 0 ? (
+                  <p className="admin-pixels-platform-empty">Nenhum pixel TikTok cadastrado.</p>
+                ) : (
+                  <div className="admin-pixels-list">
+                    {tiktokPixels.map((px, i) => renderPixelCard(px, i))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

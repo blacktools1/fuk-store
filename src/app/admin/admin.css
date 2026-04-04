@@ -968,6 +968,92 @@
   padding: 8px 4px 4px;
 }
 
+.admin-pixels-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.admin-pixels-platform-section {
+  border-radius: var(--adm-radius);
+  border: 1px solid var(--adm-border);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.admin-pixels-platform-section--meta {
+  border-left: 4px solid #1877f2;
+}
+
+.admin-pixels-platform-section--tiktok {
+  border-left: 4px solid #25f4ee;
+}
+
+.admin-pixels-platform-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--adm-border);
+}
+
+.admin-pixels-platform-head__icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.admin-pixels-platform-head__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-pixels-platform-head__title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--adm-text);
+  letter-spacing: -0.02em;
+}
+
+.admin-pixels-platform-head__sub {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--adm-text-muted);
+  line-height: 1.45;
+}
+
+.admin-pixels-platform-head__count {
+  flex-shrink: 0;
+  min-width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  background: var(--adm-accent-dim);
+  color: var(--adm-accent-bright);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.admin-pixels-platform-empty {
+  margin: 0;
+  padding: 18px 20px;
+  font-size: 0.82rem;
+  color: var(--adm-text-faint);
+  line-height: 1.55;
+  font-style: italic;
+}
+
+.admin-pixels-platform-section .admin-pixels-list {
+  padding: 16px 16px 4px;
+  gap: 16px;
+}
+
 .admin-pixels-list {
   display: flex;
   flex-direction: column;
@@ -1034,6 +1120,17 @@
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--adm-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-pixels-card__index {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--adm-text-faint);
+  letter-spacing: 0.04em;
 }
 
 .admin-pixels-card__status {
