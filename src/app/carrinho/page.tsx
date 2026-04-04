@@ -14,6 +14,8 @@ export default function CartPage() {
   const count = cartCount(items);
   const total = cartTotal(items);
   const [checkoutUrl, setCheckoutUrl] = useState("");
+  /** Se true, chave Paradise configurada — checkout fica em /checkout no mesmo domínio */
+  const [hasInternalCheckout, setHasInternalCheckout] = useState(false);
   const [freeShippingMin, setFreeShippingMin] = useState(199);
   const [ttPixelIds, setTtPixelIds] = useState<string[]>([]);
 
@@ -22,6 +24,7 @@ export default function CartPage() {
       .then((r) => r.json())
       .then((cfg) => {
         setCheckoutUrl(cfg.checkoutUrl || "");
+        setHasInternalCheckout(!!cfg.hasInternalCheckout);
         setFreeShippingMin(cfg.freeShippingMin ?? 199);
         setTtPixelIds(cfg.ttPixelIds ?? []);
       })
@@ -38,8 +41,7 @@ export default function CartPage() {
       image: item.product.image,
     }));
 
-    // ── Dispara InitiateCheckout nos pixels da loja (mesmo domínio = 100% confiável)
-    // Fazemos isso AQUI antes de redirecionar para o PHP checkout (domínio externo).
+    // ── Dispara InitiateCheckout nos pixels da loja
     try {
       firePixelEvent("InitiateCheckout", {
         content_ids: items.map((i) => String(i.product.id)),
@@ -56,23 +58,25 @@ export default function CartPage() {
       });
     } catch (_) {}
 
+    // Prioridade: checkout interno (Paradise) no mesmo domínio — ignora checkoutUrl legado
+    if (hasInternalCheckout) {
+      window.location.href = "/checkout";
+      return;
+    }
+
     if (checkoutUrl.trim()) {
       let url = buildExternalCheckoutUrl(checkoutUrl, lines);
 
-      // IDs do pixel TikTok em texto simples, separados por vírgula
       if (ttPixelIds.length > 0) {
         url += `&tt_pixels=${encodeURIComponent(ttPixelIds.join(","))}`;
       }
 
-      // ── UTMs: lê do nosso cache (salvo pelo UTMCapture.tsx quando o usuário chegou)
-      // Como o checkout PHP é outro domínio, as UTMs precisam ir na URL.
       try {
         const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "src", "sck"];
         const stored: Record<string, string> = JSON.parse(localStorage.getItem("store_utms") || "{}");
         const urlNow = new URLSearchParams(window.location.search);
 
         UTM_KEYS.forEach((key) => {
-          // Prioridade: URL atual > cache armazenado pelo UTMCapture > chaves do UTMify SDK
           const val =
             urlNow.get(key) ||
             stored[key] ||
