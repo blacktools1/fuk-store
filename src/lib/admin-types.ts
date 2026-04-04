@@ -47,8 +47,15 @@ export interface Orderbump {
   imageUrl?: string;
 }
 
+/**
+ * Provedores de pagamento PIX disponíveis.
+ * Adicionar novos valores aqui conforme cada integração for implementada.
+ */
+export type PixProvider = "paradise";  // expandir futuramente
+
 export interface CheckoutConfig {
-  paradiseApiKey?: string;
+  pixProvider?: PixProvider | string;   // provedor ativo (default: "paradise")
+  paradiseApiKey?: string;              // chave da API Paradise Pags
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;

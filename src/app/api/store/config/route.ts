@@ -14,12 +14,21 @@ export async function GET(req: NextRequest) {
     .map((p) => p.pixelId)
     .filter(Boolean);
 
+  // Checkout interno está ativo quando o provedor selecionado tem sua chave configurada
+  const provider = data.checkoutConfig?.pixProvider || "paradise";
+  let hasInternalCheckout = false;
+  if (provider === "paradise") {
+    hasInternalCheckout = !!(data.checkoutConfig?.paradiseApiKey?.trim());
+  }
+  // Adicionar novos provedores aqui quando implementados
+
   return NextResponse.json({
     pixDiscountEnabled: data.pixDiscountEnabled ?? true,
     pixDiscount: data.pixDiscount ?? 5,
     freeShippingMin: data.freeShippingMin ?? 199,
     checkoutUrl: data.checkoutUrl ?? "",
-    hasInternalCheckout: !!(data.checkoutConfig?.paradiseApiKey?.trim()),
+    hasInternalCheckout,
+    pixProvider: provider,
     ttPixelIds,
   });
 }

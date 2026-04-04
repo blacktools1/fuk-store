@@ -514,6 +514,7 @@ function CheckoutSection({
   const [orderbumps, setOrderbumps]       = useState<import("@/lib/admin-types").Orderbump[]>(storeData?.checkoutConfig?.orderbumps ?? []);
   const [addBump, setAddBump]             = useState({ title: "", description: "", price: "0", offerHash: "" });
   const [checkoutTheme, setCheckoutTheme] = useState<"theme1" | "theme2" | "theme3">(storeData?.checkoutConfig?.checkoutTheme ?? "theme1");
+  const [pixProvider, setPixProvider]     = useState<string>(storeData?.checkoutConfig?.pixProvider ?? "paradise");
 
   const hasKey = apiKey.trim().length > 0;
 
@@ -522,6 +523,7 @@ function CheckoutSection({
     await onSaveConfig({
       checkoutUrl: "", // limpa URL externa — checkout interno tem prioridade
       checkoutConfig: {
+        pixProvider,
         paradiseApiKey: apiKey.trim(),
         redirectUrl: redirectUrl.trim(),
         redirectEnabled: redirectOn,
@@ -604,22 +606,80 @@ function CheckoutSection({
         </div>
       </div>
 
+      {/* Provedor de Pagamento PIX */}
+      <div className="admin-card">
+        <h2 className="admin-card-title">⚡ Integração de Pagamento PIX</h2>
+        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
+          Selecione qual gateway de pagamento será utilizado para processar as transações PIX.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+          {(
+            [
+              { id: "paradise",    name: "Paradise Pags", logo: "💎", desc: "API PIX com aprovação imediata",     available: true  },
+              { id: "asaas",       name: "Asaas",         logo: "🏦", desc: "Gateway bancário completo",          available: false },
+              { id: "pagseguro",   name: "PagSeguro",     logo: "🔵", desc: "Pagamentos PagBank / PIX",           available: false },
+              { id: "mercadopago", name: "Mercado Pago",  logo: "🟡", desc: "PIX Mercado Pago",                   available: false },
+            ] as const
+          ).map((p) => {
+            const isSelected = pixProvider === p.id;
+            return (
+              <div
+                key={p.id}
+                onClick={() => p.available && setPixProvider(p.id)}
+                style={{
+                  border: `2px solid ${isSelected ? "var(--accent)" : "var(--adm-border)"}`,
+                  borderRadius: 10, padding: "14px 12px",
+                  cursor: p.available ? "pointer" : "not-allowed",
+                  background: isSelected ? "rgba(16,185,129,.07)" : p.available ? "transparent" : "rgba(0,0,0,.02)",
+                  opacity: p.available ? 1 : 0.5,
+                  transition: "all .18s", position: "relative",
+                }}
+              >
+                {!p.available && (
+                  <span style={{
+                    position: "absolute", top: 8, right: 8,
+                    fontSize: "0.62rem", fontWeight: 700, padding: "2px 7px",
+                    background: "var(--adm-border)", color: "var(--adm-text-faint)",
+                    borderRadius: 10, textTransform: "uppercase", letterSpacing: ".04em",
+                  }}>Em breve</span>
+                )}
+                {isSelected && p.available && (
+                  <span style={{
+                    position: "absolute", top: 8, right: 8,
+                    fontSize: "0.62rem", fontWeight: 700, padding: "2px 7px",
+                    background: "rgba(16,185,129,.15)", color: "#10b981",
+                    borderRadius: 10, textTransform: "uppercase", letterSpacing: ".04em",
+                  }}>Ativo</span>
+                )}
+                <div style={{ fontSize: "1.4rem", marginBottom: 5 }}>{p.logo}</div>
+                <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "var(--adm-text)", marginBottom: 3 }}>{p.name}</div>
+                <div style={{ fontSize: "0.72rem", color: "var(--adm-text-faint)", lineHeight: 1.4 }}>{p.desc}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* API Config */}
       <div className="admin-card">
-        <h2 className="admin-card-title">🔑 Integração Paradise Pags</h2>
+        <h2 className="admin-card-title">🔑 Configuração da API — {pixProvider === "paradise" ? "Paradise Pags" : pixProvider}</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
           <div>
-            <label className="admin-form-label">Chave da API Paradise (sk_...)</label>
+            <label className="admin-form-label">
+              {pixProvider === "paradise" ? "Chave da API Paradise (sk_...)" : `Chave da API ${pixProvider}`}
+            </label>
             <input
               className="admin-form-input"
               type="password"
-              placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx"
+              placeholder={pixProvider === "paradise" ? "sk_xxxxxxxxxxxxxxxxxxxxxxxx" : "Chave de API"}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />
             <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
-              Painel Paradise → Configurações → API Key
+              {pixProvider === "paradise"
+                ? "Painel Paradise → Configurações → API Key"
+                : `Painel ${pixProvider} → Configurações → Credenciais de API`}
             </p>
           </div>
 
