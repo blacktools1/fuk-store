@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { getPixQrImgSrc } from "@/lib/pix-qr";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
 import { cartTotal } from "@/lib/cart";
@@ -39,9 +40,16 @@ interface AddressForm {
 
 interface PixResult {
   transactionId: string;
+  /** Bruto da API — pode ser data URL ou base64 */
   qrCodeBase64: string;
+  /** Preferencial: URL pronta para <img src> (vem do servidor) */
+  qrImageSrc?: string;
   copyPaste: string;
   total: number;
+}
+
+function pixQrDisplaySrc(p: PixResult): string {
+  return (p.qrImageSrc && p.qrImageSrc.trim()) || getPixQrImgSrc(p.qrCodeBase64);
 }
 
 type Stage = "form" | "pix" | "paid" | "error";
@@ -284,6 +292,7 @@ export default function CheckoutPage() {
 
   const theme = config?.checkoutTheme ?? "theme1";
   const activeOrderbumps = (config?.orderbumps ?? []).filter((ob) => ob.active);
+  const qrDisplaySrc = pixResult ? pixQrDisplaySrc(pixResult) : "";
 
   // ─────────────────────── EMPTY CART ───────────────────────────────────────
   if (items.length === 0 && stage === "form") {
@@ -548,8 +557,8 @@ export default function CheckoutPage() {
               <p className="co2-modal-sub">Escaneie o QR Code ou copie o código abaixo</p>
               <p className="co2-modal-amount">💰 Valor: {formatPrice(pixResult.total)}</p>
               <div className="co2-qr-wrap">
-                {pixResult.qrCodeBase64 ? (
-                  <img src={`data:image/png;base64,${pixResult.qrCodeBase64}`} alt="QR Code PIX" className="co2-qr-img" />
+                {qrDisplaySrc ? (
+                  <img src={qrDisplaySrc} alt="QR Code PIX" className="co2-qr-img" />
                 ) : (
                   <div className="co2-qr-fallback">QR Code não disponível</div>
                 )}
@@ -676,8 +685,8 @@ export default function CheckoutPage() {
             <div className="co3-card">
               <h3 className="co3-card-title"><span className="co3-step">2</span>Escaneie o QR Code</h3>
               <div className="co3-qr-wrap">
-                {pixResult.qrCodeBase64 ? (
-                  <img src={`data:image/png;base64,${pixResult.qrCodeBase64}`} alt="QR Code PIX" className="co3-qr-img" />
+                {qrDisplaySrc ? (
+                  <img src={qrDisplaySrc} alt="QR Code PIX" className="co3-qr-img" />
                 ) : (
                   <div className="co3-qr-fallback">QR Code indisponível</div>
                 )}
@@ -782,9 +791,9 @@ export default function CheckoutPage() {
                 </h2>
 
                 <div className="pix-qr-wrapper">
-                  {pixResult.qrCodeBase64 ? (
+                  {qrDisplaySrc ? (
                     <img
-                      src={`data:image/png;base64,${pixResult.qrCodeBase64}`}
+                      src={qrDisplaySrc}
                       alt="QR Code PIX"
                       className="pix-qr-img"
                     />

@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     // ─────────────────────────────────────────────────────────────────────────
     // Roteamento por provedor
     // ─────────────────────────────────────────────────────────────────────────
-    let result: { transactionId: string; qrCodeBase64: string; copyPaste: string };
+    let result: { transactionId: string; qrCodeBase64: string; qrImageSrc: string; copyPaste: string };
 
     if (provider === "paradise") {
       // ── Paradise Pags ────────────────────────────────────────────────────
@@ -145,6 +145,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       transactionId: result.transactionId,
       qrCodeBase64:  result.qrCodeBase64,
+      qrImageSrc:    result.qrImageSrc,
       copyPaste:     result.copyPaste,
       total,
     });
