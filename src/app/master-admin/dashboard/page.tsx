@@ -20,6 +20,11 @@ export default function MasterDashboard() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isLocalhost, setIsLocalhost] = useState(false);
+
+  useEffect(() => {
+    setIsLocalhost(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  }, []);
 
   const fetchTenants = useCallback(async () => {
     const res = await fetch("/api/master-admin/tenants");
@@ -69,6 +74,16 @@ export default function MasterDashboard() {
     fetchTenants();
   };
 
+  const adminUrl = (domain: string) =>
+    isLocalhost
+      ? `/admin?__tenant=${encodeURIComponent(domain)}`
+      : `https://${domain}/admin`;
+
+  const storeUrl = (domain: string) =>
+    isLocalhost
+      ? `/?__tenant=${encodeURIComponent(domain)}`
+      : `https://${domain}`;
+
   return (
     <div className="master-dash">
       {/* Header */}
@@ -86,6 +101,26 @@ export default function MasterDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Banner de modo local */}
+      {isLocalhost && (
+        <div style={{
+          background: "rgba(245,158,11,.1)", border: "1px solid rgba(245,158,11,.3)",
+          borderRadius: 8, padding: "10px 16px", marginBottom: 20,
+          display: "flex", alignItems: "center", gap: 10, fontSize: "0.82rem",
+          color: "#d97706",
+        }}>
+          <span style={{ fontSize: "1rem" }}>🛠</span>
+          <div>
+            <strong>Modo desenvolvimento</strong> — Os links "Abrir Admin" e "Ver Loja" usam
+            {" "}<code style={{ fontSize: "0.78rem" }}>?__tenant=</code> para simular o tenant localmente.
+            Para voltar ao tenant padrão, acesse{" "}
+            <a href="/?__tenant=__clear" style={{ color: "inherit", fontWeight: 700, textDecoration: "underline" }}>
+              /?__tenant=__clear
+            </a>.
+          </div>
+        </div>
+      )}
 
       {/* Modal Criar Loja */}
       {showCreate && (
@@ -176,16 +211,16 @@ export default function MasterDashboard() {
                   <td>
                     <div className="master-row-actions">
                       <a
-                        href={`https://${t.domain}/admin`}
-                        target="_blank"
+                        href={adminUrl(t.domain)}
+                        target={isLocalhost ? "_self" : "_blank"}
                         rel="noopener noreferrer"
                         className="master-btn-sm"
                       >
                         Abrir Admin
                       </a>
                       <a
-                        href={`https://${t.domain}`}
-                        target="_blank"
+                        href={storeUrl(t.domain)}
+                        target={isLocalhost ? "_self" : "_blank"}
                         rel="noopener noreferrer"
                         className="master-btn-sm master-btn-sm--ghost"
                       >

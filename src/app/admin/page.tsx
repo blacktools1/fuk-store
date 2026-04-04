@@ -35,6 +35,18 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [devTenant, setDevTenant] = useState<string | null>(null);
+
+  // Detecta tenant de desenvolvimento (cookie __dev_tenant no localhost)
+  useEffect(() => {
+    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    if (!isLocal) return;
+    const match = document.cookie.split("; ").find((c) => c.startsWith("__dev_tenant="));
+    if (match) {
+      const val = match.split("=")[1];
+      if (val && val !== "localhost") setDevTenant(decodeURIComponent(val));
+    }
+  }, []);
 
   const navigate = (s: Section) => { setSection(s); setSidebarOpen(false); };
 
@@ -243,6 +255,26 @@ export default function AdminPage() {
         </div>
 
         <div className="admin-content">
+          {/* Banner de dev tenant (só aparece no localhost quando há override) */}
+          {devTenant && (
+            <div style={{
+              background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.25)",
+              borderRadius: 8, padding: "8px 14px", marginBottom: 20,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: 10, fontSize: "0.8rem", color: "#b45309", flexWrap: "wrap",
+            }}>
+              <span>
+                🛠 <strong>Modo dev</strong> — editando loja:{" "}
+                <code style={{ background: "rgba(0,0,0,.06)", padding: "1px 5px", borderRadius: 4 }}>{devTenant}</code>
+              </span>
+              <a
+                href="/?__tenant=__clear"
+                style={{ color: "inherit", fontWeight: 700, fontSize: "0.75rem", textDecoration: "underline", whiteSpace: "nowrap" }}
+              >
+                Voltar ao padrão
+              </a>
+            </div>
+          )}
           {/* ── Dashboard ── */}
           {section === "dashboard" && (
             <DashboardSection
