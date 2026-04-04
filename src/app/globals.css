@@ -3318,45 +3318,70 @@ button {
 
 .pix-checkout-page {
   min-height: 100vh;
-  padding: 32px 0 80px;
+  padding: 24px 0 80px;
+  overflow-x: hidden;
 }
 
 .pix-checkout-container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 16px;
+}
+
+@media (min-width: 480px) {
+  .pix-checkout-container { padding: 0 20px; }
 }
 
 .pix-checkout-grid {
   display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 28px;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
   align-items: start;
 }
 
-@media (max-width: 840px) {
+/* Tablets e celulares: uma coluna, resumo vai para baixo */
+@media (max-width: 860px) {
   .pix-checkout-grid {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
+  /* Em mobile o resumo aparece ABAIXO do formulário */
   .pix-checkout-summary {
-    order: -1;
+    order: 2;
+    position: static !important; /* cancela sticky */
   }
+  .pix-checkout-left {
+    order: 1;
+  }
+}
+
+/* Evita que os filhos do grid estourem a coluna */
+.pix-checkout-left,
+.pix-checkout-summary {
+  min-width: 0;
 }
 
 .pix-section-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 28px;
+  padding: 20px 16px;
+}
+
+@media (min-width: 480px) {
+  .pix-section-card { padding: 24px 20px; }
+}
+@media (min-width: 768px) {
+  .pix-section-card { padding: 28px; }
 }
 
 .pix-section-title {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .pix-step-badge {
@@ -3375,10 +3400,17 @@ button {
 
 .pix-form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 20px;
+  grid-template-columns: 1fr;   /* 1 coluna no mobile */
+  gap: 12px;
+  margin-bottom: 18px;
 }
+@media (min-width: 480px) {
+  .pix-form-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+}
+
 .pix-field { display: flex; flex-direction: column; gap: 5px; }
 .pix-field.full { grid-column: 1 / -1; }
 .pix-field label { font-size: 0.82rem; font-weight: 600; color: var(--text); opacity: .85; }
@@ -3386,11 +3418,13 @@ button {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 11px 12px;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 1rem;    /* evita zoom no iOS */
   outline: none;
   transition: border-color .2s;
+  width: 100%;
+  box-sizing: border-box;
 }
 .pix-field input:focus { border-color: var(--accent); }
 .pix-field-error { font-size: 0.75rem; color: #f87171; margin-top: 2px; }
@@ -3429,14 +3463,14 @@ button {
   margin: 8px 0 16px;
 }
 .pix-qr-img {
-  width: 220px;
-  height: 220px;
+  width: min(220px, 80vw);
+  height: min(220px, 80vw);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
 .pix-qr-placeholder {
-  width: 220px;
-  height: 220px;
+  width: min(220px, 80vw);
+  height: min(220px, 80vw);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -3462,9 +3496,12 @@ button {
   font-size: 0.72rem;
   font-family: monospace;
   word-break: break-all;
+  overflow-wrap: anywhere;
   color: var(--text-muted);
   max-height: 60px;
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 .pix-copy-btn {
   background: var(--accent);
@@ -3509,9 +3546,19 @@ button {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 22px;
-  position: sticky;
-  top: 80px;
+  padding: 18px 16px;
+  /* sticky só em desktop */
+  position: static;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (min-width: 861px) {
+  .pix-checkout-summary {
+    padding: 22px;
+    position: sticky;
+    top: 80px;
+  }
 }
 .pix-summary-title {
   font-size: 0.9rem;
@@ -3527,6 +3574,7 @@ button {
   align-items: flex-start;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
+  min-width: 0;
 }
 .pix-summary-img {
   position: relative;
@@ -3536,8 +3584,8 @@ button {
   overflow: hidden;
   flex-shrink: 0;
 }
-.pix-summary-info { flex: 1; min-width: 0; }
-.pix-summary-name { font-size: 0.85rem; font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
+.pix-summary-info { flex: 1; min-width: 0; overflow: hidden; }
+.pix-summary-name { font-size: 0.85rem; font-weight: 600; line-height: 1.3; margin-bottom: 2px; overflow-wrap: break-word; }
 .pix-summary-variation { font-weight: 400; opacity: .7; }
 .pix-summary-qty { font-size: 0.75rem; color: var(--text-muted); }
 .pix-summary-price { font-size: 0.9rem; font-weight: 700; color: var(--price-color); white-space: nowrap; }
