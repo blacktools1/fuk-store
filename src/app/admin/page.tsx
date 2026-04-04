@@ -607,58 +607,104 @@ function CheckoutSection({
       </div>
 
       {/* Provedor de Pagamento PIX */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">⚡ Integração de Pagamento PIX</h2>
-        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
-          Selecione qual gateway de pagamento será utilizado para processar as transações PIX.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-          {(
-            [
-              { id: "paradise",    name: "Paradise Pags", logo: "💎", desc: "API PIX com aprovação imediata",     available: true  },
-              { id: "asaas",       name: "Asaas",         logo: "🏦", desc: "Gateway bancário completo",          available: false },
-              { id: "pagseguro",   name: "PagSeguro",     logo: "🔵", desc: "Pagamentos PagBank / PIX",           available: false },
-              { id: "mercadopago", name: "Mercado Pago",  logo: "🟡", desc: "PIX Mercado Pago",                   available: false },
-            ] as const
-          ).map((p) => {
-            const isSelected = pixProvider === p.id;
-            return (
-              <div
-                key={p.id}
-                onClick={() => p.available && setPixProvider(p.id)}
-                style={{
-                  border: `2px solid ${isSelected ? "var(--accent)" : "var(--adm-border)"}`,
-                  borderRadius: 10, padding: "14px 12px",
-                  cursor: p.available ? "pointer" : "not-allowed",
-                  background: isSelected ? "rgba(16,185,129,.07)" : p.available ? "transparent" : "rgba(0,0,0,.02)",
-                  opacity: p.available ? 1 : 0.5,
-                  transition: "all .18s", position: "relative",
-                }}
+      {(() => {
+        const PROVIDERS = [
+          { id: "paradise",    name: "Paradise Pags", logo: "💎", desc: "API PIX com aprovação imediata",  available: true  },
+          { id: "asaas",       name: "Asaas",         logo: "🏦", desc: "Gateway bancário completo",       available: false },
+          { id: "pagseguro",   name: "PagSeguro",     logo: "🔵", desc: "Pagamentos PagBank / PIX",        available: false },
+          { id: "mercadopago", name: "Mercado Pago",  logo: "🟡", desc: "PIX Mercado Pago",                available: false },
+        ] as const;
+        const active = PROVIDERS.find((p) => p.id === pixProvider) ?? PROVIDERS[0];
+        return (
+          <div className="admin-card">
+            <h2 className="admin-card-title">⚡ Integração de Pagamento PIX</h2>
+
+            {/* Dropdown de seleção */}
+            <label className="admin-form-label" style={{ marginBottom: 6 }}>Provedor ativo</label>
+            <div style={{ position: "relative", marginBottom: 20 }}>
+              <select
+                value={pixProvider}
+                onChange={(e) => setPixProvider(e.target.value)}
+                className="admin-form-input"
+                style={{ paddingRight: 36, appearance: "none", cursor: "pointer" }}
               >
-                {!p.available && (
-                  <span style={{
-                    position: "absolute", top: 8, right: 8,
-                    fontSize: "0.62rem", fontWeight: 700, padding: "2px 7px",
-                    background: "var(--adm-border)", color: "var(--adm-text-faint)",
-                    borderRadius: 10, textTransform: "uppercase", letterSpacing: ".04em",
-                  }}>Em breve</span>
-                )}
-                {isSelected && p.available && (
-                  <span style={{
-                    position: "absolute", top: 8, right: 8,
-                    fontSize: "0.62rem", fontWeight: 700, padding: "2px 7px",
-                    background: "rgba(16,185,129,.15)", color: "#10b981",
-                    borderRadius: 10, textTransform: "uppercase", letterSpacing: ".04em",
-                  }}>Ativo</span>
-                )}
-                <div style={{ fontSize: "1.4rem", marginBottom: 5 }}>{p.logo}</div>
-                <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "var(--adm-text)", marginBottom: 3 }}>{p.name}</div>
-                <div style={{ fontSize: "0.72rem", color: "var(--adm-text-faint)", lineHeight: 1.4 }}>{p.desc}</div>
+                {PROVIDERS.filter((p) => p.available).map((p) => (
+                  <option key={p.id} value={p.id}>{p.logo} {p.name}</option>
+                ))}
+              </select>
+              <span style={{
+                position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                pointerEvents: "none", color: "var(--adm-text-faint)", fontSize: "0.8rem",
+              }}>▼</span>
+            </div>
+
+            {/* Provedor ativo em destaque */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "12px 14px",
+              background: "rgba(16,185,129,.06)",
+              border: "1px solid rgba(16,185,129,.2)",
+              borderRadius: 8, marginBottom: 20,
+            }}>
+              <span style={{ fontSize: "1.5rem" }}>{active.logo}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--adm-text)" }}>{active.name}</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 1 }}>{active.desc}</div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <span style={{
+                fontSize: "0.68rem", fontWeight: 700, padding: "3px 8px",
+                background: "rgba(16,185,129,.15)", color: "#10b981",
+                borderRadius: 20, textTransform: "uppercase", letterSpacing: ".05em", whiteSpace: "nowrap",
+              }}>● Ativo</span>
+            </div>
+
+            {/* Lista completa de provedores */}
+            <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--adm-text-faint)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>
+              Todos os provedores
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, borderRadius: 8, overflow: "hidden", border: "1px solid var(--adm-border)" }}>
+              {PROVIDERS.map((p, i) => {
+                const isActive = pixProvider === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => p.available && setPixProvider(p.id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "11px 14px",
+                      background: isActive ? "rgba(16,185,129,.05)" : "var(--adm-bg-card, var(--adm-bg))",
+                      borderTop: i > 0 ? "1px solid var(--adm-border)" : "none",
+                      cursor: p.available ? "pointer" : "default",
+                      opacity: p.available ? 1 : 0.45,
+                      transition: "background .15s",
+                    }}
+                  >
+                    <span style={{ fontSize: "1.1rem", width: 22, textAlign: "center" }}>{p.logo}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--adm-text)" }}>{p.name}</div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--adm-text-faint)", marginTop: 1 }}>{p.desc}</div>
+                    </div>
+                    {isActive && (
+                      <span style={{
+                        fontSize: "0.65rem", fontWeight: 700, padding: "2px 7px",
+                        background: "rgba(16,185,129,.15)", color: "#10b981",
+                        borderRadius: 20, textTransform: "uppercase", letterSpacing: ".05em", whiteSpace: "nowrap",
+                      }}>Ativo</span>
+                    )}
+                    {!p.available && (
+                      <span style={{
+                        fontSize: "0.65rem", fontWeight: 600, padding: "2px 7px",
+                        background: "var(--adm-border)", color: "var(--adm-text-faint)",
+                        borderRadius: 20, textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap",
+                      }}>Em breve</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* API Config */}
       <div className="admin-card">
