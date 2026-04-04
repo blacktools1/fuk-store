@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData } from "@/lib/store-data";
 import { createParadisePayment } from "@/lib/paradise";
-import { sendUtmifyOrder } from "@/lib/utmify";
+import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
 
 export const dynamic = "force-dynamic";
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     // ─────────────────────────────────────────────────────────────────────────
     // UTMify — notifica criação do pedido (waiting_payment)
     // ─────────────────────────────────────────────────────────────────────────
-    if (config?.utmifyToken) {
+    if (config?.utmifyToken || (config?.utmifyAccounts?.length ?? 0) > 0) {
       const products = (cartItems as { id: string; name: string; price: number; qty: number }[]).map((item) => ({
         id:           String(item.id || "ITEM"),
         name:         item.name,
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
         req.headers.get("x-real-ip") ||
         "127.0.0.1";
 
-      sendUtmifyOrder(config.utmifyToken, {
+      sendUtmifyOrderToAll(config, {
         orderId:          result.transactionId,
         status:           "waiting_payment",
         amount:           total,

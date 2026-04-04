@@ -1,22 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData, writeStoreData } from "@/lib/store-data";
+import type { UtmifyAccount } from "@/lib/admin-types";
 
 export const dynamic = "force-dynamic";
 
-/** GET — retorna config de checkout (sem a API key completa, por segurança) */
+const MASK = "••••••••";
+function maskToken(t: string) {
+  return MASK + t.slice(-4);
+}
+
+/** GET — retorna config de checkout (tokens mascarados) */
 export async function GET(req: NextRequest) {
   const tenant = getTenantFromRequest(req);
   const store = readStoreData(tenant);
   const c = store.checkoutConfig ?? {};
 
+  // Mascara contas UTMify
+  const utmifyAccounts = (c.utmifyAccounts ?? []).map((a) => ({
+    id: a.id,
+    label: a.label,
+    token: maskToken(a.token),
+  }));
+
   return NextResponse.json({
     hasInternalCheckout: !!(c.paradiseApiKey?.trim()),
-    paradiseApiKey: c.paradiseApiKey ? "•".repeat(8) + c.paradiseApiKey.slice(-6) : "",
+    paradiseApiKey: c.paradiseApiKey ? maskToken(c.paradiseApiKey) : "",
     redirectUrl: c.redirectUrl ?? "",
     redirectEnabled: c.redirectEnabled ?? true,
     backLink: c.backLink ?? "",
-    utmifyToken: c.utmifyToken ? "•".repeat(8) + c.utmifyToken.slice(-4) : "",
+    // legacy (mantido por compatibilidade)
+    utmifyToken: c.utmifyToken ? maskToken(c.utmifyToken) : "",
+    utmifyAccounts,
     utmifyIsTest: c.utmifyIsTest ?? false,
     orderbumps: c.orderbumps ?? [],
   });
@@ -30,16 +45,30 @@ export async function PUT(req: NextRequest) {
 
   const current = store.checkoutConfig ?? {};
 
-  // Não sobrescreve chaves mascaradas (se vier •••)
+  // Não sobrescreve chaves mascaradas (se vier •)
   const paradiseApiKey =
     body.paradiseApiKey && !body.paradiseApiKey.startsWith("•")
       ? body.paradiseApiKey.trim()
       : current.paradiseApiKey ?? "";
 
+  // Token legado (ignoramos se já migrado para utmifyAccounts)
   const utmifyToken =
     body.utmifyToken && !body.utmifyToken.startsWith("•")
       ? body.utmifyToken.trim()
       : current.utmifyToken ?? "";
+
+  // Array de contas — preserva tokens que vierem mascarados
+  const incomingAccounts: UtmifyAccount[] = body.utmifyAccounts ?? [];
+  const existingAccounts: UtmifyAccount[] = current.utmifyAccounts ?? [];
+
+  const utmifyAccounts: UtmifyAccount[] = incomingAccounts.map((acc) => {
+    if (acc.token.startsWith("•")) {
+      // token mascarado → mantém o token real do servidor
+      const original = existingAccounts.find((e) => e.id === acc.id);
+      return { ...acc, token: original?.token ?? acc.token };
+    }
+    return { ...acc, token: acc.token.trim() };
+  });
 
   store.checkoutConfig = {
     ...current,
@@ -48,6 +77,7 @@ export async function PUT(req: NextRequest) {
     redirectEnabled: body.redirectEnabled ?? current.redirectEnabled ?? true,
     backLink: body.backLink ?? current.backLink ?? "",
     utmifyToken,
+    utmifyAccounts,
     utmifyIsTest: body.utmifyIsTest ?? current.utmifyIsTest ?? false,
     orderbumps: body.orderbumps ?? current.orderbumps ?? [],
   };

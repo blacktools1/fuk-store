@@ -1,4 +1,5 @@
 /** Cliente TypeScript para a API UTMify */
+import type { UtmifyAccount } from "./admin-types";
 
 const UTMIFY_URL = "https://api.utmify.com.br/api-credentials/orders";
 
@@ -81,4 +82,35 @@ export async function sendUtmifyOrder(token: string, input: UtmifyOrderInput): P
   } catch (e) {
     console.error("UTMify send error:", e);
   }
+}
+
+/**
+ * Coleta todos os tokens válidos de uma config de checkout
+ * (suporta campo legado utmifyToken e novo utmifyAccounts[]).
+ */
+export function collectUtmifyTokens(config: {
+  utmifyToken?: string;
+  utmifyAccounts?: UtmifyAccount[];
+}): string[] {
+  const tokens: string[] = [];
+  // Tokens do novo array
+  for (const acc of config.utmifyAccounts ?? []) {
+    if (acc.token?.trim()) tokens.push(acc.token.trim());
+  }
+  // Token legado (só inclui se não estiver duplicado no array)
+  const legacy = config.utmifyToken?.trim();
+  if (legacy && !tokens.includes(legacy)) tokens.push(legacy);
+  return tokens;
+}
+
+/**
+ * Envia o evento UTMify para TODOS os dashboards configurados em paralelo.
+ */
+export async function sendUtmifyOrderToAll(
+  config: { utmifyToken?: string; utmifyAccounts?: UtmifyAccount[]; utmifyIsTest?: boolean },
+  input: UtmifyOrderInput
+): Promise<void> {
+  const tokens = collectUtmifyTokens(config);
+  if (tokens.length === 0) return;
+  await Promise.all(tokens.map((t) => sendUtmifyOrder(t, input)));
 }

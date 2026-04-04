@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData } from "@/lib/store-data";
-import { sendUtmifyOrder } from "@/lib/utmify";
+import { sendUtmifyOrderToAll } from "@/lib/utmify";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +16,13 @@ export async function POST(req: NextRequest) {
     const status = String(body.status ?? "").toLowerCase();
     const isPaid = status === "paid" || status === "approved";
 
-    if (isPaid && config?.utmifyToken && body.id) {
+    const hasUtmify = config?.utmifyToken || (config?.utmifyAccounts?.length ?? 0) > 0;
+    if (isPaid && hasUtmify && body.id) {
       const amountInCents: number = body.amount ?? 0;
       const amount = amountInCents / 100;
 
-      // UTMify — confirma pagamento
-      sendUtmifyOrder(config.utmifyToken, {
+      // UTMify — confirma pagamento em todos os dashboards configurados
+      sendUtmifyOrderToAll(config!, {
         orderId: String(body.id),
         status: "paid",
         amount,
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
           },
         ],
         approvedDate: new Date().toISOString().replace("T", " ").substring(0, 19),
-        isTest: config.utmifyIsTest,
+        isTest: config!.utmifyIsTest,
       }).catch((e) => console.error("Webhook UTMify error:", e));
     }
 

@@ -53,13 +53,22 @@ export interface Orderbump {
  */
 export type PixProvider = "paradise";  // expandir futuramente
 
+/** Uma conta UTMify (dashboard) com label para identificação */
+export interface UtmifyAccount {
+  id: string;
+  label: string;   // nome amigável ex: "Dashboard Principal"
+  token: string;   // token real da API (nunca mascarado no servidor)
+}
+
 export interface CheckoutConfig {
   pixProvider?: PixProvider | string;   // provedor ativo (default: "paradise")
   paradiseApiKey?: string;              // chave da API Paradise Pags
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;
+  /** @deprecated use utmifyAccounts */
   utmifyToken?: string;
+  utmifyAccounts?: UtmifyAccount[];     // múltiplos dashboards UTMify
   utmifyIsTest?: boolean;
   orderbumps?: Orderbump[];
   checkoutTheme?: "theme1" | "theme2" | "theme3";

@@ -543,12 +543,32 @@ function CheckoutSection({
   const [apiKey, setApiKey]               = useState(storeData?.checkoutConfig?.paradiseApiKey ?? "");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
-  const [utmifyToken, setUtmifyToken]     = useState(storeData?.checkoutConfig?.utmifyToken ?? "");
   const [isTest, setIsTest]               = useState(storeData?.checkoutConfig?.utmifyIsTest ?? false);
   const [orderbumps, setOrderbumps]       = useState<import("@/lib/admin-types").Orderbump[]>(storeData?.checkoutConfig?.orderbumps ?? []);
   const [addBump, setAddBump]             = useState({ title: "", description: "", price: "0", offerHash: "" });
   const [checkoutTheme, setCheckoutTheme] = useState<"theme1" | "theme2" | "theme3">(storeData?.checkoutConfig?.checkoutTheme ?? "theme1");
   const [pixProvider, setPixProvider]     = useState<string>(storeData?.checkoutConfig?.pixProvider ?? "paradise");
+
+  // UTMify — múltiplas contas
+  const [utmifyAccounts, setUtmifyAccounts] = useState<import("@/lib/admin-types").UtmifyAccount[]>(
+    storeData?.checkoutConfig?.utmifyAccounts ?? []
+  );
+  const [newUtmLabel, setNewUtmLabel] = useState("");
+  const [newUtmToken, setNewUtmToken] = useState("");
+
+  const addUtmifyAccount = () => {
+    const token = newUtmToken.trim();
+    if (!token) return;
+    const label = newUtmLabel.trim() || `Dashboard ${utmifyAccounts.length + 1}`;
+    setUtmifyAccounts((prev) => [...prev, { id: Date.now().toString(), label, token }]);
+    setNewUtmLabel("");
+    setNewUtmToken("");
+    markDirty();
+  };
+  const removeUtmifyAccount = (id: string) => {
+    setUtmifyAccounts((prev) => prev.filter((a) => a.id !== id));
+    markDirty();
+  };
 
   const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
 
@@ -565,7 +585,7 @@ function CheckoutSection({
           paradiseApiKey: apiKey.trim(),
           redirectUrl: redirectUrl.trim(),
           redirectEnabled: redirectOn,
-          utmifyToken: utmifyToken.trim(),
+          utmifyAccounts,
           utmifyIsTest: isTest,
           orderbumps,
           checkoutTheme,
@@ -848,30 +868,109 @@ function CheckoutSection({
         </div>
       </div>
 
-      {/* UTMify */}
+      {/* UTMify — múltiplos dashboards */}
       <div className="admin-card">
         <h2 className="admin-card-title">📊 UTMify</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label className="admin-form-label">Token da API UTMify</label>
-            <input
-              className="admin-form-input"
-              type="password"
-              placeholder="Token UTMify"
-              value={utmifyToken}
-              onChange={(e) => { setUtmifyToken(e.target.value); markDirty(); }}
-            />
+        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
+          Adicione quantos dashboards UTMify quiser. O evento de compra será enviado para <strong>todos</strong> simultaneamente.
+        </p>
+
+        {/* Lista de contas cadastradas */}
+        {utmifyAccounts.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            {utmifyAccounts.map((acc) => (
+              <div key={acc.id} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 12px",
+                background: "rgba(16,185,129,.05)",
+                border: "1px solid rgba(16,185,129,.15)",
+                borderRadius: 8,
+              }}>
+                <span style={{ fontSize: "1rem" }}>📈</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--adm-text)" }}>{acc.label}</div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--adm-text-faint)", marginTop: 1, fontFamily: "monospace" }}>
+                    {"••••••••" + acc.token.slice(-6)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeUtmifyAccount(acc.id)}
+                  style={{
+                    background: "transparent", border: "none", cursor: "pointer",
+                    color: "var(--adm-text-faint)", fontSize: "1rem", padding: "4px 6px",
+                    borderRadius: 4, lineHeight: 1,
+                  }}
+                  title="Remover conta"
+                >✕</button>
+              </div>
+            ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        )}
+
+        {utmifyAccounts.length === 0 && (
+          <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16 }}>
+            Nenhum dashboard cadastrado.
+          </p>
+        )}
+
+        {/* Formulário para adicionar nova conta */}
+        <div style={{
+          padding: 14, borderRadius: 8,
+          border: "1px dashed var(--adm-border)",
+          display: "flex", flexDirection: "column", gap: 10,
+        }}>
+          <p style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--adm-text-faint)", margin: 0, textTransform: "uppercase", letterSpacing: ".05em" }}>
+            + Adicionar dashboard
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10 }}>
             <div>
-              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Modo Teste</div>
-              <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Ative apenas para testes — não contamina relatórios reais</div>
+              <label className="admin-form-label">Nome (identificação)</label>
+              <input
+                className="admin-form-input"
+                type="text"
+                placeholder="ex: Dashboard Principal"
+                value={newUtmLabel}
+                onChange={(e) => setNewUtmLabel(e.target.value)}
+                style={{ marginBottom: 0 }}
+              />
             </div>
-            <label className="admin-toggle">
-              <input type="checkbox" checked={isTest} onChange={(e) => { setIsTest(e.target.checked); markDirty(); }} />
-              <span className="admin-toggle-slider" />
-            </label>
+            <div>
+              <label className="admin-form-label">Token da API UTMify</label>
+              <input
+                className="admin-form-input"
+                type="password"
+                placeholder="Cole o token aqui"
+                value={newUtmToken}
+                onChange={(e) => setNewUtmToken(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addUtmifyAccount()}
+                style={{ marginBottom: 0 }}
+              />
+            </div>
           </div>
+          <div>
+            <button
+              type="button"
+              className="admin-btn-primary"
+              onClick={addUtmifyAccount}
+              disabled={!newUtmToken.trim()}
+              style={{ padding: "7px 20px", fontSize: "0.85rem" }}
+            >
+              + Adicionar
+            </button>
+          </div>
+        </div>
+
+        {/* Modo Teste */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--adm-border)" }}>
+          <div>
+            <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Modo Teste</div>
+            <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Ative apenas para testes — não contamina relatórios reais</div>
+          </div>
+          <label className="admin-toggle">
+            <input type="checkbox" checked={isTest} onChange={(e) => { setIsTest(e.target.checked); markDirty(); }} />
+            <span className="admin-toggle-slider" />
+          </label>
         </div>
       </div>
 
