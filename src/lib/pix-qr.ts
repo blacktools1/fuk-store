@@ -8,10 +8,19 @@
  *
  * Evita duplicar o prefixo `data:image/png;base64,` quando a API já envia data URL.
  */
+/** Payload EMV do PIX (copia-e-cola) — não é imagem; não usar como base64. */
+function looksLikePixEmvPayload(s: string): boolean {
+  const t = s.replace(/\s/g, "");
+  return t.length >= 40 && t.startsWith("000201");
+}
+
 export function getPixQrImgSrc(raw: string | undefined | null): string {
   if (raw == null) return "";
   const s = String(raw).trim();
   if (!s) return "";
+
+  // Se a API colocou o EMV no campo do QR, não montar data URL falsa
+  if (looksLikePixEmvPayload(s)) return "";
 
   if (s.startsWith("http://") || s.startsWith("https://")) {
     return s;

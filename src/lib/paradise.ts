@@ -1,5 +1,6 @@
 /** Cliente TypeScript para a Paradise Pags API */
 
+import QRCode from "qrcode";
 import { getPixQrImgSrc } from "./pix-qr";
 
 const PARADISE_BASE = "https://multi.paradisepags.com/api/v1";
@@ -20,50 +21,122 @@ export interface CreatePaymentResult {
   copyPaste: string;
 }
 
-/** Extrai string do QR a partir da resposta JSON da Paradise (vários formatos possíveis). */
-function extractQrFromParadiseResponse(data: Record<string, unknown>): string {
+/** Raízes comuns onde a API pode aninhar o payload */
+function collectRoots(data: Record<string, unknown>): Record<string, unknown>[] {
+  const roots: Record<string, unknown>[] = [data];
+  for (const key of ["data", "result", "response", "transaction", "payment", "pix", "body"]) {
+    const v = data[key];
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      roots.push(v as Record<string, unknown>);
+    }
+  }
+  return roots;
+}
+
+function extractQrFromSingleObject(data: Record<string, unknown>): string {
   const q = data.qrcode;
   if (typeof q === "string" && q.trim()) return q.trim();
   if (q && typeof q === "object") {
     const o = q as Record<string, unknown>;
-    const img = o.image ?? o.base64 ?? o.qr_code_base64 ?? o.qrcode;
-    if (typeof img === "string" && img.trim()) return img.trim();
+    for (const key of ["image", "base64", "qr_code_base64", "qrcode", "img", "png", "data"]) {
+      const img = o[key];
+      if (typeof img === "string" && img.trim()) return img.trim();
+    }
   }
-  for (const k of ["qr_code_base64", "qrCodeBase64", "qr_code_image", "qrcode_base64", "pix_qrcode_base64"] as const) {
+  for (const k of [
+    "qr_code_base64",
+    "qrCodeBase64",
+    "qr_code_image",
+    "qrcode_base64",
+    "pix_qrcode_base64",
+    "qrcode_image",
+    "qr_image",
+    "qrcodeUrl",
+    "qr_code_url",
+  ] as const) {
     const v = data[k];
     if (typeof v === "string" && v.trim()) return v.trim();
   }
   const pix = data.pix;
   if (pix && typeof pix === "object") {
     const p = pix as Record<string, unknown>;
-    const nested = p.qrcode ?? p.qr_code_base64;
+    const nested = p.qrcode ?? p.qr_code_base64 ?? p.image;
     if (typeof nested === "string" && nested.trim()) return nested.trim();
     if (nested && typeof nested === "object") {
       const o = nested as Record<string, unknown>;
-      const img = o.image ?? o.base64;
-      if (typeof img === "string" && img.trim()) return img.trim();
+      for (const key of ["image", "base64"]) {
+        const img = o[key];
+        if (typeof img === "string" && img.trim()) return img.trim();
+      }
     }
   }
   return "";
 }
 
-function extractCopyPasteFromParadiseResponse(data: Record<string, unknown>): string {
-  const q = data.qrcode;
-  if (q && typeof q === "object") {
-    const cp = (q as { copy_paste?: string }).copy_paste;
-    if (typeof cp === "string" && cp.trim()) return cp.trim();
+/** Último recurso: percorre o JSON e acha string que pareça imagem/base64 de QR */
+function findQrLikeStringInJson(obj: unknown, depth = 0): string {
+  if (depth > 10) return "";
+  if (typeof obj === "string") {
+    const s = obj.trim();
+    if (s.startsWith("data:image/")) return s;
+    if (s.startsWith("http://") || s.startsWith("https://")) return s;
+    const clean = s.replace(/\s/g, "");
+    if (clean.length < 80) return "";
+    if (/^[A-Za-z0-9+/]+=*$/.test(clean.slice(0, Math.min(600, clean.length)))) {
+      if (clean.startsWith("iVBOR") || clean.startsWith("/9j/") || clean.startsWith("R0lGOD")) {
+        return clean;
+      }
+    }
+    return "";
   }
-  for (const k of ["qr_code", "copy_paste", "pix_copy_paste", "emv"] as const) {
-    const v = data[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  const pix = data.pix;
-  if (pix && typeof pix === "object") {
-    const p = pix as Record<string, unknown>;
-    const cp = p.copy_paste ?? p.qr_code ?? p.emv;
-    if (typeof cp === "string" && cp.trim()) return cp.trim();
+  if (obj && typeof obj === "object") {
+    const entries = Array.isArray(obj) ? obj : Object.values(obj);
+    for (const v of entries) {
+      const f = findQrLikeStringInJson(v, depth + 1);
+      if (f) return f;
+    }
   }
   return "";
+}
+
+/** Extrai string do QR a partir da resposta JSON da Paradise (vários formatos possíveis). */
+function extractQrFromParadiseResponse(data: Record<string, unknown>): string {
+  for (const root of collectRoots(data)) {
+    const found = extractQrFromSingleObject(root);
+    if (found) return found;
+  }
+  return findQrLikeStringInJson(data);
+}
+
+function extractCopyPasteFromParadiseResponse(data: Record<string, unknown>): string {
+  for (const root of collectRoots(data)) {
+    const q = root.qrcode;
+    if (q && typeof q === "object") {
+      const cp = (q as { copy_paste?: string }).copy_paste;
+      if (typeof cp === "string" && cp.trim()) return cp.trim();
+    }
+    for (const k of ["qr_code", "copy_paste", "pix_copy_paste", "emv", "brCode", "payload"] as const) {
+      const v = root[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    const pix = root.pix;
+    if (pix && typeof pix === "object") {
+      const p = pix as Record<string, unknown>;
+      const cp = p.copy_paste ?? p.qr_code ?? p.emv;
+      if (typeof cp === "string" && cp.trim()) return cp.trim();
+    }
+  }
+  return "";
+}
+
+/** Gera data URL PNG do QR a partir do payload EMV PIX (mesmo valor do copia-e-cola). */
+async function qrDataUrlFromPixPayload(emv: string): Promise<string> {
+  return QRCode.toDataURL(emv, {
+    width: 280,
+    margin: 2,
+    errorCorrectionLevel: "M",
+    color: { dark: "#000000ff", light: "#ffffffff" },
+  });
 }
 
 export async function createParadisePayment(params: {
@@ -108,10 +181,21 @@ export async function createParadisePayment(params: {
   const qrRaw = extractQrFromParadiseResponse(d);
   const copyPaste = extractCopyPasteFromParadiseResponse(d);
 
+  let qrImageSrc = getPixQrImgSrc(qrRaw);
+
+  // Muitas integrações só devolvem o EMV (copia-e-cola), sem bitmap — o QR é o encode desse payload
+  if (!qrImageSrc && copyPaste.trim().length >= 20) {
+    try {
+      qrImageSrc = await qrDataUrlFromPixPayload(copyPaste.trim());
+    } catch (e) {
+      console.error("[paradise] Falha ao gerar QR a partir do payload PIX:", e);
+    }
+  }
+
   return {
     transactionId: String(data.id),
     qrCodeBase64: qrRaw,
-    qrImageSrc: getPixQrImgSrc(qrRaw),
+    qrImageSrc,
     copyPaste,
   };
 }
