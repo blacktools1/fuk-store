@@ -23,7 +23,7 @@ function useAdminToast() {
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
-type Section = "dashboard" | "products" | "banners" | "settings" | "pixels";
+type Section = "dashboard" | "products" | "banners" | "settings" | "pixels" | "checkout";
 // ─────────────────────────────────────────────────────────────
 // Main Admin Page
 // ─────────────────────────────────────────────────────────────
@@ -189,6 +189,7 @@ export default function AdminPage() {
               { key: "settings",  icon: "🎨", label: "Aparência" },
               { key: "banners",   icon: "🖼️", label: "Banners" },
               { key: "products",  icon: "📦", label: "Produtos" },
+              { key: "checkout",  icon: "💳", label: "Checkout PIX" },
               { key: "pixels",    icon: "📡", label: "Pixels" },
             ] as { key: Section; icon: string; label: string }[]).map((item) => (
               <button
@@ -233,6 +234,7 @@ export default function AdminPage() {
               {section === "banners"   && "Banners"}
               {section === "settings"  && "Aparência da Loja"}
               {section === "pixels"    && "Pixels de Rastreamento"}
+              {section === "checkout"  && "Checkout PIX"}
             </h1>
           </div>
           <div className="admin-topbar-actions">
@@ -327,6 +329,11 @@ export default function AdminPage() {
               saving={saving}
             />
           )}
+
+          {/* ── Checkout PIX ── */}
+          {section === "checkout" && (
+            <CheckoutSection storeData={data} onSaveConfig={save} />
+          )}
         </div>
       </div>
 
@@ -369,60 +376,16 @@ function DashboardSection({
   storeData: StoreData | null;
   onSaveConfig: (patch: Partial<StoreData>) => Promise<void>;
 }) {
-  const [pixEnabled, setPixEnabled]       = useState(storeData?.pixDiscountEnabled ?? true);
-  const [pixPct, setPixPct]               = useState(storeData?.pixDiscount ?? 5);
-  const [freeShip, setFreeShip]           = useState(storeData?.freeShippingMin ?? 199);
-  const [checkoutUrl, setCheckoutUrl]     = useState(storeData?.checkoutUrl ?? "");
-  const [saving, setSaving]               = useState(false);
-
-  // ── Checkout interno (Paradise)
-  const [ckSaving, setCkSaving]           = useState(false);
-  const [ckApiKey, setCkApiKey]           = useState(storeData?.checkoutConfig?.paradiseApiKey ?? "");
-  const [ckRedirectUrl, setCkRedirectUrl] = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
-  const [ckRedirect, setCkRedirect]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
-  const [ckUtmify, setCkUtmify]           = useState(storeData?.checkoutConfig?.utmifyToken ?? "");
-  const [ckIsTest, setCkIsTest]           = useState(storeData?.checkoutConfig?.utmifyIsTest ?? false);
-  const [ckOrdebumps, setCkOrdebumps]     = useState<import("@/lib/admin-types").Orderbump[]>(storeData?.checkoutConfig?.orderbumps ?? []);
-  const [ckAddBump, setCkAddBump]         = useState({ title: "", description: "", price: "0", offerHash: "" });
+  const [pixEnabled, setPixEnabled] = useState(storeData?.pixDiscountEnabled ?? true);
+  const [pixPct, setPixPct]         = useState(storeData?.pixDiscount ?? 5);
+  const [freeShip, setFreeShip]     = useState(storeData?.freeShippingMin ?? 199);
+  const [saving, setSaving]         = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
-    await onSaveConfig({ pixDiscountEnabled: pixEnabled, pixDiscount: pixPct, freeShippingMin: freeShip, checkoutUrl });
+    await onSaveConfig({ pixDiscountEnabled: pixEnabled, pixDiscount: pixPct, freeShippingMin: freeShip });
     setSaving(false);
   };
-
-  const handleSaveCheckout = async () => {
-    setCkSaving(true);
-    await onSaveConfig({
-      checkoutConfig: {
-        paradiseApiKey: ckApiKey,
-        redirectUrl: ckRedirectUrl,
-        redirectEnabled: ckRedirect,
-        utmifyToken: ckUtmify,
-        utmifyIsTest: ckIsTest,
-        orderbumps: ckOrdebumps,
-      },
-    });
-    setCkSaving(false);
-  };
-
-  const addOrdebump = () => {
-    if (!ckAddBump.title) return;
-    const newBump: import("@/lib/admin-types").Orderbump = {
-      id: Date.now().toString(),
-      active: true,
-      title: ckAddBump.title,
-      description: ckAddBump.description,
-      price: parseFloat(ckAddBump.price) || 0,
-      offerHash: ckAddBump.offerHash,
-    };
-    setCkOrdebumps((prev) => [...prev, newBump]);
-    setCkAddBump({ title: "", description: "", price: "0", offerHash: "" });
-  };
-
-  const removeOrdebump = (id: string) => setCkOrdebumps((prev) => prev.filter((ob) => ob.id !== id));
-  const toggleOrdebump = (id: string) =>
-    setCkOrdebumps((prev) => prev.map((ob) => ob.id === id ? { ...ob, active: !ob.active } : ob));
 
   return (
     <>
@@ -454,7 +417,7 @@ function DashboardSection({
         <h2 className="admin-card-title">⚙️ Configurações Rápidas</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-          {/* PIX */}
+          {/* Desconto PIX */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -496,22 +459,6 @@ function DashboardSection({
             </div>
           </div>
 
-          {/* URL do Checkout Externo */}
-          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16 }}>
-            <div style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--adm-text)", marginBottom: 4 }}>URL do Checkout Externo</div>
-            <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginBottom: 8 }}>
-              Se preenchido, redireciona para este URL ao finalizar. Deixe em branco para usar o checkout PIX integrado abaixo.
-            </div>
-            <input
-              className="admin-form-input"
-              type="url"
-              placeholder="https://checkout.seudominio.com (opcional)"
-              value={checkoutUrl}
-              onChange={(e) => setCheckoutUrl(e.target.value)}
-              style={{ marginBottom: 0 }}
-            />
-          </div>
-
           <button
             className="admin-btn-primary"
             onClick={handleSave}
@@ -519,130 +466,6 @@ function DashboardSection({
             style={{ alignSelf: "flex-start" }}
           >
             {saving ? "Salvando…" : "Salvar Configurações"}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Checkout PIX Integrado ── */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">💳 Checkout PIX Integrado (Paradise Pags)</h2>
-        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 20, lineHeight: 1.6 }}>
-          Configure aqui o checkout PIX nativo da loja. Quando a URL do checkout externo estiver vazia, o cliente vai direto para o checkout integrado em <code>/checkout</code>.
-        </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-
-          <div>
-            <label className="admin-form-label">Chave da API Paradise (sk_...)</label>
-            <input
-              className="admin-form-input"
-              type="password"
-              placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx"
-              value={ckApiKey}
-              onChange={(e) => setCkApiKey(e.target.value)}
-            />
-            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
-              Encontre em: Painel Paradise → Configurações → API Key
-            </p>
-          </div>
-
-          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
-            <label className="admin-form-label">URL de Redirecionamento após pagamento</label>
-            <input
-              className="admin-form-input"
-              type="url"
-              placeholder="https://minhapagina.com/obrigado"
-              value={ckRedirectUrl}
-              onChange={(e) => setCkRedirectUrl(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Redirecionar automaticamente após pagamento</div>
-              <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Se desativado, apenas exibe mensagem de sucesso</div>
-            </div>
-            <label className="admin-toggle">
-              <input type="checkbox" checked={ckRedirect} onChange={(e) => setCkRedirect(e.target.checked)} />
-              <span className="admin-toggle-slider" />
-            </label>
-          </div>
-
-          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
-            <label className="admin-form-label">Token UTMify</label>
-            <input
-              className="admin-form-input"
-              type="password"
-              placeholder="Token da API UTMify"
-              value={ckUtmify}
-              onChange={(e) => setCkUtmify(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Modo Teste UTMify</div>
-              <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Ative apenas em testes para não contaminar relatórios</div>
-            </div>
-            <label className="admin-toggle">
-              <input type="checkbox" checked={ckIsTest} onChange={(e) => setCkIsTest(e.target.checked)} />
-              <span className="admin-toggle-slider" />
-            </label>
-          </div>
-
-          {/* Orderbumps */}
-          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
-            <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--adm-text)", marginBottom: 12 }}>Order Bumps</div>
-
-            {ckOrdebumps.map((ob) => (
-              <div key={ob.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--adm-border)" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{ob.title}</div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)" }}>
-                    R$ {ob.price.toFixed(2)} {ob.description && `· ${ob.description.substring(0, 40)}`}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => toggleOrdebump(ob.id)}
-                  style={{ fontSize: "0.75rem", padding: "4px 8px", borderRadius: 4, border: "1px solid var(--adm-border)", background: ob.active ? "rgba(16,185,129,.15)" : "transparent", color: ob.active ? "#10b981" : "var(--adm-text-muted)", cursor: "pointer" }}
-                >
-                  {ob.active ? "Ativo" : "Inativo"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeOrdebump(ob.id)}
-                  style={{ fontSize: "0.75rem", padding: "4px 8px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}
-                >
-                  Remover
-                </button>
-              </div>
-            ))}
-
-            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <input className="admin-form-input" placeholder="Título do bump *" value={ckAddBump.title} onChange={(e) => setCkAddBump((p) => ({ ...p, title: e.target.value }))} style={{ marginBottom: 0 }} />
-              <input className="admin-form-input" placeholder="Preço (R$)" type="number" min="0" step="0.01" value={ckAddBump.price} onChange={(e) => setCkAddBump((p) => ({ ...p, price: e.target.value }))} style={{ marginBottom: 0 }} />
-              <input className="admin-form-input" placeholder="Descrição (opcional)" value={ckAddBump.description} onChange={(e) => setCkAddBump((p) => ({ ...p, description: e.target.value }))} style={{ marginBottom: 0 }} />
-              <input className="admin-form-input" placeholder="Offer Hash (UTMify)" value={ckAddBump.offerHash} onChange={(e) => setCkAddBump((p) => ({ ...p, offerHash: e.target.value }))} style={{ marginBottom: 0 }} />
-            </div>
-            <button
-              type="button"
-              className="admin-btn-secondary"
-              onClick={addOrdebump}
-              style={{ marginTop: 8, fontSize: "0.82rem" }}
-              disabled={!ckAddBump.title}
-            >
-              + Adicionar Order Bump
-            </button>
-          </div>
-
-          <button
-            className="admin-btn-primary"
-            onClick={handleSaveCheckout}
-            disabled={ckSaving}
-            style={{ alignSelf: "flex-start" }}
-          >
-            {ckSaving ? "Salvando…" : "Salvar Checkout"}
           </button>
         </div>
       </div>
@@ -659,14 +482,210 @@ function DashboardSection({
             <span>Controle banners em <strong style={{ color: "var(--adm-text)" }}>Banners</strong> — ligue/desligue sem excluir</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "1.2rem" }}>⚙️</span>
-            <span>Atualize o nome e URL da sua API Pix em <strong style={{ color: "var(--adm-text)" }}>Configurações</strong></span>
+            <span style={{ fontSize: "1.2rem" }}>💳</span>
+            <span>Configure o PIX em <strong style={{ color: "var(--adm-text)" }}>Checkout PIX</strong> — API Paradise, UTMify, Order Bumps</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "1.2rem" }}>💳</span>
-            <span>O checkout soma <strong style={{ color: "var(--adm-text)" }}>todos os itens do carrinho</strong> e envia o total ao PHP Pix API</span>
+            <span style={{ fontSize: "1.2rem" }}>📡</span>
+            <span>Instale pixels de rastreamento em <strong style={{ color: "var(--adm-text)" }}>Pixels</strong> — Facebook e TikTok</span>
           </div>
         </div>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Checkout Section
+// ─────────────────────────────────────────────────────────────
+function CheckoutSection({
+  storeData,
+  onSaveConfig,
+}: {
+  storeData: StoreData | null;
+  onSaveConfig: (patch: Partial<StoreData>) => Promise<void>;
+}) {
+  const [saving, setSaving]               = useState(false);
+  const [apiKey, setApiKey]               = useState(storeData?.checkoutConfig?.paradiseApiKey ?? "");
+  const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
+  const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
+  const [utmifyToken, setUtmifyToken]     = useState(storeData?.checkoutConfig?.utmifyToken ?? "");
+  const [isTest, setIsTest]               = useState(storeData?.checkoutConfig?.utmifyIsTest ?? false);
+  const [orderbumps, setOrderbumps]       = useState<import("@/lib/admin-types").Orderbump[]>(storeData?.checkoutConfig?.orderbumps ?? []);
+  const [addBump, setAddBump]             = useState({ title: "", description: "", price: "0", offerHash: "" });
+
+  const hasKey = apiKey.trim().length > 0;
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSaveConfig({
+      checkoutUrl: "", // limpa URL externa — checkout interno tem prioridade
+      checkoutConfig: {
+        paradiseApiKey: apiKey.trim(),
+        redirectUrl: redirectUrl.trim(),
+        redirectEnabled: redirectOn,
+        utmifyToken: utmifyToken.trim(),
+        utmifyIsTest: isTest,
+        orderbumps,
+      },
+    });
+    setSaving(false);
+  };
+
+  const addOb = () => {
+    if (!addBump.title) return;
+    const newOb: import("@/lib/admin-types").Orderbump = {
+      id: Date.now().toString(),
+      active: true,
+      title: addBump.title,
+      description: addBump.description,
+      price: parseFloat(addBump.price) || 0,
+      offerHash: addBump.offerHash,
+    };
+    setOrderbumps((p) => [...p, newOb]);
+    setAddBump({ title: "", description: "", price: "0", offerHash: "" });
+  };
+  const removeOb  = (id: string) => setOrderbumps((p) => p.filter((o) => o.id !== id));
+  const toggleOb  = (id: string) => setOrderbumps((p) => p.map((o) => o.id === id ? { ...o, active: !o.active } : o));
+
+  return (
+    <>
+      {/* Status banner */}
+      <div className="admin-card" style={{ borderLeft: `4px solid ${hasKey ? "#10b981" : "#f59e0b"}`, paddingLeft: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: "1.5rem" }}>{hasKey ? "✅" : "⚠️"}</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--adm-text)" }}>
+              {hasKey ? "Checkout PIX ativo" : "Checkout PIX não configurado"}
+            </div>
+            <div style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
+              {hasKey
+                ? "Ao clicar em Finalizar Compra, o cliente vai para /checkout nesta mesma loja."
+                : "Preencha a Chave da API Paradise abaixo para ativar o checkout integrado."}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* API Config */}
+      <div className="admin-card">
+        <h2 className="admin-card-title">🔑 Integração Paradise Pags</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+          <div>
+            <label className="admin-form-label">Chave da API Paradise (sk_...)</label>
+            <input
+              className="admin-form-input"
+              type="password"
+              placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
+            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
+              Painel Paradise → Configurações → API Key
+            </p>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
+            <label className="admin-form-label">URL de Redirecionamento após pagamento confirmado</label>
+            <input
+              className="admin-form-input"
+              type="url"
+              placeholder="https://minhapagina.com/obrigado"
+              value={redirectUrl}
+              onChange={(e) => setRedirectUrl(e.target.value)}
+            />
+            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
+              Deixe em branco para apenas exibir mensagem de sucesso sem redirecionar.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Redirecionar automaticamente</div>
+              <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Após confirmar pagamento, vai para a URL acima</div>
+            </div>
+            <label className="admin-toggle">
+              <input type="checkbox" checked={redirectOn} onChange={(e) => setRedirectOn(e.target.checked)} />
+              <span className="admin-toggle-slider" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* UTMify */}
+      <div className="admin-card">
+        <h2 className="admin-card-title">📊 UTMify</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label className="admin-form-label">Token da API UTMify</label>
+            <input
+              className="admin-form-input"
+              type="password"
+              placeholder="Token UTMify"
+              value={utmifyToken}
+              onChange={(e) => setUtmifyToken(e.target.value)}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Modo Teste</div>
+              <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Ative apenas para testes — não contamina relatórios reais</div>
+            </div>
+            <label className="admin-toggle">
+              <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
+              <span className="admin-toggle-slider" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Order Bumps */}
+      <div className="admin-card">
+        <h2 className="admin-card-title">🛒 Order Bumps</h2>
+        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
+          Produtos adicionais exibidos no checkout. O cliente pode adicioná-los com um clique antes de pagar.
+        </p>
+
+        {orderbumps.length === 0 && (
+          <p style={{ fontSize: "0.83rem", color: "var(--adm-text-faint)", marginBottom: 16 }}>Nenhum order bump configurado.</p>
+        )}
+
+        {orderbumps.map((ob) => (
+          <div key={ob.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--adm-border)" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "0.88rem", fontWeight: 600 }}>{ob.title}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)" }}>
+                R$ {ob.price.toFixed(2)}{ob.description ? ` · ${ob.description.substring(0, 50)}` : ""}
+              </div>
+            </div>
+            <button type="button" onClick={() => toggleOb(ob.id)}
+              style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: 4, border: "1px solid var(--adm-border)", background: ob.active ? "rgba(16,185,129,.15)" : "transparent", color: ob.active ? "#10b981" : "var(--adm-text-muted)", cursor: "pointer" }}>
+              {ob.active ? "Ativo" : "Inativo"}
+            </button>
+            <button type="button" onClick={() => removeOb(ob.id)}
+              style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}>
+              Remover
+            </button>
+          </div>
+        ))}
+
+        <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <input className="admin-form-input" placeholder="Título *" value={addBump.title} onChange={(e) => setAddBump((p) => ({ ...p, title: e.target.value }))} style={{ marginBottom: 0 }} />
+          <input className="admin-form-input" type="number" min="0" step="0.01" placeholder="Preço (R$)" value={addBump.price} onChange={(e) => setAddBump((p) => ({ ...p, price: e.target.value }))} style={{ marginBottom: 0 }} />
+          <input className="admin-form-input" placeholder="Descrição (opcional)" value={addBump.description} onChange={(e) => setAddBump((p) => ({ ...p, description: e.target.value }))} style={{ marginBottom: 0 }} />
+          <input className="admin-form-input" placeholder="Offer Hash UTMify" value={addBump.offerHash} onChange={(e) => setAddBump((p) => ({ ...p, offerHash: e.target.value }))} style={{ marginBottom: 0 }} />
+        </div>
+        <button type="button" className="admin-btn-secondary" onClick={addOb} disabled={!addBump.title} style={{ marginTop: 10, fontSize: "0.82rem" }}>
+          + Adicionar Order Bump
+        </button>
+      </div>
+
+      {/* Salvar */}
+      <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 40 }}>
+        <button className="admin-btn-primary" onClick={handleSave} disabled={saving} style={{ minWidth: 180 }}>
+          {saving ? "Salvando…" : "Salvar Checkout"}
+        </button>
       </div>
     </>
   );
