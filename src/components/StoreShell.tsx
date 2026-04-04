@@ -18,8 +18,18 @@ export default function StoreShell({
   const pathname = usePathname();
   const isAdmin  = pathname.startsWith("/admin");
   const isMaster = pathname.startsWith("/master-admin") || pathname.startsWith("/master-home");
+  const isCheckout = pathname === "/checkout" || pathname.startsWith("/checkout/");
 
   if (isAdmin || isMaster) return <>{children}</>;
+
+  if (isCheckout) {
+    return (
+      <>
+        <main>{children}</main>
+        {footer}
+      </>
+    );
+  }
 
   return (
     <>
