@@ -375,11 +375,54 @@ function DashboardSection({
   const [checkoutUrl, setCheckoutUrl]     = useState(storeData?.checkoutUrl ?? "");
   const [saving, setSaving]               = useState(false);
 
+  // ── Checkout interno (Paradise)
+  const [ckSaving, setCkSaving]           = useState(false);
+  const [ckApiKey, setCkApiKey]           = useState(storeData?.checkoutConfig?.paradiseApiKey ?? "");
+  const [ckRedirectUrl, setCkRedirectUrl] = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
+  const [ckRedirect, setCkRedirect]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
+  const [ckUtmify, setCkUtmify]           = useState(storeData?.checkoutConfig?.utmifyToken ?? "");
+  const [ckIsTest, setCkIsTest]           = useState(storeData?.checkoutConfig?.utmifyIsTest ?? false);
+  const [ckOrdebumps, setCkOrdebumps]     = useState<import("@/lib/admin-types").Orderbump[]>(storeData?.checkoutConfig?.orderbumps ?? []);
+  const [ckAddBump, setCkAddBump]         = useState({ title: "", description: "", price: "0", offerHash: "" });
+
   const handleSave = async () => {
     setSaving(true);
     await onSaveConfig({ pixDiscountEnabled: pixEnabled, pixDiscount: pixPct, freeShippingMin: freeShip, checkoutUrl });
     setSaving(false);
   };
+
+  const handleSaveCheckout = async () => {
+    setCkSaving(true);
+    await onSaveConfig({
+      checkoutConfig: {
+        paradiseApiKey: ckApiKey,
+        redirectUrl: ckRedirectUrl,
+        redirectEnabled: ckRedirect,
+        utmifyToken: ckUtmify,
+        utmifyIsTest: ckIsTest,
+        orderbumps: ckOrdebumps,
+      },
+    });
+    setCkSaving(false);
+  };
+
+  const addOrdebump = () => {
+    if (!ckAddBump.title) return;
+    const newBump: import("@/lib/admin-types").Orderbump = {
+      id: Date.now().toString(),
+      active: true,
+      title: ckAddBump.title,
+      description: ckAddBump.description,
+      price: parseFloat(ckAddBump.price) || 0,
+      offerHash: ckAddBump.offerHash,
+    };
+    setCkOrdebumps((prev) => [...prev, newBump]);
+    setCkAddBump({ title: "", description: "", price: "0", offerHash: "" });
+  };
+
+  const removeOrdebump = (id: string) => setCkOrdebumps((prev) => prev.filter((ob) => ob.id !== id));
+  const toggleOrdebump = (id: string) =>
+    setCkOrdebumps((prev) => prev.map((ob) => ob.id === id ? { ...ob, active: !ob.active } : ob));
 
   return (
     <>
@@ -455,14 +498,14 @@ function DashboardSection({
 
           {/* URL do Checkout Externo */}
           <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16 }}>
-            <div style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--adm-text)", marginBottom: 4 }}>URL do Checkout (PIX)</div>
+            <div style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--adm-text)", marginBottom: 4 }}>URL do Checkout Externo</div>
             <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginBottom: 8 }}>
-              Link do seu projeto de checkout com PIX. O carrinho será enviado automaticamente ao clicar em &quot;Finalizar Compra&quot;. Deixe em branco para usar o checkout interno.
+              Se preenchido, redireciona para este URL ao finalizar. Deixe em branco para usar o checkout PIX integrado abaixo.
             </div>
             <input
               className="admin-form-input"
               type="url"
-              placeholder="https://checkout.seudominio.com"
+              placeholder="https://checkout.seudominio.com (opcional)"
               value={checkoutUrl}
               onChange={(e) => setCheckoutUrl(e.target.value)}
               style={{ marginBottom: 0 }}
@@ -476,6 +519,130 @@ function DashboardSection({
             style={{ alignSelf: "flex-start" }}
           >
             {saving ? "Salvando…" : "Salvar Configurações"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Checkout PIX Integrado ── */}
+      <div className="admin-card">
+        <h2 className="admin-card-title">💳 Checkout PIX Integrado (Paradise Pags)</h2>
+        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 20, lineHeight: 1.6 }}>
+          Configure aqui o checkout PIX nativo da loja. Quando a URL do checkout externo estiver vazia, o cliente vai direto para o checkout integrado em <code>/checkout</code>.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+          <div>
+            <label className="admin-form-label">Chave da API Paradise (sk_...)</label>
+            <input
+              className="admin-form-input"
+              type="password"
+              placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx"
+              value={ckApiKey}
+              onChange={(e) => setCkApiKey(e.target.value)}
+            />
+            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
+              Encontre em: Painel Paradise → Configurações → API Key
+            </p>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
+            <label className="admin-form-label">URL de Redirecionamento após pagamento</label>
+            <input
+              className="admin-form-input"
+              type="url"
+              placeholder="https://minhapagina.com/obrigado"
+              value={ckRedirectUrl}
+              onChange={(e) => setCkRedirectUrl(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Redirecionar automaticamente após pagamento</div>
+              <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Se desativado, apenas exibe mensagem de sucesso</div>
+            </div>
+            <label className="admin-toggle">
+              <input type="checkbox" checked={ckRedirect} onChange={(e) => setCkRedirect(e.target.checked)} />
+              <span className="admin-toggle-slider" />
+            </label>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
+            <label className="admin-form-label">Token UTMify</label>
+            <input
+              className="admin-form-input"
+              type="password"
+              placeholder="Token da API UTMify"
+              value={ckUtmify}
+              onChange={(e) => setCkUtmify(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Modo Teste UTMify</div>
+              <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Ative apenas em testes para não contaminar relatórios</div>
+            </div>
+            <label className="admin-toggle">
+              <input type="checkbox" checked={ckIsTest} onChange={(e) => setCkIsTest(e.target.checked)} />
+              <span className="admin-toggle-slider" />
+            </label>
+          </div>
+
+          {/* Orderbumps */}
+          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
+            <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--adm-text)", marginBottom: 12 }}>Order Bumps</div>
+
+            {ckOrdebumps.map((ob) => (
+              <div key={ob.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--adm-border)" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{ob.title}</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)" }}>
+                    R$ {ob.price.toFixed(2)} {ob.description && `· ${ob.description.substring(0, 40)}`}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleOrdebump(ob.id)}
+                  style={{ fontSize: "0.75rem", padding: "4px 8px", borderRadius: 4, border: "1px solid var(--adm-border)", background: ob.active ? "rgba(16,185,129,.15)" : "transparent", color: ob.active ? "#10b981" : "var(--adm-text-muted)", cursor: "pointer" }}
+                >
+                  {ob.active ? "Ativo" : "Inativo"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeOrdebump(ob.id)}
+                  style={{ fontSize: "0.75rem", padding: "4px 8px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}
+                >
+                  Remover
+                </button>
+              </div>
+            ))}
+
+            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <input className="admin-form-input" placeholder="Título do bump *" value={ckAddBump.title} onChange={(e) => setCkAddBump((p) => ({ ...p, title: e.target.value }))} style={{ marginBottom: 0 }} />
+              <input className="admin-form-input" placeholder="Preço (R$)" type="number" min="0" step="0.01" value={ckAddBump.price} onChange={(e) => setCkAddBump((p) => ({ ...p, price: e.target.value }))} style={{ marginBottom: 0 }} />
+              <input className="admin-form-input" placeholder="Descrição (opcional)" value={ckAddBump.description} onChange={(e) => setCkAddBump((p) => ({ ...p, description: e.target.value }))} style={{ marginBottom: 0 }} />
+              <input className="admin-form-input" placeholder="Offer Hash (UTMify)" value={ckAddBump.offerHash} onChange={(e) => setCkAddBump((p) => ({ ...p, offerHash: e.target.value }))} style={{ marginBottom: 0 }} />
+            </div>
+            <button
+              type="button"
+              className="admin-btn-secondary"
+              onClick={addOrdebump}
+              style={{ marginTop: 8, fontSize: "0.82rem" }}
+              disabled={!ckAddBump.title}
+            >
+              + Adicionar Order Bump
+            </button>
+          </div>
+
+          <button
+            className="admin-btn-primary"
+            onClick={handleSaveCheckout}
+            disabled={ckSaving}
+            style={{ alignSelf: "flex-start" }}
+          >
+            {ckSaving ? "Salvando…" : "Salvar Checkout"}
           </button>
         </div>
       </div>

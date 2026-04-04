@@ -9,6 +9,7 @@ import StoreShell from "@/components/StoreShell";
 import MarqueeBanner from "@/components/MarqueeBanner";
 import Footer from "@/components/Footer";
 import PixelScripts from "@/components/PixelScripts";
+import UTMCapture from "@/components/UTMCapture";
 import { readStoreData } from "@/lib/store-data";
 import { getTenant } from "@/lib/tenant";
 
@@ -106,6 +107,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PixelScripts
           pixels={(store.pixels ?? []).map(({ accessToken: _omit, ...safe }) => safe)}
         />
+        <UTMCapture />
         <UserProvider>
           <CartProvider>
             <ToastProvider>

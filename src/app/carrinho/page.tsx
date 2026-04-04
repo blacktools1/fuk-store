@@ -7,6 +7,7 @@ import { useCart } from "@/context/CartContext";
 import { cartCount, cartTotal } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
 import { buildExternalCheckoutUrl } from "@/lib/checkout-redirect";
+import { firePixelEvent } from "@/lib/pixel";
 
 export default function CartPage() {
   const { items, remove, update, clear } = useCart();
@@ -36,6 +37,25 @@ export default function CartPage() {
       ...(item.product.oldPrice ? { oldPrice: item.product.oldPrice } : {}),
       image: item.product.image,
     }));
+
+    // ── Dispara InitiateCheckout nos pixels da loja (mesmo domínio = 100% confiável)
+    // Fazemos isso AQUI antes de redirecionar para o PHP checkout (domínio externo).
+    try {
+      firePixelEvent("InitiateCheckout", {
+        content_ids: items.map((i) => String(i.product.id)),
+        contents: items.map((i) => ({
+          content_id: String(i.product.id),
+          content_name: i.product.name,
+          quantity: i.quantity,
+          price: i.product.price,
+        })),
+        content_type: "product",
+        value: total,
+        currency: "BRL",
+        num_items: count,
+      });
+    } catch (_) {}
+
     if (checkoutUrl.trim()) {
       let url = buildExternalCheckoutUrl(checkoutUrl, lines);
 
@@ -44,22 +64,23 @@ export default function CartPage() {
         url += `&tt_pixels=${encodeURIComponent(ttPixelIds.join(","))}`;
       }
 
-      // UTMs: lê do localStorage onde o SDK UTMify salva, e também do URL atual.
-      // Como o checkout PHP é outro domínio, precisamos passá-las via URL.
+      // ── UTMs: lê do nosso cache (salvo pelo UTMCapture.tsx quando o usuário chegou)
+      // Como o checkout PHP é outro domínio, as UTMs precisam ir na URL.
       try {
-        const utmKeys = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "src", "sck"];
-        const urlParams = new URLSearchParams(window.location.search);
-        utmKeys.forEach((key) => {
-          // Prioridade: URL atual → localStorage (onde UTMify salvou)
+        const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "src", "sck"];
+        const stored: Record<string, string> = JSON.parse(localStorage.getItem("store_utms") || "{}");
+        const urlNow = new URLSearchParams(window.location.search);
+
+        UTM_KEYS.forEach((key) => {
+          // Prioridade: URL atual > cache armazenado pelo UTMCapture > chaves do UTMify SDK
           const val =
-            urlParams.get(key) ||
+            urlNow.get(key) ||
+            stored[key] ||
             localStorage.getItem(`utmify_${key}`) ||
             "";
           if (val) url += `&${key}=${encodeURIComponent(val)}`;
         });
-      } catch (_) {
-        // localStorage indisponível — segue sem UTMs
-      }
+      } catch (_) {}
 
       window.location.href = url;
     } else {

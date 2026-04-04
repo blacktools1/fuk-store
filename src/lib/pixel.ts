@@ -15,6 +15,12 @@ export interface PixelEventData {
   content_ids?: string[];
   content_name?: string;
   content_type?: string;
+  contents?: Array<{
+    content_id: string;
+    content_name?: string;
+    quantity?: number;
+    price?: number;
+  }>;
   value?: number;
   currency?: string;
   num_items?: number;

@@ -37,6 +37,26 @@ export interface TopBannerConfig {
   hideOnDesktop?: boolean;
 }
 
+export interface Orderbump {
+  id: string;
+  active: boolean;
+  title: string;
+  description: string;
+  price: number;
+  offerHash: string;
+  imageUrl?: string;
+}
+
+export interface CheckoutConfig {
+  paradiseApiKey?: string;
+  redirectUrl?: string;
+  redirectEnabled?: boolean;
+  backLink?: string;
+  utmifyToken?: string;
+  utmifyIsTest?: boolean;
+  orderbumps?: Orderbump[];
+}
+
 export interface StorePixel {
   id: string;
   type: "facebook" | "tiktok";
@@ -75,6 +95,7 @@ export interface StoreData {
   pixDiscount?: number;
   freeShippingMin?: number;
   checkoutUrl?: string;
+  checkoutConfig?: CheckoutConfig;
   showHero?: boolean;
   stickyHeader?: boolean;
   banners: Banner[];

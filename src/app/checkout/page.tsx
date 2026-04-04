@@ -1,13 +1,23 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
 import { cartTotal } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
-import { useToast } from "@/components/ToastProvider";
+import { firePixelEvent } from "@/lib/pixel";
+import { validateCPF, formatCPF, formatPhone, digitsOnly } from "@/lib/cpf";
+import type { Orderbump } from "@/lib/admin-types";
+
+interface CheckoutConfig {
+  orderbumps?: Orderbump[];
+  redirectUrl?: string;
+  redirectEnabled?: boolean;
+  backLink?: string;
+  hasInternalCheckout?: boolean;
+}
 
 interface CustomerForm {
   name: string;
@@ -16,18 +26,39 @@ interface CustomerForm {
   phone: string;
 }
 
-interface PixResponse {
-  qr_code?: string;
-  qr_code_base64?: string;
-  code?: string;
-  message?: string;
+interface PixResult {
+  transactionId: string;
+  qrCodeBase64: string;
+  copyPaste: string;
+  total: number;
+}
+
+type Stage = "form" | "pix" | "paid" | "error";
+
+const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "src", "sck"];
+
+function readStoredUtms(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem("store_utms") || "{}");
+  } catch {
+    return {};
+  }
 }
 
 export default function CheckoutPage() {
   const { items, clear } = useCart();
   const { user } = useUser();
-  const { showToast } = useToast();
   const total = cartTotal(items);
+
+  const [config, setConfig] = useState<CheckoutConfig | null>(null);
+  const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
+  const [stage, setStage] = useState<Stage>("form");
+  const [pixResult, setPixResult] = useState<PixResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [pollSeconds, setPollSeconds] = useState(0);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [form, setForm] = useState<CustomerForm>({
     name: user?.name || "",
@@ -36,323 +67,379 @@ export default function CheckoutPage() {
     phone: "",
   });
 
-  const [pix, setPix] = useState<PixResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [paid, setPaid] = useState(false);
+  // Fetch checkout config
+  useEffect(() => {
+    fetch("/api/store/config")
+      .then((r) => r.json())
+      .then((cfg) => {
+        setConfig({
+          orderbumps: [],
+          redirectUrl: "",
+          redirectEnabled: true,
+          hasInternalCheckout: cfg.hasInternalCheckout,
+        });
+      })
+      .catch(() => {});
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    fetch("/api/admin/checkout-config")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && !d.error) setConfig(d);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Status polling
+  useEffect(() => {
+    if (stage !== "pix" || !pixResult) return;
+    let seconds = 0;
+    pollRef.current = setInterval(async () => {
+      seconds += 3;
+      setPollSeconds(seconds);
+      if (seconds > 600) {
+        clearInterval(pollRef.current!);
+        return;
+      }
+      try {
+        const res = await fetch("/api/checkout/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transactionId: pixResult.transactionId }),
+        });
+        const data = await res.json();
+        if (data.paid) {
+          clearInterval(pollRef.current!);
+          // Dispara Purchase pixel
+          try {
+            firePixelEvent("Purchase", {
+              content_ids: items.map((i) => String(i.product.id)),
+              contents: items.map((i) => ({
+                content_id: String(i.product.id),
+                content_name: i.product.name,
+                quantity: i.quantity,
+                price: i.product.price,
+              })),
+              content_type: "product",
+              value: pixResult.total,
+              currency: "BRL",
+            });
+          } catch (_) {}
+          setStage("paid");
+          clear();
+          if (data.redirectEnabled && data.redirectUrl) {
+            setTimeout(() => {
+              window.location.href = data.redirectUrl;
+            }, 3000);
+          }
+        }
+      } catch (_) {}
+    }, 3000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [stage, pixResult]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === "cpf") {
+      setForm((p) => ({ ...p, cpf: formatCPF(value) }));
+    } else if (name === "phone") {
+      setForm((p) => ({ ...p, phone: formatPhone(value) }));
+    } else {
+      setForm((p) => ({ ...p, [name]: value }));
+    }
   };
 
-  const isFormValid = form.name && form.email && form.cpf && form.phone;
+  const toggleBump = (id: string) => {
+    setSelectedBumps((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const bumpTotal = (config?.orderbumps ?? [])
+    .filter((ob) => ob.active && selectedBumps.includes(ob.id))
+    .reduce((s, ob) => s + ob.price, 0);
+  const grandTotal = total + bumpTotal;
+
+  const isFormValid =
+    form.name.trim().length >= 3 &&
+    /\S+@\S+\.\S+/.test(form.email) &&
+    validateCPF(form.cpf) &&
+    digitsOnly(form.phone).length >= 10;
 
   const handleGeneratePix = async () => {
     if (!isFormValid || items.length === 0) return;
     setLoading(true);
+    setErrorMsg("");
+
+    const cartItems = items.map((i) => ({
+      id: i.product.id,
+      name: i.variation ? `${i.product.name} — ${i.variation}` : i.product.name,
+      price: i.product.price,
+      qty: i.quantity,
+    }));
+
+    const utms = readStoredUtms();
+    // Também tenta UTMify individual keys como fallback
+    UTM_KEYS.forEach((k) => {
+      if (!utms[k]) {
+        const v = localStorage.getItem(`utmify_${k}`);
+        if (v) utms[k] = v;
+      }
+    });
+
     try {
-      const res = await fetch("/api/pix/generate", {
+      const res = await fetch("/api/checkout/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: total,
-          customer: form,
-          items: items.map((i) => ({
-            id: i.id,
-            name: i.variation ? `${i.product.name} - ${i.variation}` : i.product.name,
-            price: i.product.price,
-            quantity: i.quantity,
-          })),
+          customer: {
+            name: form.name,
+            email: form.email,
+            cpf: digitsOnly(form.cpf),
+            phone: digitsOnly(form.phone),
+          },
+          cartItems,
+          utms,
+          selectedOrderbumps: selectedBumps,
         }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Erro ao gerar Pix");
-      setPix(data);
-      showToast("QR Code Pix gerado! Escaneie para pagar.");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Erro ao gerar Pix";
-      showToast(message, "error");
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar pagamento");
+
+      setPixResult(data);
+      setStage("pix");
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Erro desconhecido");
     } finally {
       setLoading(false);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    showToast("Código Pix copiado!");
+  const copyCode = () => {
+    if (!pixResult?.copyPaste) return;
+    navigator.clipboard.writeText(pixResult.copyPaste).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
   };
 
-  if (items.length === 0 && !paid) {
+  // ── Empty cart
+  if (items.length === 0 && stage === "form") {
     return (
-      <div className="container" style={{ padding: "80px 24px", textAlign: "center" }}>
-        <p style={{ fontSize: "3rem", marginBottom: "16px" }}>🛒</p>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "12px" }}>
+      <div style={{ padding: "80px 24px", textAlign: "center" }}>
+        <p style={{ fontSize: "3rem", marginBottom: 16 }}>🛒</p>
+        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: 12 }}>
           Carrinho vazio
         </h1>
-        <p style={{ color: "var(--text-muted)", marginBottom: "24px" }}>
+        <p style={{ color: "var(--text-muted)", marginBottom: 24 }}>
           Adicione produtos antes de finalizar a compra.
         </p>
-        <Link
-          href="/"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            background: "var(--accent)",
-            color: "var(--btn-text, white)",
-            padding: "12px 24px",
-            borderRadius: "var(--radius)",
-            fontWeight: 600,
-          }}
-        >
-          ← Voltar à Loja
-        </Link>
+        <Link href="/" className="pix-back-btn">← Voltar à Loja</Link>
       </div>
     );
   }
 
+  // ── Paid
+  if (stage === "paid") {
+    return (
+      <div className="pix-checkout-page">
+        <div className="pix-checkout-container">
+          <div className="pix-paid-screen">
+            <div className="pix-paid-icon">✓</div>
+            <h1>Pagamento Confirmado!</h1>
+            <p>Seu pedido foi recebido com sucesso. Em breve você receberá a confirmação por e-mail.</p>
+            <Link href="/" className="pix-back-btn" style={{ marginTop: 24, display: "inline-block" }}>
+              Voltar à Loja
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const activeOrdebumps = (config?.orderbumps ?? []).filter((ob) => ob.active);
+
   return (
-    <div className="checkout-page">
-      <div className="container">
-        <nav className="breadcrumb">
-          <Link href="/">Loja</Link>
-          <span className="breadcrumb-sep">›</span>
-          <span>Checkout</span>
-        </nav>
+    <div className="pix-checkout-page">
+      <div className="pix-checkout-container">
 
-        <h1 style={{ fontSize: "2rem", fontWeight: 900, letterSpacing: "-1px", marginBottom: "28px" }}>
-          Finalizar Compra
-        </h1>
+        {/* Stepper */}
+        <div className="cart-stepper" style={{ marginBottom: 32 }}>
+          <div className="cart-step completed"><span className="cart-step-num">✓</span><span className="cart-step-label">Carrinho</span></div>
+          <div className="cart-step-sep" />
+          <div className={`cart-step ${(stage === "form" || stage === "pix") ? "active" : ""}`}>
+            <span className="cart-step-num">2</span>
+            <span className="cart-step-label">Pagamento</span>
+          </div>
+          <div className="cart-step-sep" />
+          <div className={`cart-step ${stage === ("paid" as Stage) ? "active" : ""}`}>
+            <span className="cart-step-num">3</span>
+            <span className="cart-step-label">Conclusão</span>
+          </div>
+        </div>
 
-        <div className="checkout-layout">
-          {/* Left column */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            {/* Customer Info */}
-            <section className="checkout-section">
-              <h2 className="checkout-section-title">
-                <span className="step-num">1</span>
-                Seus Dados
-              </h2>
-              <div className="form-grid">
-                <div className="form-field span-2">
-                  <label className="form-label" htmlFor="name">Nome Completo</label>
-                  <input
-                    id="name"
-                    name="name"
-                    className="form-input"
-                    placeholder="João da Silva"
-                    value={form.name}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="form-field">
-                  <label className="form-label" htmlFor="email">E-mail</label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    className="form-input"
-                    placeholder="joao@email.com"
-                    value={form.email}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="form-field">
-                  <label className="form-label" htmlFor="phone">Telefone</label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    className="form-input"
-                    placeholder="(11) 99999-9999"
-                    value={form.phone}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="form-field span-2">
-                  <label className="form-label" htmlFor="cpf">CPF</label>
-                  <input
-                    id="cpf"
-                    name="cpf"
-                    className="form-input"
-                    placeholder="000.000.000-00"
-                    value={form.cpf}
-                    onChange={handleChange}
-                    maxLength={14}
-                  />
-                </div>
-              </div>
-            </section>
+        <div className="pix-checkout-grid">
 
-            {/* Pix Payment */}
-            <section className="checkout-section">
-              <h2 className="checkout-section-title">
-                <span className="step-num">2</span>
-                Pagamento via Pix
-              </h2>
+          {/* ── Left: Form / PIX ── */}
+          <div className="pix-checkout-left">
 
-              <div className="pix-section">
-                {!pix ? (
-                  <>
-                    <div style={{ fontSize: "0.9rem", color: "var(--text-muted)", marginBottom: "16px" }}>
-                      Após confirmar seus dados, clique para gerar o QR Code Pix. O pagamento é aprovado instantaneamente.
-                    </div>
-                    <div style={{
-                      background: "var(--bg-elevated)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius)",
-                      padding: "16px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      textAlign: "left",
-                      marginBottom: "16px"
-                    }}>
-                      <span style={{ fontSize: "1.8rem" }}>⚡</span>
-                      <div>
-                        <p style={{ fontWeight: 700, fontSize: "0.95rem" }}>Pix — Pagamento Instantâneo</p>
-                        <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                          Aprovado 24h por dia, 7 dias por semana, incluindo feriados.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      id="generate-pix-btn"
-                      className="pix-generate-btn"
-                      onClick={handleGeneratePix}
-                      disabled={!isFormValid || loading}
-                    >
-                      {loading ? (
-                        <>⏳ Gerando QR Code...</>
-                      ) : (
-                        <>⚡ Gerar QR Code Pix — {formatPrice(total)}</>
-                      )}
-                    </button>
-                    {!isFormValid && (
-                      <p style={{ fontSize: "0.8rem", color: "var(--text-faint)", marginTop: "8px" }}>
-                        Preencha seus dados acima para continuar.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div>
-                    <p style={{ fontWeight: 700, color: "var(--success)", marginBottom: "16px" }}>
-                      ✅ QR Code gerado! Escaneie com o app do seu banco.
-                    </p>
-
-                    {pix.qr_code_base64 ? (
-                      <img
-                        src={`data:image/png;base64,${pix.qr_code_base64}`}
-                        alt="QR Code Pix"
-                        style={{ width: 200, height: 200, margin: "0 auto", borderRadius: "var(--radius)" }}
-                      />
-                    ) : (
-                      <div className="pix-qr-placeholder">
-                        <span className="qr-icon">◼◻◼</span>
-                        <span>QR Code Pix</span>
-                      </div>
-                    )}
-
-                    {pix.qr_code && (
-                      <div style={{ marginTop: "16px" }}>
-                        <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "8px" }}>
-                          Ou copie o código Pix Copia e Cola:
-                        </p>
-                        <div className="pix-code-box">{pix.qr_code}</div>
-                        <button
-                          onClick={() => copyToClipboard(pix.qr_code!)}
-                          style={{
-                            marginTop: 10,
-                            width: "100%",
-                            padding: "10px",
-                            background: "var(--bg-elevated)",
-                            border: "1px solid var(--border)",
-                            borderRadius: "var(--radius-sm)",
-                            color: "var(--accent-bright)",
-                            fontWeight: 600,
-                            fontSize: "0.875rem",
-                            cursor: "pointer",
-                          }}
-                        >
-                          📋 Copiar Código
-                        </button>
-                      </div>
-                    )}
-
-                    <div style={{
-                      background: "rgba(16,185,129,0.08)",
-                      border: "1px solid rgba(16,185,129,0.2)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "12px 16px",
-                      marginTop: "16px",
-                      fontSize: "0.82rem",
-                      color: "var(--text-muted)"
-                    }}>
-                      ⏱️ <strong>Aguardando pagamento...</strong> Você receberá uma confirmação assim que o pagamento for processado.
-                    </div>
+            {stage === "form" && (
+              <div className="pix-section-card">
+                <h2 className="pix-section-title">
+                  <span className="pix-step-badge">1</span>
+                  Seus Dados
+                </h2>
+                <div className="pix-form-grid">
+                  <div className="pix-field full">
+                    <label>Nome Completo</label>
+                    <input name="name" value={form.name} onChange={handleFormChange} placeholder="João da Silva" autoComplete="name" />
                   </div>
+                  <div className="pix-field">
+                    <label>E-mail</label>
+                    <input name="email" type="email" value={form.email} onChange={handleFormChange} placeholder="joao@email.com" autoComplete="email" />
+                  </div>
+                  <div className="pix-field">
+                    <label>Telefone</label>
+                    <input name="phone" type="tel" value={form.phone} onChange={handleFormChange} placeholder="(11) 99999-9999" autoComplete="tel" />
+                  </div>
+                  <div className="pix-field full">
+                    <label>CPF</label>
+                    <input name="cpf" value={form.cpf} onChange={handleFormChange} placeholder="000.000.000-00" autoComplete="off" maxLength={14} />
+                    {form.cpf.length === 14 && !validateCPF(form.cpf) && (
+                      <span className="pix-field-error">CPF inválido</span>
+                    )}
+                  </div>
+                </div>
+
+                {errorMsg && (
+                  <div className="pix-error-banner">{errorMsg}</div>
+                )}
+
+                <button
+                  className="pix-generate-btn"
+                  onClick={handleGeneratePix}
+                  disabled={!isFormValid || loading || items.length === 0}
+                >
+                  {loading ? "Gerando QR Code..." : `Gerar QR Code PIX — ${formatPrice(grandTotal)}`}
+                </button>
+
+                {!isFormValid && (
+                  <p className="pix-form-hint">Preencha todos os dados corretamente para continuar.</p>
                 )}
               </div>
-            </section>
+            )}
+
+            {stage === "pix" && pixResult && (
+              <div className="pix-section-card">
+                <h2 className="pix-section-title">
+                  <span className="pix-step-badge">2</span>
+                  Escaneie o QR Code
+                </h2>
+
+                <div className="pix-qr-wrapper">
+                  {pixResult.qrCodeBase64 ? (
+                    <img
+                      src={`data:image/png;base64,${pixResult.qrCodeBase64}`}
+                      alt="QR Code PIX"
+                      className="pix-qr-img"
+                    />
+                  ) : (
+                    <div className="pix-qr-placeholder">QR Code não disponível</div>
+                  )}
+                </div>
+
+                <p className="pix-qr-hint">
+                  Abra o app do seu banco e escaneie o QR Code acima, ou copie o código abaixo.
+                </p>
+
+                {pixResult.copyPaste && (
+                  <div className="pix-copy-area">
+                    <div className="pix-copy-code">{pixResult.copyPaste}</div>
+                    <button className="pix-copy-btn" onClick={copyCode}>
+                      {copied ? "Copiado!" : "Copiar Código"}
+                    </button>
+                  </div>
+                )}
+
+                <div className="pix-waiting-badge">
+                  <span className="pix-waiting-dot" />
+                  Aguardando pagamento... ({Math.floor(pollSeconds / 60)}:{String(pollSeconds % 60).padStart(2, "0")})
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Right: Order Summary */}
-          <div className="order-summary">
-            <h2 className="order-summary-title">📦 Resumo do Pedido</h2>
+          {/* ── Right: Order Summary ── */}
+          <aside className="pix-checkout-summary">
+            <h3 className="pix-summary-title">Resumo do Pedido</h3>
 
             {items.map((item) => (
-              <div key={item.id} className="order-item">
-                <div className="order-item-img">
-                  <Image
-                    src={item.product.image}
-                    alt={item.product.name}
-                    width={52}
-                    height={52}
-                    style={{ objectFit: "cover" }}
-                  />
+              <div key={item.id} className="pix-summary-item">
+                <div className="pix-summary-img">
+                  <Image src={item.product.image} alt={item.product.name} fill sizes="52px" style={{ objectFit: "cover" }} />
                 </div>
-                <div className="order-item-info">
-                  <p className="order-item-name">{item.product.name}</p>
-                  {item.variation && (
-                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                      Opção: {item.variation}
-                    </p>
-                  )}
-                  <p className="order-item-qty">Qtd: {item.quantity}</p>
+                <div className="pix-summary-info">
+                  <p className="pix-summary-name">
+                    {item.product.name}
+                    {item.variation && <span className="pix-summary-variation"> — {item.variation}</span>}
+                  </p>
+                  <p className="pix-summary-qty">Qtd: {item.quantity}</p>
                 </div>
-                <p className="order-item-price">
-                  {formatPrice(item.product.price * item.quantity)}
-                </p>
+                <span className="pix-summary-price">{formatPrice(item.product.price * item.quantity)}</span>
               </div>
             ))}
 
-            <hr className="order-divider" />
+            {/* Orderbumps */}
+            {activeOrdebumps.length > 0 && stage === "form" && (
+              <div className="pix-orderbumps">
+                <p className="pix-ob-title">Aproveite e adicione ao seu pedido:</p>
+                {activeOrdebumps.map((ob) => (
+                  <label key={ob.id} className={`pix-ob-item ${selectedBumps.includes(ob.id) ? "selected" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedBumps.includes(ob.id)}
+                      onChange={() => toggleBump(ob.id)}
+                      style={{ display: "none" }}
+                    />
+                    <div className="pix-ob-check">{selectedBumps.includes(ob.id) ? "✓" : "+"}</div>
+                    <div className="pix-ob-info">
+                      <p className="pix-ob-name">{ob.title}</p>
+                      {ob.description && <p className="pix-ob-desc">{ob.description}</p>}
+                    </div>
+                    <span className="pix-ob-price">{formatPrice(ob.price)}</span>
+                  </label>
+                ))}
+              </div>
+            )}
 
-            <div className="order-total-row">
+            <div className="pix-summary-divider" />
+
+            <div className="pix-summary-row">
               <span>Subtotal</span>
               <span>{formatPrice(total)}</span>
             </div>
-            <div className="order-total-row">
+            {bumpTotal > 0 && (
+              <div className="pix-summary-row">
+                <span>Add-ons</span>
+                <span>{formatPrice(bumpTotal)}</span>
+              </div>
+            )}
+            <div className="pix-summary-row">
               <span>Frete</span>
               <span style={{ color: "var(--success)" }}>Grátis</span>
             </div>
-            <div className="order-total-row grand">
+            <div className="pix-summary-row grand">
               <span>Total</span>
-              <span className="amount">{formatPrice(total)}</span>
+              <span>{formatPrice(grandTotal)}</span>
             </div>
 
-            <div style={{
-              marginTop: "20px",
-              padding: "14px",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-sm)",
-              fontSize: "0.8rem",
-              color: "var(--text-faint)",
-              lineHeight: 1.7,
-            }}>
-              🔒 Compra 100% segura · Pix aprovado instantaneamente · Dados protegidos
+            <div className="pix-security-badges">
+              <span>Compra 100% Segura</span>
+              <span>PIX · Aprovação Imediata</span>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>
