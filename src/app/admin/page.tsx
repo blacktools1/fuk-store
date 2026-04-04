@@ -2583,8 +2583,8 @@ function PixelsSection({
             { event: "PageView",         desc: "Cada página visitada na loja" },
             { event: "ViewContent",      desc: "Página de produto visualizada" },
             { event: "AddToCart",        desc: "Produto adicionado ao carrinho" },
-            { event: "InitiateCheckout", desc: "Quando o pixel dispara no fluxo interno" },
-            { event: "Purchase",         desc: "Quando implementado no fluxo interno" },
+            { event: "InitiateCheckout", desc: "No carrinho ao continuar, ou ao abrir /checkout (sem duplicar)" },
+            { event: "Purchase",         desc: "Pagamento PIX confirmado — 1 conversão; valor = total do pedido" },
           ].map(({ event, desc }) => (
             <div key={event} className="admin-pixels-event-row">
               <span style={{ background: "var(--adm-accent)", color: "#fff", borderRadius: 6, padding: "3px 8px", fontFamily: "monospace", fontSize: "0.76rem", whiteSpace: "nowrap", width: "fit-content" }}>

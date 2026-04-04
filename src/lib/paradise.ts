@@ -139,6 +139,27 @@ async function qrDataUrlFromPixPayload(emv: string): Promise<string> {
   });
 }
 
+function compactUtms(utms: Record<string, string> | undefined): Record<string, string> {
+  if (!utms) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(utms)) {
+    if (v != null && String(v).trim() !== "") out[k] = String(v).trim();
+  }
+  return out;
+}
+
+/** Anexa UTMs à descrição (sempre aceito) e envia metadata quando a API suportar */
+function buildDescriptionWithUtms(description: string, utms: Record<string, string>): string {
+  const keys = Object.keys(utms);
+  if (keys.length === 0) return description;
+  const compact = keys
+    .map((k) => `${k}=${encodeURIComponent(utms[k])}`)
+    .join("&")
+    .slice(0, 140);
+  const combined = `${description} |UTM| ${compact}`;
+  return combined.slice(0, 255);
+}
+
 export async function createParadisePayment(params: {
   apiKey: string;
   amountInCents: number;
@@ -146,29 +167,54 @@ export async function createParadisePayment(params: {
   reference: string;
   webhookUrl: string;
   customer: ParadiseCustomer;
+  /** UTMs da campanha — vão na transação (metadata + sufixo na descrição) */
+  utmMetadata?: Record<string, string>;
 }): Promise<CreatePaymentResult> {
-  const res = await fetch(`${PARADISE_BASE}/transaction.php`, {
+  const utms = compactUtms(params.utmMetadata);
+  const description = buildDescriptionWithUtms(params.description, utms);
+
+  const body: Record<string, unknown> = {
+    amount: params.amountInCents,
+    description,
+    reference: params.reference,
+    postback_url: params.webhookUrl,
+    source: "api_externa",
+    customer: {
+      name: params.customer.name,
+      email: params.customer.email,
+      phone: params.customer.phone,
+      document: params.customer.document,
+    },
+  };
+
+  if (Object.keys(utms).length > 0) {
+    body.metadata = { ...utms, source: "store_checkout" };
+  }
+
+  let res = await fetch(`${PARADISE_BASE}/transaction.php`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-API-Key": params.apiKey,
     },
-    body: JSON.stringify({
-      amount: params.amountInCents,
-      description: params.description,
-      reference: params.reference,
-      postback_url: params.webhookUrl,
-      source: "api_externa",
-      customer: {
-        name: params.customer.name,
-        email: params.customer.email,
-        phone: params.customer.phone,
-        document: params.customer.document,
-      },
-    }),
+    body: JSON.stringify(body),
   });
 
-  const data = await res.json();
+  let data = await res.json();
+
+  // Se a API não aceitar `metadata`, tenta de novo só com descrição (UTMs já vão no texto)
+  if ((!res.ok || data.status === false) && body.metadata) {
+    const { metadata: _m, ...bodyRetry } = body;
+    res = await fetch(`${PARADISE_BASE}/transaction.php`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": params.apiKey,
+      },
+      body: JSON.stringify(bodyRetry),
+    });
+    data = await res.json();
+  }
 
   if (!res.ok || data.status === false) {
     throw new Error(data.message || "Erro ao criar transação Paradise");

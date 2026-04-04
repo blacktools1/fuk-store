@@ -60,6 +60,9 @@ export default function CartPage() {
 
     // Prioridade: checkout interno (Paradise) no mesmo domínio — ignora checkoutUrl legado
     if (hasInternalCheckout) {
+      try {
+        sessionStorage.setItem("pixel_ic_from_cart", "1");
+      } catch (_) {}
       window.location.href = "/checkout";
       return;
     }

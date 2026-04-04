@@ -6,7 +6,7 @@ import Link from "next/link";
 import { getPixQrImgSrc } from "@/lib/pix-qr";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
-import { cartTotal } from "@/lib/cart";
+import { cartTotal, cartCount } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
 import { firePixelEvent } from "@/lib/pixel";
 import { validateCPF, formatCPF, formatPhone, digitsOnly } from "@/lib/cpf";
@@ -78,6 +78,7 @@ export default function CheckoutPage() {
   const [copied, setCopied] = useState(false);
   const [pollSeconds, setPollSeconds] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const initiateCheckoutFiredRef = useRef(false);
 
   const [form, setForm] = useState<CustomerForm>({
     name: user?.name || "",
@@ -227,6 +228,35 @@ export default function CheckoutPage() {
     .filter((ob) => ob.active && selectedBumps.includes(ob.id))
     .reduce((s, ob) => s + ob.price, 0);
   const grandTotal = total + bumpTotal;
+
+  // InitiateCheckout: direto em /checkout; se veio do carrinho, IC já foi disparado lá
+  useEffect(() => {
+    if (stage !== "form" || items.length === 0) return;
+    try {
+      if (sessionStorage.getItem("pixel_ic_from_cart") === "1") {
+        sessionStorage.removeItem("pixel_ic_from_cart");
+        initiateCheckoutFiredRef.current = true;
+        return;
+      }
+    } catch (_) {}
+    if (initiateCheckoutFiredRef.current) return;
+    initiateCheckoutFiredRef.current = true;
+    try {
+      firePixelEvent("InitiateCheckout", {
+        content_ids: items.map((i) => String(i.product.id)),
+        contents: items.map((i) => ({
+          content_id: String(i.product.id),
+          content_name: i.variation ? `${i.product.name} — ${i.variation}` : i.product.name,
+          quantity: i.quantity,
+          price: i.product.price,
+        })),
+        content_type: "product",
+        value: grandTotal,
+        currency: "BRL",
+        num_items: cartCount(items),
+      });
+    } catch (_) {}
+  }, [stage, items, grandTotal]);
 
   const isFormValid =
     form.name.trim().length >= 3 &&

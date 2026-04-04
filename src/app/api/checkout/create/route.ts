@@ -76,12 +76,20 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const utmFlat: Record<string, string> = {};
+      if (utms && typeof utms === "object") {
+        for (const [k, v] of Object.entries(utms as Record<string, unknown>)) {
+          if (v != null && String(v).trim() !== "") utmFlat[k] = String(v).trim();
+        }
+      }
+
       result = await createParadisePayment({
         apiKey: config.paradiseApiKey,
         amountInCents: Math.round(total * 100),
         description,
         reference,
         webhookUrl,
+        utmMetadata: utmFlat,
         customer: {
           name:     customer.name.trim(),
           email:    customer.email.trim().toLowerCase(),
