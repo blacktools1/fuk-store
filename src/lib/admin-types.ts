@@ -55,6 +55,7 @@ export interface CheckoutConfig {
   utmifyToken?: string;
   utmifyIsTest?: boolean;
   orderbumps?: Orderbump[];
+  checkoutTheme?: "theme1" | "theme2" | "theme3";
 }
 
 export interface StorePixel {
