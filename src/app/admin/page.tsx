@@ -538,6 +538,8 @@ function CheckoutSection({
   onSaveConfig: (patch: Partial<StoreData>) => Promise<void>;
 }) {
   const [saving, setSaving]               = useState(false);
+  const [saveStatus, setSaveStatus]       = useState<"idle" | "saved" | "error">("idle");
+  const [isDirty, setIsDirty]             = useState(false);
   const [apiKey, setApiKey]               = useState(storeData?.checkoutConfig?.paradiseApiKey ?? "");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
@@ -548,24 +550,34 @@ function CheckoutSection({
   const [checkoutTheme, setCheckoutTheme] = useState<"theme1" | "theme2" | "theme3">(storeData?.checkoutConfig?.checkoutTheme ?? "theme1");
   const [pixProvider, setPixProvider]     = useState<string>(storeData?.checkoutConfig?.pixProvider ?? "paradise");
 
+  const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
+
   const hasKey = apiKey.trim().length > 0;
 
   const handleSave = async () => {
     setSaving(true);
-    await onSaveConfig({
-      checkoutUrl: "", // limpa URL externa — checkout interno tem prioridade
-      checkoutConfig: {
-        pixProvider,
-        paradiseApiKey: apiKey.trim(),
-        redirectUrl: redirectUrl.trim(),
-        redirectEnabled: redirectOn,
-        utmifyToken: utmifyToken.trim(),
-        utmifyIsTest: isTest,
-        orderbumps,
-        checkoutTheme,
-      },
-    });
-    setSaving(false);
+    setSaveStatus("idle");
+    try {
+      await onSaveConfig({
+        checkoutUrl: "",
+        checkoutConfig: {
+          pixProvider,
+          paradiseApiKey: apiKey.trim(),
+          redirectUrl: redirectUrl.trim(),
+          redirectEnabled: redirectOn,
+          utmifyToken: utmifyToken.trim(),
+          utmifyIsTest: isTest,
+          orderbumps,
+          checkoutTheme,
+        },
+      });
+      setSaveStatus("saved");
+      setIsDirty(false);
+    } catch {
+      setSaveStatus("error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addOb = () => {
@@ -586,6 +598,28 @@ function CheckoutSection({
 
   return (
     <>
+      {/* Banner alterações não salvas */}
+      {isDirty && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 12, background: "rgba(245,158,11,.1)", border: "1px solid rgba(245,158,11,.35)",
+          borderRadius: 8, padding: "10px 16px", marginBottom: 4,
+          flexWrap: "wrap",
+        }}>
+          <span style={{ fontSize: "0.83rem", color: "#b45309", display: "flex", alignItems: "center", gap: 6 }}>
+            <span>⚠️</span> Você tem alterações não salvas
+          </span>
+          <button
+            className="admin-btn-primary"
+            onClick={handleSave}
+            disabled={saving}
+            style={{ padding: "6px 18px", fontSize: "0.83rem" }}
+          >
+            {saving ? "Salvando…" : "💾 Salvar agora"}
+          </button>
+        </div>
+      )}
+
       {/* Status banner */}
       <div className="admin-card" style={{ borderLeft: `4px solid ${hasKey ? "#10b981" : "#f59e0b"}`, paddingLeft: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -619,7 +653,7 @@ function CheckoutSection({
           ).map((t) => (
             <div
               key={t.id}
-              onClick={() => setCheckoutTheme(t.id)}
+              onClick={() => { setCheckoutTheme(t.id); markDirty(); }}
               style={{
                 border: `2px solid ${checkoutTheme === t.id ? "var(--accent)" : "var(--adm-border)"}`,
                 borderRadius: 8,
@@ -656,7 +690,7 @@ function CheckoutSection({
             <div style={{ position: "relative", marginBottom: 20 }}>
               <select
                 value={pixProvider}
-                onChange={(e) => setPixProvider(e.target.value)}
+                onChange={(e) => { setPixProvider(e.target.value); markDirty(); }}
                 className="admin-form-input"
                 style={{ paddingRight: 36, appearance: "none", cursor: "pointer" }}
               >
@@ -700,7 +734,7 @@ function CheckoutSection({
                 return (
                   <div
                     key={p.id}
-                    onClick={() => p.available && setPixProvider(p.id)}
+                    onClick={() => p.available && (setPixProvider(p.id), markDirty())}
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
                       padding: "11px 14px",
@@ -752,7 +786,7 @@ function CheckoutSection({
               type="password"
               placeholder={pixProvider === "paradise" ? "sk_xxxxxxxxxxxxxxxxxxxxxxxx" : "Chave de API"}
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={(e) => { setApiKey(e.target.value); markDirty(); }}
             />
             <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
               {pixProvider === "paradise"
@@ -768,7 +802,7 @@ function CheckoutSection({
               type="url"
               placeholder="https://minhapagina.com/obrigado"
               value={redirectUrl}
-              onChange={(e) => setRedirectUrl(e.target.value)}
+              onChange={(e) => { setRedirectUrl(e.target.value); markDirty(); }}
             />
             <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
               Deixe em branco para apenas exibir mensagem de sucesso sem redirecionar.
@@ -781,9 +815,35 @@ function CheckoutSection({
               <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Após confirmar pagamento, vai para a URL acima</div>
             </div>
             <label className="admin-toggle">
-              <input type="checkbox" checked={redirectOn} onChange={(e) => setRedirectOn(e.target.checked)} />
+              <input type="checkbox" checked={redirectOn} onChange={(e) => { setRedirectOn(e.target.checked); markDirty(); }} />
               <span className="admin-toggle-slider" />
             </label>
+          </div>
+
+          {/* Botão salvar inline */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12,
+            paddingTop: 14, borderTop: "1px solid var(--adm-border)",
+            flexWrap: "wrap",
+          }}>
+            <button
+              className="admin-btn-primary"
+              onClick={handleSave}
+              disabled={saving}
+              style={{ minWidth: 160 }}
+            >
+              {saving ? "Salvando…" : "💾 Salvar configurações"}
+            </button>
+            {saveStatus === "saved" && (
+              <span style={{ fontSize: "0.82rem", color: "#10b981", display: "flex", alignItems: "center", gap: 4 }}>
+                ✓ Salvo com sucesso
+              </span>
+            )}
+            {saveStatus === "error" && (
+              <span style={{ fontSize: "0.82rem", color: "#ef4444", display: "flex", alignItems: "center", gap: 4 }}>
+                ✗ Erro ao salvar — tente novamente
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -799,7 +859,7 @@ function CheckoutSection({
               type="password"
               placeholder="Token UTMify"
               value={utmifyToken}
-              onChange={(e) => setUtmifyToken(e.target.value)}
+              onChange={(e) => { setUtmifyToken(e.target.value); markDirty(); }}
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -808,7 +868,7 @@ function CheckoutSection({
               <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Ative apenas para testes — não contamina relatórios reais</div>
             </div>
             <label className="admin-toggle">
-              <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
+              <input type="checkbox" checked={isTest} onChange={(e) => { setIsTest(e.target.checked); markDirty(); }} />
               <span className="admin-toggle-slider" />
             </label>
           </div>
@@ -857,9 +917,15 @@ function CheckoutSection({
       </div>
 
       {/* Salvar */}
-      <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 40 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, paddingBottom: 40, flexWrap: "wrap" }}>
+        {saveStatus === "saved" && (
+          <span style={{ fontSize: "0.82rem", color: "#10b981" }}>✓ Todas as configurações salvas</span>
+        )}
+        {saveStatus === "error" && (
+          <span style={{ fontSize: "0.82rem", color: "#ef4444" }}>✗ Erro ao salvar</span>
+        )}
         <button className="admin-btn-primary" onClick={handleSave} disabled={saving} style={{ minWidth: 180 }}>
-          {saving ? "Salvando…" : "Salvar Checkout"}
+          {saving ? "Salvando…" : isDirty ? "💾 Salvar Checkout *" : "💾 Salvar Checkout"}
         </button>
       </div>
     </>
