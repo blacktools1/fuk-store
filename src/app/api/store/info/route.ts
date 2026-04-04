@@ -9,6 +9,11 @@ export async function GET(req: NextRequest) {
   const store = readStoreData(tenant);
   return NextResponse.json({
     showHero:         store.showHero ?? true,
+    heroPosition:     store.heroPosition ?? "after-banner",
+    heroAlign:        store.heroAlign ?? "center",
+    heroTag:          store.heroTag,
+    heroTitle:        store.heroTitle,
+    heroSubtitle:     store.heroSubtitle,
     storeName:        store.storeName,
     tagline:          store.storeTagline,
     cardStyle:        store.cardStyle     ?? "default",

@@ -113,6 +113,16 @@ export interface StoreData {
   checkoutUrl?: string;
   checkoutConfig?: CheckoutConfig;
   showHero?: boolean;
+  /** Hero acima ou abaixo do banner de topo (página inicial) */
+  heroPosition?: "before-banner" | "after-banner";
+  /** Alinhamento do texto na seção Hero */
+  heroAlign?: "left" | "center";
+  heroTag?: string;
+  /** Título — use quebras de linha para mais de uma linha */
+  heroTitle?: string;
+  heroSubtitle?: string;
+  /** Alinhamento do título/descrição nos cards de produto na listagem */
+  productTitleAlign?: "left" | "center";
   stickyHeader?: boolean;
   banners: Banner[];
   products: AdminProduct[];

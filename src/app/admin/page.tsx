@@ -164,7 +164,15 @@ export default function AdminPage() {
 
   const activeProducts = data?.products.filter((p) => p.active).length ?? 0;
   const totalProducts = data?.products.length ?? 0;
-  const activeBanners = data?.banners.filter((b) => b.active).length ?? 0;
+
+  const carouselBanners = data?.banners ?? [];
+  const carouselTotal = carouselBanners.length;
+  const carouselActive = carouselBanners.filter((b) => b.active).length;
+  const hasTopBannerHero =
+    !!(data?.topBannerMobile?.image?.trim()) ||
+    !!(data?.topBannerDesktop?.image?.trim());
+  const totalBanners = carouselTotal + (hasTopBannerHero ? 1 : 0);
+  const activeBanners = carouselActive + (hasTopBannerHero ? 1 : 0);
 
   return (
     <div className="admin-shell">
@@ -281,7 +289,7 @@ export default function AdminPage() {
               totalProducts={totalProducts}
               activeProducts={activeProducts}
               activeBanners={activeBanners}
-              totalBanners={data?.banners.length ?? 0}
+              totalBanners={totalBanners}
               storeData={data}
               onSaveConfig={save}
             />
@@ -323,8 +331,8 @@ export default function AdminPage() {
           {section === "banners" && data && (
             <BannersSection
               banners={data.banners}
-              topBannerDesktop={data.topBannerDesktop ?? {}}
-              topBannerMobile={data.topBannerMobile ?? {}}
+              topBannerDesktop={data.topBannerDesktop}
+              topBannerMobile={data.topBannerMobile}
               onSaveTopBanners={(desktop, mobile) =>
                 save({ topBannerDesktop: desktop, topBannerMobile: mobile })
               }
@@ -436,11 +444,17 @@ function DashboardSection({
           <span className="admin-stat-icon">🖼️</span>
           <div className="admin-stat-value">{totalBanners}</div>
           <div className="admin-stat-label">Banners Cadastrados</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--adm-text-faint)", marginTop: 6, lineHeight: 1.35 }}>
+            Slides do carrossel + banner do topo (se houver imagem)
+          </div>
         </div>
         <div className="admin-stat-card">
           <span className="admin-stat-icon">⚡</span>
           <div className="admin-stat-value">{activeBanners}</div>
           <div className="admin-stat-label">Banners Ativos</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--adm-text-faint)", marginTop: 6, lineHeight: 1.35 }}>
+            Slides ativos no carrossel + topo quando configurado
+          </div>
         </div>
       </div>
 
@@ -1208,6 +1222,11 @@ function ProductsSection({
   );
 }
 
+/** True se o banner de topo tem imagem configurada (desktop ou mobile). */
+function topBannerHasImage(cfg: TopBannerConfig | undefined): boolean {
+  return !!(cfg?.image && String(cfg.image).trim());
+}
+
 // ─────────────────────────────────────────────────────────────
 // Single-banner editor (reused for Desktop and Mobile)
 // ─────────────────────────────────────────────────────────────
@@ -1381,17 +1400,31 @@ function BannersSection({
   onAdd,
 }: {
   banners: Banner[];
-  topBannerDesktop: TopBannerConfig;
-  topBannerMobile: TopBannerConfig;
+  topBannerDesktop?: TopBannerConfig;
+  topBannerMobile?: TopBannerConfig;
   onSaveTopBanners: (desktop: TopBannerConfig, mobile: TopBannerConfig) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (b: Banner) => void;
   onAdd: () => void;
 }) {
-  const [desktop, setDesktop] = useState<TopBannerConfig>(initialDesktop);
-  const [mobile,  setMobile]  = useState<TopBannerConfig>(initialMobile);
-  const [enableMobile, setEnableMobile] = useState(!!initialMobile?.image);
+  const desktopSig = JSON.stringify(initialDesktop ?? {});
+  const mobileSig = JSON.stringify(initialMobile ?? {});
+
+  const [desktop, setDesktop] = useState<TopBannerConfig>(() => ({ ...(initialDesktop ?? {}) }));
+  const [mobile, setMobile] = useState<TopBannerConfig>(() => ({ ...(initialMobile ?? {}) }));
+  /** "Usar banner diferente no desktop" — deve refletir se há banner desktop salvo, não o mobile. */
+  const [separateDesktopBanner, setSeparateDesktopBanner] = useState(() =>
+    topBannerHasImage(initialDesktop)
+  );
+
+  useEffect(() => {
+    const d = { ...(JSON.parse(desktopSig) as TopBannerConfig) };
+    const m = { ...(JSON.parse(mobileSig) as TopBannerConfig) };
+    setDesktop(d);
+    setMobile(m);
+    setSeparateDesktopBanner(topBannerHasImage(d));
+  }, [desktopSig, mobileSig]);
 
   return (
     <>
@@ -1421,10 +1454,10 @@ function BannersSection({
         </div>
 
         {/* Toggle desktop */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: enableMobile ? 16 : 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: separateDesktopBanner ? 16 : 0 }}>
           <label className="admin-toggle">
-            <input type="checkbox" checked={enableMobile} onChange={(e) => {
-              setEnableMobile(e.target.checked);
+            <input type="checkbox" checked={separateDesktopBanner} onChange={(e) => {
+              setSeparateDesktopBanner(e.target.checked);
               if (!e.target.checked) setDesktop({});
             }} />
             <span className="admin-toggle-slider" />
@@ -1434,7 +1467,7 @@ function BannersSection({
           </span>
         </div>
 
-        {enableMobile && (
+        {separateDesktopBanner && (
           <BannerEditor
             label="🖥️ Banner Desktop (Opcional)"
             hint="Exibido apenas em telas ≥ 768px quando configurado. Recomendado: horizontal."
@@ -1446,7 +1479,7 @@ function BannersSection({
         <button
           className="admin-btn admin-btn-primary"
           style={{ marginTop: 8 }}
-          onClick={() => onSaveTopBanners(enableMobile ? desktop : {}, mobile)}
+          onClick={() => onSaveTopBanners(separateDesktopBanner ? desktop : {}, mobile)}
         >
           💾 Salvar Banners do Topo
         </button>
@@ -1578,6 +1611,19 @@ function SettingsSection({
   const [tagline, setTagline] = useState(data.storeTagline);
   const [logo, setLogo] = useState(data.storeLogo);
   const [showHero, setShowHero] = useState(data.showHero ?? true);
+  const [heroPosition, setHeroPosition] = useState<"before-banner" | "after-banner">(data.heroPosition ?? "after-banner");
+  const [heroAlign, setHeroAlign] = useState<"left" | "center">(data.heroAlign ?? "center");
+  const [heroTag, setHeroTag] = useState(data.heroTag ?? "✨ Nova coleção disponível");
+  const [heroTitle, setHeroTitle] = useState(
+    data.heroTitle ?? "Descubra os Melhores\nProdutos do Mercado"
+  );
+  const [heroSubtitle, setHeroSubtitle] = useState(
+    data.heroSubtitle ??
+      "Os melhores produtos com entrega rápida. Pague com Pix e receba em tempo recorde."
+  );
+  const [productTitleAlign, setProductTitleAlign] = useState<"left" | "center">(
+    data.productTitleAlign ?? "left"
+  );
   const [stickyHeader, setStickyHeader] = useState(data.stickyHeader !== false);
   const [logoUrl, setLogoUrl] = useState(data.logoUrl || "");
   const [logoDisplay, setLogoDisplay] = useState<"image-text" | "image-only" | "text-only">(data.logoDisplay ?? "image-text");
@@ -1741,16 +1787,86 @@ function SettingsSection({
 
       {/* ── 4. Hero ── */}
       <SettingsGroup step={4} icon="🎭" title="Seção de Boas-vindas (Hero)">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
           <label className="admin-toggle">
             <input type="checkbox" checked={showHero} onChange={(e) => setShowHero(e.target.checked)} />
             <span className="admin-toggle-slider" />
           </label>
           <div>
             <div style={{ fontSize: "0.9rem", color: "var(--adm-text)", fontWeight: 500 }}>Exibir seção Hero na página inicial</div>
-            <div style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Banner de boas-vindas com título e subtítulo</div>
+            <div style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Textos editáveis abaixo. Pode ficar vazia a etiqueta superior.</div>
           </div>
         </div>
+
+        {showHero && (
+          <>
+            <div className="admin-form-field span-2" style={{ marginBottom: 16 }}>
+              <label className="admin-form-label">Posição em relação ao banner de topo</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                {([
+                  { value: "after-banner" as const, label: "Depois do banner", sub: "Padrão — hero abaixo das imagens" },
+                  { value: "before-banner" as const, label: "Antes do banner", sub: "Hero aparece primeiro" },
+                ]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setHeroPosition(opt.value)}
+                    style={{
+                      flex: "1 1 200px", padding: "10px 12px", borderRadius: 8, textAlign: "left",
+                      cursor: "pointer", border: heroPosition === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)",
+                      background: heroPosition === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)",
+                      color: "var(--adm-text-muted)", transition: "all 0.18s ease",
+                    }}
+                  >
+                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--adm-text)" }}>{opt.label}</div>
+                    <div style={{ fontSize: "0.72rem", marginTop: 4, opacity: 0.85 }}>{opt.sub}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="admin-form-field span-2" style={{ marginBottom: 16 }}>
+              <label className="admin-form-label">Alinhamento do texto do Hero</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                {([
+                  { value: "center" as const, label: "Centralizado" },
+                  { value: "left" as const, label: "À esquerda" },
+                ]).map((opt) => (
+                  <button key={opt.value} type="button" onClick={() => setHeroAlign(opt.value)} style={{ flex: 1, padding: "9px 8px", borderRadius: 8, fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", border: heroAlign === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: heroAlign === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: heroAlign === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="admin-form-field span-2">
+              <label className="admin-form-label">Etiqueta (badge) — opcional</label>
+              <input className="admin-form-input" value={heroTag} onChange={(e) => setHeroTag(e.target.value)} placeholder="ex: ✨ Nova coleção disponível" />
+              <p style={{ fontSize: "0.74rem", color: "var(--adm-text-faint)", marginTop: 6 }}>Deixe em branco para ocultar a etiqueta.</p>
+            </div>
+            <div className="admin-form-field span-2">
+              <label className="admin-form-label">Título principal</label>
+              <textarea
+                className="admin-form-textarea"
+                rows={3}
+                value={heroTitle}
+                onChange={(e) => setHeroTitle(e.target.value)}
+                placeholder="Uma linha ou várias — use Enter para quebrar"
+                style={{ minHeight: 72 }}
+              />
+            </div>
+            <div className="admin-form-field span-2">
+              <label className="admin-form-label">Subtítulo</label>
+              <textarea
+                className="admin-form-textarea"
+                rows={3}
+                value={heroSubtitle}
+                onChange={(e) => setHeroSubtitle(e.target.value)}
+                placeholder="Texto de apoio abaixo do título"
+              />
+            </div>
+          </>
+        )}
       </SettingsGroup>
 
       {/* ── 5. Cores ── */}
@@ -1798,6 +1914,20 @@ function SettingsSection({
                 </button>
               ))}
             </div>
+          </div>
+          <div className="admin-form-field span-2">
+            <label className="admin-form-label">Títulos dos produtos (listagem)</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              {([
+                { value: "left" as const, label: "⬅ À esquerda" },
+                { value: "center" as const, label: "↔ Centralizado" },
+              ]).map((opt) => (
+                <button key={opt.value} type="button" onClick={() => setProductTitleAlign(opt.value)} style={{ flex: 1, padding: "9px 8px", borderRadius: 8, fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", border: productTitleAlign === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: productTitleAlign === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: productTitleAlign === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: "0.74rem", color: "var(--adm-text-faint)", marginTop: 8 }}>Nome e descrição curta nos cards da página inicial.</p>
           </div>
           <ColorField label="Cor dos Títulos"   value={titleColor}   onChange={setTitleColor} />
           <ColorField label="Cor das Descrições" value={textColor}    onChange={setTextColor} />
@@ -1869,7 +1999,8 @@ function SettingsSection({
             marqueeTexts: [marqueeText1, marqueeText2, marqueeText3].filter(Boolean),
             marqueePosition,
             primaryColor, secondaryColor, tertiaryColor, borderRadius, cardRadius,
-            headerColor, stickyHeader, titleColor, textColor, priceColor, btnTextColor, showHero
+            headerColor, stickyHeader, titleColor, textColor, priceColor, btnTextColor,
+            showHero, heroPosition, heroAlign, heroTag, heroTitle, heroSubtitle, productTitleAlign,
           })}
         >
           {saving ? "⏳ Salvando..." : "💾 Salvar todas as configurações"}
@@ -2526,9 +2657,6 @@ function PixelsSection({
                           placeholder="EAAB... (Gerenciador de Eventos → Configurações → API de Conversões)"
                           style={{ fontSize: "0.8rem" }}
                         />
-                        <p className="admin-pixels-field-help">
-                          O script do pixel no navegador usa só o ID acima. Este token fica salvo no servidor (não vai para o HTML da loja) e pode ser usado para eventos server-side no futuro. O checkout PHP separado tem o próprio CAPI em <code>pixels.json</code>.
-                        </p>
                       </div>
                     )}
                   </div>
@@ -2557,7 +2685,7 @@ function PixelsSection({
         </div>
         <div className="settings-group-body">
           <p className="admin-pixels-events-intro">
-            Estes eventos são disparados pelo JavaScript da loja (fbq / ttq). A API de Conversões é outra camada: envia os mesmos eventos do servidor da Meta, com melhor atribuição quando cookies são bloqueados — no checkout externo em PHP ela já está no projeto PIX; aqui na loja o token fica guardado para integração futura ou uso manual.
+            Estes eventos são disparados pelo JavaScript da loja (fbq / ttq). A API de Conversões é outra camada: envia os mesmos eventos do servidor da Meta, com melhor atribuição quando cookies são bloqueados.
           </p>
           <div className="admin-pixels-events">
             {[

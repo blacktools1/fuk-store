@@ -7,6 +7,11 @@ import ProductCard from "@/components/ProductCard";
 const PER_PAGE_DESKTOP = 16;
 const PER_PAGE_MOBILE  = 14;
 
+const DEFAULT_HERO_TAG = "✨ Nova coleção disponível";
+const DEFAULT_HERO_TITLE = "Descubra os Melhores\nProdutos do Mercado";
+const DEFAULT_HERO_SUBTITLE =
+  "Os melhores produtos com entrega rápida. Pague com Pix e receba em tempo recorde.";
+
 // NEXT_PUBLIC_MASTER_DOMAIN é embutido no bundle em build-time.
 // Defina essa variável no EasyPanel com o mesmo valor de MASTER_DOMAIN.
 const MASTER_DOMAIN_PUBLIC = (process.env.NEXT_PUBLIC_MASTER_DOMAIN ?? "").trim().toLowerCase();
@@ -15,6 +20,11 @@ export default function StorePage() {
   const [products,          setProducts]          = useState<AdminProduct[]>([]);
   const [loading,           setLoading]           = useState(true);
   const [showHero,          setShowHero]          = useState(true);
+  const [heroPosition,      setHeroPosition]      = useState<"before-banner" | "after-banner">("after-banner");
+  const [heroAlign,         setHeroAlign]         = useState<"left" | "center">("center");
+  const [heroTag,           setHeroTag]           = useState(DEFAULT_HERO_TAG);
+  const [heroTitle,         setHeroTitle]         = useState(DEFAULT_HERO_TITLE);
+  const [heroSubtitle,      setHeroSubtitle]      = useState(DEFAULT_HERO_SUBTITLE);
   const [cardStyle,         setCardStyle]         = useState("default");
   const [topBannerDesktop,  setTopBannerDesktop]  = useState<TopBannerConfig | null>(null);
   const [topBannerMobile,   setTopBannerMobile]   = useState<TopBannerConfig | null>(null);
@@ -47,6 +57,14 @@ export default function StorePage() {
       .then((r) => r.json())
       .then((data) => {
         setShowHero(data.showHero !== false);
+        setHeroPosition(data.heroPosition === "before-banner" ? "before-banner" : "after-banner");
+        setHeroAlign(data.heroAlign === "left" ? "left" : "center");
+        if (data.heroTag !== undefined) setHeroTag(data.heroTag);
+        else setHeroTag(DEFAULT_HERO_TAG);
+        if (data.heroTitle !== undefined) setHeroTitle(data.heroTitle);
+        else setHeroTitle(DEFAULT_HERO_TITLE);
+        if (data.heroSubtitle !== undefined) setHeroSubtitle(data.heroSubtitle);
+        else setHeroSubtitle(DEFAULT_HERO_SUBTITLE);
         setCardStyle(data.cardStyle || "default");
         setTopBannerDesktop(data.topBannerDesktop || null);
         setTopBannerMobile(data.topBannerMobile   || null);
@@ -77,54 +95,73 @@ export default function StorePage() {
   // Reset page when search changes
   useEffect(() => { setPage(1); }, [search]);
 
+  const heroBeforeBanner = heroPosition === "before-banner";
+
+  const titleText = (heroTitle || DEFAULT_HERO_TITLE).trim() || DEFAULT_HERO_TITLE;
+  const titleLines = titleText.split("\n");
+
+  const heroSection = showHero && (
+    <section
+      className={`hero ${heroAlign === "left" ? "hero--align-left" : "hero--align-center"}`}
+    >
+      <div className="container">
+        {(heroTag || "").trim() !== "" && (
+          <div className="hero-tag">{heroTag}</div>
+        )}
+        <h1 className="hero-title">
+          {titleLines.map((line, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <br />}
+              {line}
+            </React.Fragment>
+          ))}
+        </h1>
+        <p className="hero-subtitle">
+          {(heroSubtitle || DEFAULT_HERO_SUBTITLE).trim() || DEFAULT_HERO_SUBTITLE}
+        </p>
+      </div>
+    </section>
+  );
+
+  const topBannerBlock = (topBannerDesktop?.image || topBannerMobile?.image) && (() => {
+    const hasDesktop = !!topBannerDesktop?.image;
+
+    function renderBanner(cfg: TopBannerConfig, extraClass?: string) {
+      const { image, link, orientation = "horizontal", padding = 0, borderRadius = 0 } = cfg;
+      if (!image) return null;
+      const cls = ["top-banner", `top-banner--${orientation}`, extraClass || ""].filter(Boolean).join(" ");
+      const wrapStyle: React.CSSProperties = padding > 0 ? { padding: `${padding}px ${padding}px 0` } : {};
+      const imgStyle:  React.CSSProperties = borderRadius > 0 ? { borderRadius } : {};
+      const inner = (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt="Banner" style={imgStyle} />
+      );
+      return link ? (
+        <a key={extraClass} href={link} className={cls} style={wrapStyle} target="_blank" rel="noopener noreferrer">{inner}</a>
+      ) : (
+        <div key={extraClass} className={cls} style={wrapStyle}>{inner}</div>
+      );
+    }
+
+    return (
+      <>
+        {topBannerMobile?.image && renderBanner(
+          topBannerMobile,
+          (hasDesktop || topBannerMobile.hideOnDesktop) ? "top-banner--mobile-only" : undefined
+        )}
+        {hasDesktop && renderBanner(topBannerDesktop!, "top-banner--desktop-only")}
+      </>
+    );
+  })();
+
   return (
     <>
+      {heroBeforeBanner && heroSection}
+
       {/* Top Banner */}
-      {(topBannerDesktop?.image || topBannerMobile?.image) && (() => {
-        const hasDesktop = !!topBannerDesktop?.image;
+      {topBannerBlock}
 
-        function renderBanner(cfg: TopBannerConfig, extraClass?: string) {
-          const { image, link, orientation = "horizontal", padding = 0, borderRadius = 0 } = cfg;
-          if (!image) return null;
-          const cls = ["top-banner", `top-banner--${orientation}`, extraClass || ""].filter(Boolean).join(" ");
-          const wrapStyle: React.CSSProperties = padding > 0 ? { padding: `${padding}px ${padding}px 0` } : {};
-          const imgStyle:  React.CSSProperties = borderRadius > 0 ? { borderRadius } : {};
-          const inner = (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt="Banner" style={imgStyle} />
-          );
-          return link ? (
-            <a key={extraClass} href={link} className={cls} style={wrapStyle} target="_blank" rel="noopener noreferrer">{inner}</a>
-          ) : (
-            <div key={extraClass} className={cls} style={wrapStyle}>{inner}</div>
-          );
-        }
-
-        return (
-          <>
-            {topBannerMobile?.image && renderBanner(
-              topBannerMobile,
-              (hasDesktop || topBannerMobile.hideOnDesktop) ? "top-banner--mobile-only" : undefined
-            )}
-            {hasDesktop && renderBanner(topBannerDesktop!, "top-banner--desktop-only")}
-          </>
-        );
-      })()}
-
-      {/* Hero */}
-      {showHero && (
-        <section className="hero">
-          <div className="container">
-            <div className="hero-tag">✨ Nova coleção disponível</div>
-            <h1 className="hero-title">
-              Descubra os Melhores<br />Produtos do Mercado
-            </h1>
-            <p className="hero-subtitle">
-              Os melhores produtos com entrega rápida. Pague com Pix e receba em tempo recorde.
-            </p>
-          </div>
-        </section>
-      )}
+      {!heroBeforeBanner && heroSection}
 
       {/* Products Section */}
       <div className="container products-section">

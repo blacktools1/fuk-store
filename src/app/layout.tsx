@@ -103,6 +103,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         '--card-radius':      store.cardRadius   || store.borderRadius || "14px",
         '--success':          secondaryStr,
         '--gradient':         `linear-gradient(135deg, ${store.primaryColor || "#a78bfa"}, ${secondaryStr})`,
+        '--product-title-align': store.productTitleAlign === "center" ? "center" : "left",
       } as React.CSSProperties}>
         <PixelScripts
           pixels={(store.pixels ?? []).map(({ accessToken: _omit, ...safe }) => safe)}
