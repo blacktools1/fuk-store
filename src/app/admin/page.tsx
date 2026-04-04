@@ -868,83 +868,39 @@ function CheckoutSection({
         </div>
       </div>
 
-      {/* Webhook — guia de configuração */}
+      {/* Webhook — lembrete genérico */}
       {(() => {
         const webhookUrl = typeof window !== "undefined"
           ? `${window.location.origin}/api/checkout/webhook`
           : "/api/checkout/webhook";
         return (
           <div className="admin-card" style={{ borderLeft: "4px solid #6366f1", paddingLeft: 20 }}>
-            <h2 className="admin-card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              🔗 Webhook Paradise Pags
-              <span style={{
-                fontSize: "0.65rem", fontWeight: 700, padding: "2px 8px",
-                background: "rgba(99,102,241,.12)", color: "#6366f1",
-                borderRadius: 20, textTransform: "uppercase", letterSpacing: ".05em",
-              }}>Opcional</span>
-            </h2>
-            <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
-              O checkout detecta pagamentos automaticamente por polling — o webhook é opcional,
-              mas <strong style={{ color: "var(--adm-text)" }}>recomendado</strong> como confirmação extra pela Paradise.
+            <h2 className="admin-card-title">🔗 URL de Webhook</h2>
+            <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 14, lineHeight: 1.6 }}>
+              Ao configurar seu provedor de pagamento, cadastre esta URL como destino do webhook de confirmação de pagamento:
             </p>
-
-            {/* URL do webhook */}
-            <div style={{ marginBottom: 20 }}>
-              <label className="admin-form-label">Sua URL de Webhook</label>
-              <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-                <input
-                  readOnly
-                  value={webhookUrl}
-                  className="admin-form-input"
-                  style={{ fontFamily: "monospace", fontSize: "0.82rem", flex: 1, cursor: "text", marginBottom: 0 }}
-                  onFocus={(e) => e.target.select()}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(webhookUrl);
-                  }}
-                  style={{
-                    padding: "0 16px", borderRadius: 8, border: "1px solid var(--adm-border)",
-                    background: "var(--adm-bg-card, var(--adm-bg))", cursor: "pointer",
-                    fontSize: "0.85rem", color: "var(--adm-text-faint)", whiteSpace: "nowrap",
-                    flexShrink: 0,
-                  }}
-                >
-                  📋 Copiar
-                </button>
-              </div>
-              <p style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 6 }}>
-                Clique em "Copiar" e cole no painel da Paradise ao configurar o webhook.
-              </p>
+            <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+              <input
+                readOnly
+                value={webhookUrl}
+                className="admin-form-input"
+                style={{ fontFamily: "monospace", fontSize: "0.82rem", flex: 1, cursor: "text", marginBottom: 0 }}
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(webhookUrl)}
+                style={{
+                  padding: "0 16px", borderRadius: 8, border: "1px solid var(--adm-border)",
+                  background: "var(--adm-bg-card, var(--adm-bg))", cursor: "pointer",
+                  fontSize: "0.85rem", color: "var(--adm-text-faint)", whiteSpace: "nowrap", flexShrink: 0,
+                }}
+              >
+                📋 Copiar
+              </button>
             </div>
-
-            {/* Passo a passo */}
-            <div style={{
-              background: "rgba(99,102,241,.05)", border: "1px solid rgba(99,102,241,.15)",
-              borderRadius: 8, padding: "14px 16px",
-            }}>
-              <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "#6366f1", margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".06em" }}>
-                Passo a passo — Paradise Pags
-              </p>
-              <ol style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  <>Acesse o <strong>Painel Paradise Pags</strong> e faça login</>,
-                  <>No menu lateral, vá em <strong>Configurações → Webhooks</strong> (ou "Integrações")</>,
-                  <>Clique em <strong>+ Novo Webhook</strong> ou "Adicionar URL"</>,
-                  <>Cole a URL acima no campo de URL do webhook</>,
-                  <>Em <strong>Eventos</strong>, selecione pelo menos: <code style={{ fontSize: "0.75rem", background: "rgba(0,0,0,.06)", padding: "1px 5px", borderRadius: 3 }}>payment.approved</code> (ou "Pagamento confirmado")</>,
-                  <>Salve. A Paradise começará a notificar esta loja automaticamente ao confirmar pagamentos.</>,
-                ].map((step, i) => (
-                  <li key={i} style={{ fontSize: "0.8rem", color: "var(--adm-text)", lineHeight: 1.5 }}>
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <p style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 12, lineHeight: 1.5 }}>
-              💡 <strong>Sem webhook?</strong> Tudo bem — o checkout já envia a confirmação de venda para a UTMify automaticamente via polling quando detecta o pagamento. O webhook é uma camada extra de segurança.
+            <p style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 8, lineHeight: 1.5 }}>
+              💡 Sem webhook configurado? Tudo bem — o checkout confirma pagamentos automaticamente via polling.
             </p>
           </div>
         );
