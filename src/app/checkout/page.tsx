@@ -110,18 +110,42 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (stage !== "pix" || !pixResult) return;
     let seconds = 0;
+    let utmifyFallbackSent = false; // garante envio único
+
     pollRef.current = setInterval(async () => {
       seconds += 3;
       setPollSeconds(seconds);
       if (seconds > 600) { clearInterval(pollRef.current!); return; }
       try {
+        // Na primeira detecção de pagamento, inclui dados para fallback UTMify
+        const fallback = (!utmifyFallbackSent && pixResult) ? {
+          customerName:     form.name,
+          customerEmail:    form.email,
+          customerPhone:    form.phone,
+          customerDocument: form.cpf,
+          amount:           pixResult.total,
+          utms:             readStoredUtms(),
+          products:         items.map((i) => ({
+            id:           String(i.product.id),
+            name:         i.product.name,
+            planId:       null,
+            planName:     null,
+            quantity:     i.quantity,
+            priceInCents: Math.round(i.product.price * 100),
+          })),
+        } : undefined;
+
         const res = await fetch("/api/checkout/status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transactionId: pixResult.transactionId }),
+          body: JSON.stringify({
+            transactionId: pixResult.transactionId,
+            ...(fallback ? { utmifyFallback: fallback } : {}),
+          }),
         });
         const data = await res.json();
         if (data.paid) {
+          utmifyFallbackSent = true;
           clearInterval(pollRef.current!);
           try {
             firePixelEvent("Purchase", {

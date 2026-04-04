@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData } from "@/lib/store-data";
 import { checkParadiseStatus } from "@/lib/paradise";
+import { sendUtmifyOrderToAll } from "@/lib/utmify";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Checkout não configurado" }, { status: 400 });
     }
 
-    const { transactionId } = await req.json();
+    const body = await req.json();
+    const { transactionId, utmifyFallback } = body;
+
     if (!transactionId) {
       return NextResponse.json({ error: "transactionId obrigatório" }, { status: 400 });
     }
@@ -24,6 +27,51 @@ export async function POST(req: NextRequest) {
       apiKey: config.paradiseApiKey,
       transactionId: String(transactionId),
     });
+
+    // ── Fallback UTMify "paid" via polling ────────────────────────────────────
+    // Se o checkout detectou pagamento E enviou os dados do pedido,
+    // confirmamos o status "paid" na UTMify mesmo sem webhook configurado.
+    // UTMify deduplica por orderId, então envios repetidos são seguros.
+    if (result.paid && utmifyFallback) {
+      const hasUtmify =
+        config?.utmifyToken || (config?.utmifyAccounts?.length ?? 0) > 0;
+
+      if (hasUtmify) {
+        const { customerName, customerEmail, customerPhone, customerDocument, amount, products, utms } =
+          utmifyFallback as {
+            customerName: string;
+            customerEmail: string;
+            customerPhone: string;
+            customerDocument: string;
+            amount: number;
+            products: { id: string; name: string; planId: null; planName: null; quantity: number; priceInCents: number }[];
+            utms: Record<string, string>;
+          };
+
+        sendUtmifyOrderToAll(config, {
+          orderId: String(transactionId),
+          status: "paid",
+          amount: amount ?? (result.amountInCents / 100),
+          customerName: customerName ?? "Cliente",
+          customerEmail: customerEmail ?? "",
+          customerPhone: customerPhone ?? "",
+          customerDocument: customerDocument ?? "",
+          utms: utms ?? {},
+          products: products ?? [
+            {
+              id: "POLL",
+              name: "Pedido",
+              planId: null,
+              planName: null,
+              quantity: 1,
+              priceInCents: result.amountInCents,
+            },
+          ],
+          approvedDate: new Date().toISOString().replace("T", " ").substring(0, 19),
+          isTest: config.utmifyIsTest,
+        }).catch((e) => console.error("UTMify poll fallback error:", e));
+      }
+    }
 
     return NextResponse.json({
       status: result.status,
