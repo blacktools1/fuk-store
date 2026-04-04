@@ -2431,75 +2431,92 @@ function PixelsSection({
   return (
     <div>
       <div className="settings-group" style={{ marginBottom: 24 }}>
-        <h3 className="settings-group-title">Adicionar Pixel</h3>
-        <div className="admin-pixels-add-row">
-          <div className="admin-form-field" style={{ flex: "0 0 auto", minWidth: "100%", marginBottom: 0 }}>
-            <label className="admin-form-label">Plataforma</label>
-            <select
-              className="admin-form-select"
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as "facebook" | "tiktok")}
-            >
-              <option value="facebook">Facebook / Meta</option>
-              <option value="tiktok">TikTok</option>
-            </select>
-          </div>
-          <div className="admin-form-field" style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
-            <label className="admin-form-label">ID do Pixel</label>
-            <input
-              className="admin-form-input"
-              value={newId}
-              onChange={(e) => setNewId(e.target.value)}
-              placeholder={newType === "facebook" ? "Ex: 1234567890123456" : "Ex: CABCDE12345678901234"}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPixel(); } }}
-            />
-          </div>
-          <button
-            type="button"
-            className="admin-btn admin-btn-primary"
-            style={{ width: "100%", marginBottom: 0, minHeight: 44 }}
-            onClick={addPixel}
-          >
-            + Adicionar
-          </button>
+        <div className="settings-group-header">
+          <span className="settings-group-icon">➕</span>
+          <span className="settings-group-title">Adicionar Pixel</span>
         </div>
-        <p style={{ fontSize: "0.78rem", color: "var(--adm-text-muted)", marginTop: 8 }}>
-          Você pode adicionar múltiplos pixels do mesmo tipo ou de plataformas diferentes.
-        </p>
+        <div className="settings-group-body">
+          <div className="admin-pixels-add-row">
+            <div className="admin-form-field" style={{ flex: "0 0 auto", minWidth: "100%", marginBottom: 0 }}>
+              <label className="admin-form-label">Plataforma</label>
+              <select
+                className="admin-form-select"
+                value={newType}
+                onChange={(e) => setNewType(e.target.value as "facebook" | "tiktok")}
+              >
+                <option value="facebook">Facebook / Meta</option>
+                <option value="tiktok">TikTok</option>
+              </select>
+            </div>
+            <div className="admin-form-field" style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
+              <label className="admin-form-label">ID do Pixel</label>
+              <input
+                className="admin-form-input"
+                value={newId}
+                onChange={(e) => setNewId(e.target.value)}
+                placeholder={newType === "facebook" ? "Ex: 1234567890123456" : "Ex: CABCDE12345678901234"}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPixel(); } }}
+              />
+            </div>
+            <button
+              type="button"
+              className="admin-btn admin-btn-primary"
+              style={{ width: "100%", marginBottom: 0, minHeight: 44 }}
+              onClick={addPixel}
+            >
+              + Adicionar
+            </button>
+          </div>
+          <p className="admin-pixels-hint">
+            Você pode adicionar múltiplos pixels do mesmo tipo ou de plataformas diferentes.
+          </p>
+        </div>
       </div>
 
       <div className="settings-group">
-        <h3 className="settings-group-title">Pixels Configurados</h3>
-        {list.length === 0 ? (
-          <p style={{ color: "var(--adm-text-muted)", fontSize: "0.875rem" }}>
-            Nenhum pixel configurado ainda.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {list.map((px) => (
-              <div
-                key={px.id}
-                className="admin-pixels-card"
-                style={{ opacity: px.active ? 1 : 0.55 }}
-              >
-                <div className="admin-pixels-card__top">
-                  <span style={{ fontSize: "1.5rem", lineHeight: 1 }}>{PIXEL_ICONS[px.type]}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: "0 0 6px", fontWeight: 600, fontSize: "0.9rem" }}>
-                      {PIXEL_LABELS[px.type]}
-                    </p>
-                    <label className="admin-form-label" style={{ marginBottom: 4 }}>ID do Pixel</label>
-                    <input
-                      className="admin-form-input"
-                      value={px.pixelId}
-                      onChange={(e) => setPixelField(px.id, { pixelId: e.target.value })}
-                      style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.82rem" }}
-                    />
+        <div className="settings-group-header">
+          <span className="settings-group-icon">📡</span>
+          <span className="settings-group-title">Pixels Configurados</span>
+        </div>
+        <div className="settings-group-body">
+          {list.length === 0 ? (
+            <p className="admin-pixels-empty">Nenhum pixel configurado ainda.</p>
+          ) : (
+            <div className="admin-pixels-list">
+              {list.map((px) => (
+                <div
+                  key={px.id}
+                  className="admin-pixels-card"
+                  style={{ opacity: px.active ? 1 : 0.62 }}
+                >
+                  <div className="admin-pixels-card__topbar">
+                    <span className="admin-pixels-card__icon" aria-hidden>{PIXEL_ICONS[px.type]}</span>
+                    <div className="admin-pixels-card__title-block">
+                      <p className="admin-pixels-card__platform">{PIXEL_LABELS[px.type]}</p>
+                      {!px.active && (
+                        <span className="admin-pixels-card__status">Inativo</span>
+                      )}
+                    </div>
+                    <div className="admin-pixels-card__toggle">
+                      <label className="admin-toggle" title={px.active ? "Ativo — clique para desativar" : "Inativo — clique para ativar"}>
+                        <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
+                        <span className="admin-toggle-slider" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="admin-pixels-card__fields">
+                    <div className="admin-pixels-field">
+                      <label className="admin-form-label">ID do Pixel</label>
+                      <input
+                        className="admin-form-input admin-pixels-input-mono"
+                        value={px.pixelId}
+                        onChange={(e) => setPixelField(px.id, { pixelId: e.target.value })}
+                      />
+                    </div>
                     {px.type === "facebook" && (
-                      <>
-                        <label className="admin-form-label" style={{ marginTop: 10, marginBottom: 4 }}>
-                          Token da API de Conversões (Meta CAPI) — opcional
-                        </label>
+                      <div className="admin-pixels-field admin-pixels-field--token">
+                        <label className="admin-form-label">Token da API de Conversões (Meta CAPI) — opcional</label>
                         <input
                           className="admin-form-input"
                           type="password"
@@ -2509,59 +2526,59 @@ function PixelsSection({
                           placeholder="EAAB... (Gerenciador de Eventos → Configurações → API de Conversões)"
                           style={{ fontSize: "0.8rem" }}
                         />
-                        <p style={{ fontSize: "0.72rem", color: "var(--adm-text-faint)", marginTop: 6, lineHeight: 1.45 }}>
-                          O script do pixel no navegador usa só o ID acima. Este token fica salvo no servidor (não vai para o HTML da loja) e pode ser usado para eventos server-side no futuro. O checkout PHP separado tem o próprio CAPI em <code style={{ fontSize: "0.7rem" }}>pixels.json</code>.
+                        <p className="admin-pixels-field-help">
+                          O script do pixel no navegador usa só o ID acima. Este token fica salvo no servidor (não vai para o HTML da loja) e pode ser usado para eventos server-side no futuro. O checkout PHP separado tem o próprio CAPI em <code>pixels.json</code>.
                         </p>
-                      </>
+                      </div>
                     )}
                   </div>
-                  <div className="admin-pixels-card__actions">
-                    <label className="admin-toggle" title={px.active ? "Ativo" : "Inativo"}>
-                      <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
-                      <span className="admin-toggle-slider" />
-                    </label>
+
+                  <div className="admin-pixels-card__danger">
                     <button
                       type="button"
+                      className="admin-btn admin-btn-danger admin-btn-sm"
                       onClick={() => remove(px.id)}
-                      style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer", fontSize: "1.15rem", padding: "4px 6px" }}
-                      title="Remover pixel"
+                      title="Remove este pixel da loja"
                     >
-                      🗑️
+                      Remover pixel
                     </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="settings-group" style={{ marginTop: 24 }}>
-        <h3 className="settings-group-title">Eventos no navegador (automáticos)</h3>
-        <p style={{ fontSize: "0.78rem", color: "var(--adm-text-muted)", marginBottom: 12, lineHeight: 1.5 }}>
-          Estes eventos são disparados pelo JavaScript da loja (fbq / ttq). A API de Conversões é outra camada: envia os mesmos eventos do servidor da Meta, com melhor atribuição quando cookies são bloqueados — no checkout externo em PHP ela já está no projeto PIX; aqui na loja o token fica guardado para integração futura ou uso manual.
-        </p>
-        <div className="admin-pixels-events">
-          {[
-            { event: "PageView",         desc: "Cada página visitada na loja" },
-            { event: "ViewContent",      desc: "Página de produto visualizada" },
-            { event: "AddToCart",        desc: "Produto adicionado ao carrinho" },
-            { event: "InitiateCheckout", desc: "No carrinho ao continuar, ou ao abrir /checkout (sem duplicar)" },
-            { event: "Purchase",         desc: "Pagamento PIX confirmado — 1 conversão; valor = total do pedido" },
-          ].map(({ event, desc }) => (
-            <div key={event} className="admin-pixels-event-row">
-              <span style={{ background: "var(--adm-accent)", color: "#fff", borderRadius: 6, padding: "3px 8px", fontFamily: "monospace", fontSize: "0.76rem", whiteSpace: "nowrap", width: "fit-content" }}>
-                {event}
-              </span>
-              <span style={{ color: "var(--adm-text-muted)", flex: 1 }}>{desc}</span>
-              <span style={{ color: "#4ade80", fontSize: "0.75rem", whiteSpace: "nowrap" }}>✓ navegador</span>
-            </div>
-          ))}
+        <div className="settings-group-header">
+          <span className="settings-group-icon">⚡</span>
+          <span className="settings-group-title">Eventos no navegador (automáticos)</span>
+        </div>
+        <div className="settings-group-body">
+          <p className="admin-pixels-events-intro">
+            Estes eventos são disparados pelo JavaScript da loja (fbq / ttq). A API de Conversões é outra camada: envia os mesmos eventos do servidor da Meta, com melhor atribuição quando cookies são bloqueados — no checkout externo em PHP ela já está no projeto PIX; aqui na loja o token fica guardado para integração futura ou uso manual.
+          </p>
+          <div className="admin-pixels-events">
+            {[
+              { event: "PageView",         desc: "Cada página visitada na loja" },
+              { event: "ViewContent",      desc: "Página de produto visualizada" },
+              { event: "AddToCart",        desc: "Produto adicionado ao carrinho" },
+              { event: "InitiateCheckout", desc: "No carrinho ao continuar, ou ao abrir /checkout (sem duplicar)" },
+              { event: "Purchase",         desc: "Pagamento PIX confirmado — 1 conversão; valor = total do pedido" },
+            ].map(({ event, desc }) => (
+              <div key={event} className="admin-pixels-event-row">
+                <span className="admin-pixels-event-name">{event}</span>
+                <span className="admin-pixels-event-desc">{desc}</span>
+                <span className="admin-pixels-event-badge">✓ navegador</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       {dirty && (
-        <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
+        <div className="admin-pixels-save-bar">
           <button
             className="admin-btn admin-btn-primary"
             onClick={() => { onSave(list); setDirty(false); }}

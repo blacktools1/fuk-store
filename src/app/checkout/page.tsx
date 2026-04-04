@@ -362,6 +362,11 @@ export default function CheckoutPage() {
       <div className="co2-header">PAGAMENTO 100% SEGURO</div>
 
       <main className="co2-body">
+        {stage === "form" && (
+          <Link href="/carrinho" className="co2-back-cart">
+            ← Voltar ao carrinho
+          </Link>
+        )}
         {/* Resumo do pedido */}
         <div className="co2-card">
           <p className="co2-summary-label">Resumo do seu pedido:</p>
@@ -563,6 +568,9 @@ export default function CheckoutPage() {
               Aguardando confirmação... ({Math.floor(pollSeconds / 60)}:{String(pollSeconds % 60).padStart(2, "0")})
             </p>
             <p className="co2-modal-note">Ao pagar, você receberá a confirmação imediatamente neste dispositivo.</p>
+            <Link href="/carrinho" className="co2-back-cart co2-back-cart--modal">
+              ← Voltar ao carrinho
+            </Link>
           </div>
         </div>
       )}
