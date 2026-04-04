@@ -2610,9 +2610,6 @@ function PixelsSection({
                 placeholder="EAAB... (Gerenciador de Eventos → Configurações → API de Conversões)"
                 style={{ fontSize: "0.8rem" }}
               />
-              <p className="admin-pixels-field-help">
-                O script do pixel no navegador usa só o ID acima. Este token fica salvo no servidor (não vai para o HTML da loja) e pode ser usado para eventos server-side no futuro. O checkout PHP separado tem o próprio CAPI em <code>pixels.json</code>.
-              </p>
             </div>
           )}
         </div>
