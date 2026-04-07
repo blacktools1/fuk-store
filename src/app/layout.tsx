@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Script from "next/script";
 import { CartProvider } from "@/context/CartContext";
 import { UserProvider } from "@/context/UserContext";
 import Header from "@/components/Header";
@@ -70,13 +71,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href={googleFontsUrl} />
-        <script
-          src="https://cdn.utmify.com.br/scripts/utms/latest.js"
-          data-utmify-prevent-xcod-sck=""
-          data-utmify-prevent-subids=""
-          async
-          defer
-        />
       </head>
       <body style={{
         '--font-body':        `'${fontFamily}'`,
@@ -105,6 +99,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         '--gradient':         `linear-gradient(135deg, ${store.primaryColor || "#a78bfa"}, ${secondaryStr})`,
         '--product-title-align': store.productTitleAlign === "center" ? "center" : "left",
       } as React.CSSProperties}>
+        <Script
+          src="https://cdn.utmify.com.br/scripts/utms/latest.js"
+          data-utmify-prevent-xcod-sck=""
+          data-utmify-prevent-subids=""
+          strategy="afterInteractive"
+        />
         <PixelScripts
           pixels={(store.pixels ?? []).map(({ accessToken: _omit, ...safe }) => safe)}
         />

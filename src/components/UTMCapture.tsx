@@ -20,6 +20,8 @@ const UTM_KEYS = [
   "utm_term",
   "src",
   "sck",
+  "fbclid",  // Facebook Click ID — necessário para matching de conversões
+  "ttclid",  // TikTok Click ID — necessário para matching de conversões
 ];
 
 export default function UTMCapture() {

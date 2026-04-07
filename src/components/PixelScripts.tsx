@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
 import { StorePixel } from "@/lib/admin-types";
@@ -11,8 +11,12 @@ export default function PixelScripts({ pixels }: { pixels: StorePixel[] }) {
   const fbPixels = active.filter((p) => p.type === "facebook");
   const ttPixels = active.filter((p) => p.type === "tiktok");
 
-  // Fire PageView on every client-side navigation
+  // Evita PageView duplo: o script inline já dispara o PageView inicial.
+  // O useEffect só dispara nas navegações client-side subsequentes.
+  const isFirstMount = useRef(true);
   useEffect(() => {
+    if (isFirstMount.current) { isFirstMount.current = false; return; }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fbq = (window as any).fbq;
     if (fbPixels.length && typeof fbq === "function") fbq("track", "PageView");
