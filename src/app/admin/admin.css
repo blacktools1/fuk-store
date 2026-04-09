@@ -1520,6 +1520,60 @@
   border-color: rgba(245, 158, 11, 0.35);
 }
 
+/* Uma URL só — postback/webhook para qualquer provedor PIX */
+.admin-pix-webhook-strip {
+  padding: 14px 16px;
+  border-radius: var(--adm-radius);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.admin-pix-webhook-strip-text {
+  margin-bottom: 12px;
+}
+
+.admin-pix-webhook-strip-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--adm-text);
+  margin-bottom: 6px;
+}
+
+.admin-pix-webhook-strip-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--adm-text-muted);
+  line-height: 1.5;
+}
+
+.admin-pix-webhook-strip-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.admin-pix-webhook-input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  margin-bottom: 0;
+}
+
+.admin-pix-webhook-copy {
+  flex-shrink: 0;
+  padding: 0 16px;
+}
+
+.admin-pix-cred-grid--orama .admin-pix-field--full {
+  grid-column: 1 / -1;
+}
+
+.admin-pix-field--full {
+  min-width: 0;
+}
+
 .admin-pix-card {
   padding: 18px 18px 16px;
   border-radius: var(--adm-radius);

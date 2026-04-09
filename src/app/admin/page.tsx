@@ -804,6 +804,34 @@ function CheckoutSection({
               )}
             </div>
 
+            {/* Uma única URL de webhook para qualquer provedor PIX (postback → esta loja) */}
+            <div className="admin-pix-webhook-strip">
+              <div className="admin-pix-webhook-strip-text">
+                <div className="admin-pix-webhook-strip-title">URL de webhook / postback desta loja</div>
+                <p className="admin-pix-webhook-strip-hint">
+                  É sempre a mesma para Paradise, OramaPay e outros: cadastre-a no painel do provedor como URL de notificação.
+                  O checkout também confirma pagamento por polling se você não configurar webhook no gateway.
+                </p>
+              </div>
+              <div className="admin-pix-webhook-strip-row">
+                <input
+                  type="text"
+                  readOnly
+                  className="admin-form-input admin-pix-webhook-input"
+                  value={internalWebhookUrl}
+                  onFocus={(e) => e.target.select()}
+                  aria-label="URL de webhook da loja"
+                />
+                <button
+                  type="button"
+                  className="admin-btn-secondary admin-pix-webhook-copy"
+                  onClick={() => navigator.clipboard.writeText(internalWebhookUrl)}
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+
             <section className="admin-pix-card">
               <h3 className="admin-pix-card-title">Configuração de credenciais</h3>
               <p className="admin-pix-card-lead">
@@ -828,7 +856,7 @@ function CheckoutSection({
               )}
 
               {pixProvider === "orama" && (
-                <div className="admin-pix-cred-grid">
+                <div className="admin-pix-cred-grid admin-pix-cred-grid--orama">
                   <div className="admin-pix-field">
                     <label className="admin-form-label">Secret Key (API Key)</label>
                     <input
@@ -853,18 +881,7 @@ function CheckoutSection({
                     />
                     <p className="admin-pix-field-hint">Usada com a Secret Key no Basic Auth</p>
                   </div>
-                  <div className="admin-pix-field">
-                    <label className="admin-form-label">Webhook URL (esta loja)</label>
-                    <input
-                      className="admin-form-input"
-                      type="text"
-                      readOnly
-                      value={internalWebhookUrl}
-                      onFocus={(e) => e.target.select()}
-                    />
-                    <p className="admin-pix-field-hint">Cadastre no painel OramaPay como URL de postback</p>
-                  </div>
-                  <div className="admin-pix-field">
+                  <div className="admin-pix-field admin-pix-field--full">
                     <label className="admin-form-label">Webhook Secret (opcional)</label>
                     <input
                       className="admin-form-input"
@@ -874,7 +891,9 @@ function CheckoutSection({
                       onChange={(e) => { setOramaWebhookSecret(e.target.value); markDirty(); }}
                       autoComplete="off"
                     />
-                    <p className="admin-pix-field-hint">HMAC-SHA256 do corpo JSON no servidor</p>
+                    <p className="admin-pix-field-hint">
+                      A URL de postback é a faixa &quot;URL de webhook desta loja&quot; acima. Este secret valida o header no servidor.
+                    </p>
                   </div>
                 </div>
               )}
@@ -909,10 +928,6 @@ function CheckoutSection({
                     <div className="admin-pix-field admin-pix-field--readonly">
                       <span className="admin-pix-readonly-label">Public Key</span>
                       <code className="admin-pix-readonly-value">{maskPixCredential(oramaPublicKey)}</code>
-                    </div>
-                    <div className="admin-pix-field admin-pix-field--readonly">
-                      <span className="admin-pix-readonly-label">Webhook URL</span>
-                      <code className="admin-pix-readonly-value">{internalWebhookUrl}</code>
                     </div>
                     <div className="admin-pix-field admin-pix-field--readonly">
                       <span className="admin-pix-readonly-label">Webhook Secret</span>
@@ -986,44 +1001,6 @@ function CheckoutSection({
           </div>
         </div>
       </div>
-
-      {/* Webhook — lembrete genérico */}
-      {(() => {
-        const webhookUrl = typeof window !== "undefined"
-          ? `${window.location.origin}/api/checkout/webhook`
-          : "/api/checkout/webhook";
-        return (
-          <div className="admin-card" style={{ borderLeft: "4px solid #6366f1", paddingLeft: 20 }}>
-            <h2 className="admin-card-title">URL de webhook</h2>
-            <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 14, lineHeight: 1.6 }}>
-              Ao configurar seu provedor de pagamento, cadastre esta URL como destino do webhook de confirmação de pagamento:
-            </p>
-            <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-              <input
-                readOnly
-                value={webhookUrl}
-                className="admin-form-input"
-                style={{ fontFamily: "monospace", fontSize: "0.82rem", flex: 1, cursor: "text", marginBottom: 0 }}
-                onFocus={(e) => e.target.select()}
-              />
-              <button
-                type="button"
-                onClick={() => navigator.clipboard.writeText(webhookUrl)}
-                style={{
-                  padding: "0 16px", borderRadius: 8, border: "1px solid var(--adm-border)",
-                  background: "var(--adm-bg-card, var(--adm-bg))", cursor: "pointer",
-                  fontSize: "0.85rem", color: "var(--adm-text-faint)", whiteSpace: "nowrap", flexShrink: 0,
-                }}
-              >
-                Copiar
-              </button>
-            </div>
-            <p style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 8, lineHeight: 1.5 }}>
-              Sem webhook no provedor? O checkout ainda confirma pagamento via polling. Com OramaPay e Webhook Secret preenchido, o endpoint valida a assinatura quando o header estiver presente.
-            </p>
-          </div>
-        );
-      })()}
 
       {/* UTMify — múltiplos dashboards */}
       <div className="admin-card">
