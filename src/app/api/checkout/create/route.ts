@@ -5,6 +5,7 @@ import { createParadisePayment } from "@/lib/paradise";
 import { createOramaPayment } from "@/lib/orama";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
+import { notifyStoreWebhooks } from "@/lib/store-webhooks";
 
 export const dynamic = "force-dynamic";
 
@@ -187,6 +188,38 @@ export async function POST(req: NextRequest) {
         isTest:           config.utmifyIsTest,
       }).catch((e) => console.error("UTMify create error:", e));
     }
+
+    const pendingItems: { id: string; name: string; quantity: number; unitPrice: number }[] = (
+      cartItems as { id?: string; name: string; price: number; qty: number }[]
+    ).map((item) => ({
+      id: String(item.id ?? "ITEM"),
+      name: item.name,
+      quantity: item.qty || 1,
+      unitPrice: item.price,
+    }));
+    for (const ob of activeOrdebumps) {
+      pendingItems.push({
+        id: ob.offerHash || `OB_${ob.id}`,
+        name: ob.title,
+        quantity: 1,
+        unitPrice: ob.price,
+      });
+    }
+    notifyStoreWebhooks(config?.salePendingWebhooks, "sale_pending", {
+      tenant,
+      orderId: result.transactionId,
+      status: "waiting_payment",
+      amount: total,
+      currency: "BRL",
+      customer: {
+        name: customer.name.trim(),
+        email: customer.email.trim().toLowerCase(),
+        phone,
+        document: cpf,
+      },
+      items: pendingItems,
+      utms: utms && typeof utms === "object" ? (utms as Record<string, unknown>) : {},
+    }).catch((e) => console.error("Webhooks sale_pending:", e));
 
     return NextResponse.json({
       transactionId: result.transactionId,

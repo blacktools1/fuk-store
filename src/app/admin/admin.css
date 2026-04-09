@@ -1266,6 +1266,110 @@
   flex-shrink: 0;
 }
 
+/* Pixels: tabela compacta (lista longa) */
+.admin-pixels-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 20px;
+  margin-bottom: 12px;
+}
+
+.admin-pixels-toolbar-meta {
+  font-size: 0.78rem;
+  color: var(--adm-text-faint);
+  margin-left: auto;
+}
+
+.admin-pixels-table-wrap {
+  max-height: min(52vh, 440px);
+  overflow: auto;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-pixels-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.admin-pixels-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--adm-bg-card);
+  box-shadow: 0 1px 0 var(--adm-border);
+}
+
+.admin-pixels-table th,
+.admin-pixels-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--adm-border);
+  vertical-align: top;
+}
+
+.admin-pixels-table th {
+  font-weight: 600;
+  color: var(--adm-text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-pixels-table__row--dim {
+  opacity: 0.55;
+}
+
+.admin-pixels-table-input {
+  margin-bottom: 0 !important;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.admin-pixels-table__actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.admin-pixels-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.admin-pixels-badge--meta {
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+}
+
+.admin-pixels-badge--tiktok {
+  background: rgba(244, 63, 94, 0.12);
+  color: #e11d48;
+}
+
+.admin-pixels-capi-details {
+  margin-top: 8px;
+}
+
+.admin-pixels-capi-details summary {
+  cursor: pointer;
+  font-size: 0.74rem;
+  color: var(--adm-text-muted);
+  user-select: none;
+}
+
+.admin-pixels-capi-details input {
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
 .admin-pixels-save-bar {
   margin-top: 28px;
   padding-top: 20px;

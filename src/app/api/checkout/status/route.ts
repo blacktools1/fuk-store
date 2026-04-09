@@ -4,6 +4,7 @@ import { readStoreData } from "@/lib/store-data";
 import { checkParadiseStatus } from "@/lib/paradise";
 import { checkOramaStatus } from "@/lib/orama";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
+import { notifyStoreWebhooks } from "@/lib/store-webhooks";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,48 @@ export async function POST(req: NextRequest) {
           isTest: config.utmifyIsTest,
         }).catch((e) => console.error("UTMify poll fallback error:", e));
       }
+    }
+
+    if (result.paid) {
+      const hooks = config?.saleApprovedWebhooks;
+      let payload: Record<string, unknown>;
+      if (utmifyFallback && typeof utmifyFallback === "object") {
+        const fb = utmifyFallback as {
+          customerName?: string;
+          customerEmail?: string;
+          customerPhone?: string;
+          customerDocument?: string;
+          amount?: number;
+          products?: unknown[];
+          utms?: Record<string, string>;
+        };
+        payload = {
+          tenant,
+          orderId: String(transactionId),
+          status: "paid",
+          amount: fb.amount ?? result.amountInCents / 100,
+          currency: "BRL",
+          customer: {
+            name: fb.customerName ?? "",
+            email: fb.customerEmail ?? "",
+            phone: fb.customerPhone ?? "",
+            document: fb.customerDocument ?? "",
+          },
+          products: fb.products ?? [],
+          utms: fb.utms ?? {},
+        };
+      } else {
+        payload = {
+          tenant,
+          orderId: String(transactionId),
+          status: "paid",
+          amount: result.amountInCents / 100,
+          currency: "BRL",
+        };
+      }
+      notifyStoreWebhooks(hooks, "sale_approved", payload).catch((e) =>
+        console.error("Webhooks sale_approved:", e)
+      );
     }
 
     return NextResponse.json({

@@ -86,6 +86,8 @@ export async function PUT(req: NextRequest) {
     utmifyAccounts,
     utmifyIsTest: body.utmifyIsTest ?? current.utmifyIsTest ?? false,
     orderbumps: body.orderbumps ?? current.orderbumps ?? [],
+    salePendingWebhooks: body.salePendingWebhooks ?? current.salePendingWebhooks ?? [],
+    saleApprovedWebhooks: body.saleApprovedWebhooks ?? current.saleApprovedWebhooks ?? [],
   };
 
   writeStoreData(store, tenant);

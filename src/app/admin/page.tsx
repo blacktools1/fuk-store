@@ -430,6 +430,19 @@ function DashboardSection({
   const [freeShip, setFreeShip]     = useState(storeData?.freeShippingMin ?? 199);
   const [saving, setSaving]         = useState(false);
 
+  const cc = storeData?.checkoutConfig;
+  const providerId = String(cc?.pixProvider ?? "paradise").toLowerCase();
+  const pixProviderLabel = getPixProviderEntry(providerId)?.name ?? providerId;
+  const hasInternalCheckout =
+    providerId === "orama"
+      ? !!(cc?.oramaApiKey?.trim() && cc?.oramaPublicKey?.trim())
+      : !!(cc?.paradiseApiKey?.trim());
+  const pixelList = storeData?.pixels ?? [];
+  const pixelsActive = pixelList.filter((p) => p.active).length;
+  const utmifyCount = (cc?.utmifyAccounts ?? []).length;
+  const webhooksPending = (cc?.salePendingWebhooks ?? []).filter(Boolean).length;
+  const webhooksApproved = (cc?.saleApprovedWebhooks ?? []).filter(Boolean).length;
+
   const handleSave = async () => {
     setSaving(true);
     await onSaveConfig({ pixDiscountEnabled: pixEnabled, pixDiscount: pixPct, freeShippingMin: freeShip });
@@ -465,6 +478,72 @@ function DashboardSection({
             Slides ativos no carrossel + topo quando configurado
           </div>
         </div>
+      </div>
+
+      <div className="admin-stats-grid">
+        <div className="admin-stat-card">
+          <span className="admin-stat-icon" aria-hidden>PIX</span>
+          <div className="admin-stat-value" style={{ fontSize: "1.05rem", lineHeight: 1.3 }}>
+            {pixProviderLabel}
+          </div>
+          <div className="admin-stat-label">Provedor PIX ativo</div>
+          <div style={{ fontSize: "0.68rem", color: hasInternalCheckout ? "#10b981" : "#f59e0b", marginTop: 8, fontWeight: 600 }}>
+            {hasInternalCheckout ? "API configurada" : "Credenciais incompletas"}
+          </div>
+        </div>
+        <div className="admin-stat-card">
+          <span className="admin-stat-icon" aria-hidden>◎</span>
+          <div className="admin-stat-value">
+            {pixelsActive}/{pixelList.length}
+          </div>
+          <div className="admin-stat-label">Pixels ativos / total</div>
+        </div>
+        <div className="admin-stat-card">
+          <span className="admin-stat-icon" aria-hidden>U</span>
+          <div className="admin-stat-value">{utmifyCount}</div>
+          <div className="admin-stat-label">Contas UTMify</div>
+        </div>
+        <div className="admin-stat-card">
+          <span className="admin-stat-icon" aria-hidden>↗</span>
+          <div className="admin-stat-value" style={{ fontSize: "0.95rem" }}>
+            {webhooksPending}+{webhooksApproved}
+          </div>
+          <div className="admin-stat-label">Webhooks (pendente + aprovada)</div>
+        </div>
+      </div>
+
+      <div className="admin-card" style={{ marginBottom: 28 }}>
+        <h2 className="admin-card-title">Resumo operacional</h2>
+        <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.88rem", color: "var(--adm-text-muted)", lineHeight: 1.75 }}>
+          <li>
+            <strong style={{ color: "var(--adm-text)" }}>Checkout interno:</strong>{" "}
+            {hasInternalCheckout
+              ? `ativo com ${pixProviderLabel} — o cliente paga na sua loja.`
+              : "ainda não está pronto: abra Checkout PIX e preencha as credenciais do provedor selecionado."}
+          </li>
+          <li>
+            <strong style={{ color: "var(--adm-text)" }}>Redirecionamento pós-compra:</strong>{" "}
+            {cc?.redirectEnabled !== false
+              ? (cc?.redirectUrl?.trim()
+                ? `habilitado → ${cc.redirectUrl.trim()}`
+                : "habilitado, mas sem URL definida (configure em Checkout PIX).")
+              : "desligado — o cliente permanece na página de confirmação."}
+          </li>
+          <li>
+            <strong style={{ color: "var(--adm-text)" }}>Rastreamento:</strong>{" "}
+            {pixelList.length === 0
+              ? "nenhum pixel cadastrado."
+              : `${pixelList.length} pixel(is) cadastrado(s), ${pixelsActive} ativo(s).`}
+            {" "}
+            {utmifyCount > 0 ? `UTMify com ${utmifyCount} dashboard(s) vinculado(s).` : "UTMify não configurado."}
+          </li>
+          <li>
+            <strong style={{ color: "var(--adm-text)" }}>Webhooks próprios:</strong>{" "}
+            {webhooksPending + webhooksApproved === 0
+              ? "nenhuma URL — use Checkout PIX → Webhooks HTTP para notificar apps externos."
+              : `${webhooksPending} URL(s) em venda pendente e ${webhooksApproved} em venda aprovada.`}
+          </li>
+        </ul>
       </div>
 
       {/* ── Configurações Rápidas ── */}
@@ -584,6 +663,13 @@ function CheckoutSection({
   const [newUtmLabel, setNewUtmLabel] = useState("");
   const [newUtmToken, setNewUtmToken] = useState("");
 
+  const [salePendingWebhooks, setSalePendingWebhooks] = useState<string[]>(
+    () => storeData?.checkoutConfig?.salePendingWebhooks ?? []
+  );
+  const [saleApprovedWebhooks, setSaleApprovedWebhooks] = useState<string[]>(
+    () => storeData?.checkoutConfig?.saleApprovedWebhooks ?? []
+  );
+
   const addUtmifyAccount = () => {
     const token = newUtmToken.trim();
     if (!token) return;
@@ -647,6 +733,7 @@ function CheckoutSection({
       await onSaveConfig({
         checkoutUrl: "",
         checkoutConfig: {
+          ...storeData?.checkoutConfig,
           pixProvider,
           paradiseApiKey: apiKey.trim(),
           oramaApiKey: oramaApiKey.trim(),
@@ -657,6 +744,8 @@ function CheckoutSection({
           utmifyAccounts,
           utmifyIsTest: isTest,
           orderbumps,
+          salePendingWebhooks: salePendingWebhooks.map((u) => u.trim()).filter(Boolean),
+          saleApprovedWebhooks: saleApprovedWebhooks.map((u) => u.trim()).filter(Boolean),
         },
       });
       setSaveStatus("saved");
@@ -1105,6 +1194,118 @@ function CheckoutSection({
             <input type="checkbox" checked={isTest} onChange={(e) => { setIsTest(e.target.checked); markDirty(); }} />
             <span className="admin-toggle-slider" />
           </label>
+        </div>
+      </div>
+
+      {/* Webhooks HTTP (loja) */}
+      <div className="admin-card">
+        <h2 className="admin-card-title">Webhooks HTTP</h2>
+        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
+          Cadastre uma ou mais URLs (https) que recebem <code style={{ fontSize: "0.78em" }}>POST</code> com JSON quando uma venda entra em
+          pendência (PIX gerado) ou quando o pagamento é aprovado. O corpo inclui <code style={{ fontSize: "0.78em" }}>event</code>,{" "}
+          <code style={{ fontSize: "0.78em" }}>sentAt</code> e dados do pedido.
+        </p>
+
+        <div style={{ display: "grid", gap: 20 }}>
+          <div>
+            <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)", marginBottom: 6 }}>
+              Venda pendente (PIX gerado)
+            </div>
+            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginBottom: 10, lineHeight: 1.5 }}>
+              Disparado logo após criar o código PIX — <code style={{ fontSize: "0.78em" }}>event: &quot;sale_pending&quot;</code>
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {salePendingWebhooks.map((url, idx) => (
+                <div key={`p-${idx}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    className="admin-form-input"
+                    type="url"
+                    placeholder="https://..."
+                    value={url}
+                    onChange={(e) => {
+                      const next = [...salePendingWebhooks];
+                      next[idx] = e.target.value;
+                      setSalePendingWebhooks(next);
+                      markDirty();
+                    }}
+                    style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                  />
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-secondary"
+                    style={{ padding: "8px 12px", flexShrink: 0 }}
+                    onClick={() => {
+                      setSalePendingWebhooks((prev) => prev.filter((_, i) => i !== idx));
+                      markDirty();
+                    }}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                style={{ alignSelf: "flex-start", fontSize: "0.82rem" }}
+                onClick={() => {
+                  setSalePendingWebhooks((prev) => [...prev, ""]);
+                  markDirty();
+                }}
+              >
+                + Adicionar URL
+              </button>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 16 }}>
+            <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)", marginBottom: 6 }}>
+              Venda aprovada (pagamento confirmado)
+            </div>
+            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginBottom: 10, lineHeight: 1.5 }}>
+              Disparado quando o checkout confirma o PIX — <code style={{ fontSize: "0.78em" }}>event: &quot;sale_approved&quot;</code>
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {saleApprovedWebhooks.map((url, idx) => (
+                <div key={`a-${idx}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    className="admin-form-input"
+                    type="url"
+                    placeholder="https://..."
+                    value={url}
+                    onChange={(e) => {
+                      const next = [...saleApprovedWebhooks];
+                      next[idx] = e.target.value;
+                      setSaleApprovedWebhooks(next);
+                      markDirty();
+                    }}
+                    style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                  />
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-secondary"
+                    style={{ padding: "8px 12px", flexShrink: 0 }}
+                    onClick={() => {
+                      setSaleApprovedWebhooks((prev) => prev.filter((_, i) => i !== idx));
+                      markDirty();
+                    }}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                style={{ alignSelf: "flex-start", fontSize: "0.82rem" }}
+                onClick={() => {
+                  setSaleApprovedWebhooks((prev) => [...prev, ""]);
+                  markDirty();
+                }}
+              >
+                + Adicionar URL
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2640,6 +2841,11 @@ function PixelsSection({
   const [newType, setNewType] = useState<"facebook" | "tiktok">("facebook");
   const [newId, setNewId] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [pixelFilter, setPixelFilter] = useState("");
+
+  useEffect(() => {
+    if (!dirty) setList(pixels);
+  }, [pixels, dirty]);
 
   const update = (updated: StorePixel[]) => { setList(updated); setDirty(true); };
 
@@ -2668,84 +2874,25 @@ function PixelsSection({
 
   const remove = (id: string) => update(list.filter((p) => p.id !== id));
 
-  const PIXEL_ICONS: Record<string, string> = {
-    facebook: "📘",
-    tiktok: "🎵",
-  };
-
-  const metaPixels = useMemo(
-    () => list.filter((p) => p.type === "facebook").sort((a, b) => a.pixelId.localeCompare(b.pixelId)),
-    [list]
-  );
-  const tiktokPixels = useMemo(
-    () => list.filter((p) => p.type === "tiktok").sort((a, b) => a.pixelId.localeCompare(b.pixelId)),
-    [list]
-  );
-
-  function renderPixelCard(px: StorePixel, indexInGroup: number) {
-    return (
-      <div
-        key={px.id}
-        className="admin-pixels-card"
-        style={{ opacity: px.active ? 1 : 0.62 }}
-      >
-        <div className="admin-pixels-card__topbar">
-          <span className="admin-pixels-card__icon" aria-hidden>{PIXEL_ICONS[px.type]}</span>
-          <div className="admin-pixels-card__title-block">
-            <p className="admin-pixels-card__platform">
-              {px.type === "facebook" ? "Meta Pixel" : "TikTok Pixel"}
-              <span className="admin-pixels-card__index">#{indexInGroup + 1}</span>
-            </p>
-            {!px.active && (
-              <span className="admin-pixels-card__status">Inativo</span>
-            )}
-          </div>
-          <div className="admin-pixels-card__toggle">
-            <label className="admin-toggle" title={px.active ? "Ativo — clique para desativar" : "Inativo — clique para ativar"}>
-              <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
-              <span className="admin-toggle-slider" />
-            </label>
-          </div>
-        </div>
-
-        <div className="admin-pixels-card__fields">
-          <div className="admin-pixels-field">
-            <label className="admin-form-label">ID do Pixel</label>
-            <input
-              className="admin-form-input admin-pixels-input-mono"
-              value={px.pixelId}
-              onChange={(e) => setPixelField(px.id, { pixelId: e.target.value })}
-            />
-          </div>
-          {px.type === "facebook" && (
-            <div className="admin-pixels-field admin-pixels-field--token">
-              <label className="admin-form-label">Token da API de Conversões (Meta CAPI) — opcional</label>
-              <input
-                className="admin-form-input"
-                type="password"
-                autoComplete="new-password"
-                value={px.accessToken ?? ""}
-                onChange={(e) => setPixelField(px.id, { accessToken: e.target.value })}
-                placeholder="EAAB... (Gerenciador de Eventos → Configurações → API de Conversões)"
-                style={{ fontSize: "0.8rem" }}
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="admin-pixels-card__danger">
-          <button
-            type="button"
-            className="admin-btn admin-btn-danger admin-btn-sm"
-            onClick={() => remove(px.id)}
-            title="Remove este pixel da loja"
-          >
-            Remover pixel
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const filteredRows = useMemo(() => {
+    const q = pixelFilter.trim().toLowerCase();
+    let rows = [...list];
+    if (q) {
+      rows = rows.filter((p) => {
+        const plat = p.type === "facebook" ? "meta facebook" : "tiktok";
+        return (
+          p.pixelId.toLowerCase().includes(q) ||
+          plat.includes(q) ||
+          p.id.toLowerCase().includes(q)
+        );
+      });
+    }
+    return rows.sort((a, b) => {
+      const t = a.type.localeCompare(b.type);
+      if (t !== 0) return t;
+      return a.pixelId.localeCompare(b.pixelId);
+    });
+  }, [list, pixelFilter]);
 
   return (
     <div>
@@ -2795,49 +2942,98 @@ function PixelsSection({
       <div className="settings-group">
         <div className="settings-group-header">
           <span className="settings-group-icon">📡</span>
-          <span className="settings-group-title">Pixels Configurados</span>
+          <span className="settings-group-title">Pixels configurados</span>
         </div>
         <div className="settings-group-body">
           {list.length === 0 ? (
             <p className="admin-pixels-empty">Nenhum pixel configurado ainda.</p>
           ) : (
-            <div className="admin-pixels-grouped">
-              <div className="admin-pixels-platform-section admin-pixels-platform-section--meta">
-                <div className="admin-pixels-platform-head">
-                  <span className="admin-pixels-platform-head__icon" aria-hidden>📘</span>
-                  <div className="admin-pixels-platform-head__text">
-                    <h4 className="admin-pixels-platform-head__title">Meta (Facebook)</h4>
-                    <p className="admin-pixels-platform-head__sub">Pixel + eventos no navegador (fbq). Token opcional para CAPI.</p>
-                  </div>
-                  <span className="admin-pixels-platform-head__count">{metaPixels.length}</span>
-                </div>
-                {metaPixels.length === 0 ? (
-                  <p className="admin-pixels-platform-empty">Nenhum pixel Meta cadastrado. Use &quot;Adicionar Pixel&quot; com plataforma Facebook / Meta.</p>
-                ) : (
-                  <div className="admin-pixels-list">
-                    {metaPixels.map((px, i) => renderPixelCard(px, i))}
-                  </div>
-                )}
+            <>
+              <div className="admin-pixels-toolbar">
+                <label className="admin-form-label" style={{ marginBottom: 6 }}>Buscar na lista</label>
+                <input
+                  type="search"
+                  className="admin-form-input"
+                  placeholder="ID, Meta, TikTok…"
+                  value={pixelFilter}
+                  onChange={(e) => setPixelFilter(e.target.value)}
+                  style={{ marginBottom: 0, maxWidth: 320 }}
+                />
+                <span className="admin-pixels-toolbar-meta">
+                  {filteredRows.length === list.length
+                    ? `${list.length} pixel(is)`
+                    : `${filteredRows.length} de ${list.length} pixel(is)`}
+                </span>
               </div>
-
-              <div className="admin-pixels-platform-section admin-pixels-platform-section--tiktok">
-                <div className="admin-pixels-platform-head">
-                  <span className="admin-pixels-platform-head__icon" aria-hidden>🎵</span>
-                  <div className="admin-pixels-platform-head__text">
-                    <h4 className="admin-pixels-platform-head__title">TikTok</h4>
-                    <p className="admin-pixels-platform-head__sub">Pixel e eventos no navegador (ttq).</p>
-                  </div>
-                  <span className="admin-pixels-platform-head__count">{tiktokPixels.length}</span>
-                </div>
-                {tiktokPixels.length === 0 ? (
-                  <p className="admin-pixels-platform-empty">Nenhum pixel TikTok cadastrado.</p>
-                ) : (
-                  <div className="admin-pixels-list">
-                    {tiktokPixels.map((px, i) => renderPixelCard(px, i))}
-                  </div>
-                )}
+              <div className="admin-pixels-table-wrap">
+                <table className="admin-pixels-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Plataforma</th>
+                      <th scope="col">ID do pixel</th>
+                      <th scope="col">Ativo</th>
+                      <th scope="col" className="admin-pixels-table__actions">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRows.map((px) => (
+                      <tr
+                        key={px.id}
+                        className={`admin-pixels-table__row${px.active ? "" : " admin-pixels-table__row--dim"}`}
+                      >
+                        <td>
+                          <span
+                            className={
+                              px.type === "facebook"
+                                ? "admin-pixels-badge admin-pixels-badge--meta"
+                                : "admin-pixels-badge admin-pixels-badge--tiktok"
+                            }
+                          >
+                            {px.type === "facebook" ? "Meta" : "TikTok"}
+                          </span>
+                        </td>
+                        <td>
+                          <input
+                            className="admin-form-input admin-pixels-table-input"
+                            value={px.pixelId}
+                            onChange={(e) => setPixelField(px.id, { pixelId: e.target.value })}
+                            aria-label={`ID do pixel ${px.type}`}
+                          />
+                          {px.type === "facebook" && (
+                            <details className="admin-pixels-capi-details">
+                              <summary>Token CAPI (opcional)</summary>
+                              <input
+                                className="admin-form-input"
+                                type="password"
+                                autoComplete="new-password"
+                                value={px.accessToken ?? ""}
+                                onChange={(e) => setPixelField(px.id, { accessToken: e.target.value })}
+                                placeholder="EAAB… (API de Conversões)"
+                              />
+                            </details>
+                          )}
+                        </td>
+                        <td>
+                          <label className="admin-toggle" title={px.active ? "Ativo" : "Inativo"}>
+                            <input type="checkbox" checked={px.active} onChange={() => toggle(px.id)} />
+                            <span className="admin-toggle-slider" />
+                          </label>
+                        </td>
+                        <td className="admin-pixels-table__actions">
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-danger admin-btn-sm"
+                            onClick={() => remove(px.id)}
+                          >
+                            Remover
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

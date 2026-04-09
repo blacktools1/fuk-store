@@ -75,6 +75,10 @@ export interface CheckoutConfig {
   utmifyAccounts?: UtmifyAccount[];     // múltiplos dashboards UTMify
   utmifyIsTest?: boolean;
   orderbumps?: Orderbump[];
+  /** POST JSON quando o PIX é gerado (pedido aguardando pagamento) */
+  salePendingWebhooks?: string[];
+  /** POST JSON quando o pagamento é confirmado */
+  saleApprovedWebhooks?: string[];
 }
 
 export interface StorePixel {
