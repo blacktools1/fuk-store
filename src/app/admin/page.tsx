@@ -7,6 +7,14 @@ import { StoreData, AdminProduct, Banner, TopBannerConfig, StorePixel } from "@/
 import { PIX_PROVIDER_CATALOG, getPixProviderEntry } from "@/lib/pix-providers";
 import { formatPrice } from "@/lib/products";
 
+/** Exibe credencial mascarada (somente leitura no painel). */
+function maskPixCredential(value: string): string {
+  const v = value.trim();
+  if (!v) return "—";
+  if (v.length <= 12) return "••••••••" + v.slice(-4);
+  return `${v.slice(0, 4)}${"•".repeat(8)}${v.slice(-4)}`;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Toast
 // ─────────────────────────────────────────────────────────────
@@ -607,7 +615,24 @@ function CheckoutSection({
       name: pixProvider,
       description: "Provedor salvo na configuração.",
       available: true,
+      authType: "—",
+      apiHost: "—",
     };
+
+  const [publicOrigin, setPublicOrigin] = useState("");
+  useEffect(() => {
+    setPublicOrigin(typeof window !== "undefined" ? window.location.origin : "");
+  }, []);
+
+  const internalWebhookUrl = publicOrigin
+    ? `${publicOrigin}/api/checkout/webhook`
+    : "/api/checkout/webhook";
+
+  const isProviderConfigured = (id: string) => {
+    if (id === "paradise") return apiKey.trim().length > 0;
+    if (id === "orama") return !!(oramaApiKey.trim() && oramaPublicKey.trim());
+    return false;
+  };
 
   const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
 
@@ -683,206 +708,281 @@ function CheckoutSection({
         </div>
       )}
 
-      {/* Status banner */}
-      <div className="admin-card" style={{ borderLeft: `4px solid ${hasKey ? "#10b981" : "#f59e0b"}`, paddingLeft: 20 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--adm-text)" }}>
-            {hasKey ? "Checkout PIX ativo" : "Checkout PIX não configurado"}
+      {/* Hub Provedores PIX — sidebar + painel (referência layout) */}
+      <div className="admin-pix-hub-wrap admin-card" style={{ padding: "20px 22px" }}>
+        <header className="admin-pix-hub-header">
+          <div>
+            <h2 className="admin-pix-hub-title">Provedores PIX</h2>
+            <p className="admin-pix-hub-sub">Gerencie e alterne entre provedores de API.</p>
           </div>
-          <div style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
-            {hasKey
-              ? "Ao clicar em Finalizar Compra, o cliente vai para /checkout nesta mesma loja."
-              : pixProvider === "orama"
-                ? "Preencha API Key, Public Key e (recomendado) Webhook Secret da Orama abaixo."
-                : "Preencha a chave da API Paradise abaixo para ativar o checkout integrado."}
+          <div className={`admin-pix-hub-status-pill${hasKey ? "" : " admin-pix-hub-status-pill--warn"}`}>
+            <span className="admin-pix-hub-status-dot" aria-hidden />
+            Provedor ativo: {activeProviderMeta.name}
           </div>
-        </div>
-      </div>
+        </header>
 
-      {/* Provedor de Pagamento PIX — busca + lista rolável (escala com muitos provedores) */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">Provedor de pagamento PIX</h2>
-        <p style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)", marginBottom: 14, lineHeight: 1.55 }}>
-          Use a busca para filtrar o catálogo. Com dezenas de integrações, só a lista correspondente aparece — role dentro da área tracejada para ver todos.
-        </p>
+        <div className="admin-pix-hub">
+          <aside className="admin-pix-sidebar" aria-label="Lista de provedores">
+            <label className="admin-form-label">Pesquisar provedor</label>
+            <input
+              className="admin-form-input admin-pix-provider-search"
+              type="search"
+              placeholder="Pesquisar provedor…"
+              value={providerQuery}
+              onChange={(e) => setProviderQuery(e.target.value)}
+              autoComplete="off"
+            />
+            <div className="admin-pix-provider-scroll" role="listbox" aria-label="Provedores">
+              {filteredPixProviders.length === 0 ? (
+                <div className="admin-pix-provider-empty">Nenhum provedor corresponde à busca.</div>
+              ) : (
+                filteredPixProviders.map((p) => {
+                  const isSel = pixProvider === p.id;
+                  const configured = isProviderConfigured(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSel}
+                      disabled={!p.available}
+                      className={`admin-pix-provider-row${isSel ? " admin-pix-provider-row--active" : ""}`}
+                      onClick={() => {
+                        if (!p.available) return;
+                        setPixProvider(p.id);
+                        markDirty();
+                      }}
+                    >
+                      <div className="admin-pix-provider-meta">
+                        <div className="admin-pix-provider-name">{p.name}</div>
+                        <div className="admin-pix-provider-row-status">
+                          {p.available ? (
+                            <>
+                              <span className={`admin-pix-dot${configured ? " admin-pix-dot--on" : ""}`} aria-hidden />
+                              <span>
+                                {configured ? "Configurado" : "Não configurado"}
+                                {isSel ? " · Ativo na loja" : ""}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="admin-pix-provider-soon">Em breve</span>
+                          )}
+                        </div>
+                      </div>
+                      {p.available && (
+                        <span
+                          className={
+                            isSel
+                              ? "admin-pix-provider-pill admin-pix-provider-pill--sel"
+                              : "admin-pix-provider-pill"
+                          }
+                        >
+                          {isSel ? "Ativo" : "Disponível"}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </aside>
 
-        <label className="admin-form-label" style={{ marginBottom: 6 }}>Buscar provedor</label>
-        <input
-          className="admin-form-input admin-pix-provider-search"
-          type="search"
-          placeholder="Nome ou identificador (ex.: orama, paradise…)"
-          value={providerQuery}
-          onChange={(e) => setProviderQuery(e.target.value)}
-          autoComplete="off"
-          style={{ marginBottom: 12 }}
-        />
+          <div className="admin-pix-main">
+            <div className="admin-pix-hero-strip">
+              <div className="admin-pix-hero-text">
+                <div className="admin-pix-hero-name">{activeProviderMeta.name}</div>
+                <div className="admin-pix-hero-meta">
+                  Autenticação: {activeProviderMeta.authType}
+                  <span className="admin-pix-hero-sep">·</span>
+                  Endpoint: {activeProviderMeta.apiHost}
+                </div>
+              </div>
+              {hasKey ? (
+                <span className="admin-pix-hero-badge">Provedor ativo na loja</span>
+              ) : (
+                <span className="admin-pix-hero-badge admin-pix-hero-badge--muted">Complete as credenciais abaixo</span>
+              )}
+            </div>
 
-        <div className="admin-pix-provider-scroll" role="listbox" aria-label="Lista de provedores PIX">
-          {filteredPixProviders.length === 0 ? (
-            <div className="admin-pix-provider-empty">Nenhum provedor corresponde à busca.</div>
-          ) : (
-            filteredPixProviders.map((p) => {
-              const isActive = pixProvider === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="option"
-                  aria-selected={isActive}
-                  disabled={!p.available}
-                  className={`admin-pix-provider-row${isActive ? " admin-pix-provider-row--active" : ""}`}
-                  onClick={() => {
-                    if (!p.available) return;
-                    setPixProvider(p.id);
-                    markDirty();
-                  }}
-                >
-                  <div className="admin-pix-provider-meta">
-                    <div className="admin-pix-provider-name">{p.name}</div>
-                    <div className="admin-pix-provider-desc">{p.description}</div>
+            <section className="admin-pix-card">
+              <h3 className="admin-pix-card-title">Configuração de credenciais</h3>
+              <p className="admin-pix-card-lead">
+                Dados de autenticação na API do provedor. Não compartilhe estas chaves publicamente.
+              </p>
+
+              {pixProvider === "paradise" && (
+                <div className="admin-pix-cred-grid admin-pix-cred-grid--single">
+                  <div className="admin-pix-field">
+                    <label className="admin-form-label">API Key (Secret Key)</label>
+                    <input
+                      className="admin-form-input"
+                      type="password"
+                      placeholder="sk_…"
+                      value={apiKey}
+                      onChange={(e) => { setApiKey(e.target.value); markDirty(); }}
+                      autoComplete="off"
+                    />
+                    <p className="admin-pix-field-hint">Painel Paradise → Configurações → API Key</p>
                   </div>
-                  <span
-                    className={
-                      p.available
-                        ? "admin-pix-provider-badge admin-pix-provider-badge--ok"
-                        : "admin-pix-provider-badge admin-pix-provider-badge--soon"
-                    }
-                  >
-                    {p.available ? "Disponível" : "Em breve"}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
+                </div>
+              )}
 
-        <div className="admin-pix-provider-summary">
-          <span className="admin-pix-provider-summary-label">Selecionado para checkout</span>
-          <strong className="admin-pix-provider-summary-name">{activeProviderMeta.name}</strong>
-          <span className="admin-pix-provider-summary-desc">{activeProviderMeta.description}</span>
-        </div>
-      </div>
+              {pixProvider === "orama" && (
+                <div className="admin-pix-cred-grid">
+                  <div className="admin-pix-field">
+                    <label className="admin-form-label">Secret Key (API Key)</label>
+                    <input
+                      className="admin-form-input"
+                      type="password"
+                      placeholder="live_…"
+                      value={oramaApiKey}
+                      onChange={(e) => { setOramaApiKey(e.target.value); markDirty(); }}
+                      autoComplete="off"
+                    />
+                    <p className="admin-pix-field-hint">OramaPay → Credenciais → API Key</p>
+                  </div>
+                  <div className="admin-pix-field">
+                    <label className="admin-form-label">Public Key</label>
+                    <input
+                      className="admin-form-input"
+                      type="password"
+                      placeholder="pk_… / public key"
+                      value={oramaPublicKey}
+                      onChange={(e) => { setOramaPublicKey(e.target.value); markDirty(); }}
+                      autoComplete="off"
+                    />
+                    <p className="admin-pix-field-hint">Usada com a Secret Key no Basic Auth</p>
+                  </div>
+                  <div className="admin-pix-field">
+                    <label className="admin-form-label">Webhook URL (esta loja)</label>
+                    <input
+                      className="admin-form-input"
+                      type="text"
+                      readOnly
+                      value={internalWebhookUrl}
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <p className="admin-pix-field-hint">Cadastre no painel OramaPay como URL de postback</p>
+                  </div>
+                  <div className="admin-pix-field">
+                    <label className="admin-form-label">Webhook Secret (opcional)</label>
+                    <input
+                      className="admin-form-input"
+                      type="password"
+                      placeholder="Para validar x-webhook-signature"
+                      value={oramaWebhookSecret}
+                      onChange={(e) => { setOramaWebhookSecret(e.target.value); markDirty(); }}
+                      autoComplete="off"
+                    />
+                    <p className="admin-pix-field-hint">HMAC-SHA256 do corpo JSON no servidor</p>
+                  </div>
+                </div>
+              )}
 
-      {/* API Config */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">
-          Credenciais —{" "}
-          {pixProvider === "paradise" ? "Paradise Pags" : pixProvider === "orama" ? "OramaPay" : pixProvider}
-        </h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {pixProvider !== "paradise" && pixProvider !== "orama" && (
+                <p style={{ fontSize: "0.85rem", color: "var(--adm-text-muted)" }}>
+                  Este provedor ainda não possui campos de credencial nesta versão.
+                </p>
+              )}
+            </section>
 
-          {/* ── Paradise Pags ── */}
-          {pixProvider === "paradise" && (
-            <div>
-              <label className="admin-form-label">Chave da API Paradise (sk_...)</label>
-              <input
-                className="admin-form-input"
-                type="password"
-                placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx"
-                value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); markDirty(); }}
-              />
-              <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
-                Painel Paradise → Configurações → API Key
+            {(pixProvider === "paradise" && apiKey.trim()) ||
+            (pixProvider === "orama" &&
+              (oramaApiKey.trim() || oramaPublicKey.trim() || oramaWebhookSecret.trim())) ? (
+              <section className="admin-pix-card admin-pix-card--readonly">
+                <h3 className="admin-pix-card-title">Credenciais salvas no sistema</h3>
+                <p className="admin-pix-card-lead">Pré-visualização mascarada — valores reais ficam apenas no servidor.</p>
+                {pixProvider === "paradise" && (
+                  <div className="admin-pix-cred-grid admin-pix-cred-grid--single">
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">API Key</span>
+                      <code className="admin-pix-readonly-value">{maskPixCredential(apiKey)}</code>
+                    </div>
+                  </div>
+                )}
+                {pixProvider === "orama" && (
+                  <div className="admin-pix-cred-grid">
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">Secret Key</span>
+                      <code className="admin-pix-readonly-value">{maskPixCredential(oramaApiKey)}</code>
+                    </div>
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">Public Key</span>
+                      <code className="admin-pix-readonly-value">{maskPixCredential(oramaPublicKey)}</code>
+                    </div>
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">Webhook URL</span>
+                      <code className="admin-pix-readonly-value">{internalWebhookUrl}</code>
+                    </div>
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">Webhook Secret</span>
+                      <code className="admin-pix-readonly-value">
+                        {oramaWebhookSecret.trim() ? maskPixCredential(oramaWebhookSecret) : "—"}
+                      </code>
+                    </div>
+                  </div>
+                )}
+              </section>
+            ) : null}
+
+            <section className="admin-pix-card admin-pix-card--redirect">
+              <h3 className="admin-pix-card-title">Redirecionamento do cliente</h3>
+              <p className="admin-pix-card-lead">
+                Comportamento após pagamento aprovado no checkout. Independe do provedor PIX — só afeta a experiência na loja.
+              </p>
+              <div className="admin-pix-field">
+                <label className="admin-form-label">URL após pagamento confirmado</label>
+                <input
+                  className="admin-form-input"
+                  type="url"
+                  placeholder="https://… (opcional)"
+                  value={redirectUrl}
+                  onChange={(e) => { setRedirectUrl(e.target.value); markDirty(); }}
+                />
+                <p className="admin-pix-field-hint">Vazio = apenas mensagem de sucesso na própria página de checkout.</p>
+              </div>
+              <div className="admin-pix-redirect-toggle">
+                <div>
+                  <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>
+                    Redirecionar automaticamente
+                  </div>
+                  <div style={{ fontSize: "0.73rem", color: "var(--adm-text-muted)", marginTop: 2 }}>
+                    Enviar o cliente para a URL acima após confirmar o pagamento
+                  </div>
+                </div>
+                <label className="admin-toggle">
+                  <input
+                    type="checkbox"
+                    checked={redirectOn}
+                    onChange={(e) => {
+                      setRedirectOn(e.target.checked);
+                      markDirty();
+                    }}
+                  />
+                  <span className="admin-toggle-slider" />
+                </label>
+              </div>
+            </section>
+
+            <div className="admin-pix-main-footer">
+              <button
+                type="button"
+                className="admin-btn-primary admin-pix-main-footer-btn"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Salvando…" : "Salvar alterações"}
+              </button>
+              {saveStatus === "saved" && (
+                <span className="admin-pix-save-msg admin-pix-save-msg--ok">Salvo com sucesso</span>
+              )}
+              {saveStatus === "error" && (
+                <span className="admin-pix-save-msg admin-pix-save-msg--err">Erro ao salvar</span>
+              )}
+              <p className="admin-pix-main-footer-hint">
+                Salva credenciais do provedor, redirecionamento pós-pagamento, UTMify e order bumps — o mesmo conteúdo do botão &quot;Salvar checkout&quot; no final desta aba.
               </p>
             </div>
-          )}
-
-          {/* ── OramaPay ── */}
-          {pixProvider === "orama" && (
-            <>
-              <div>
-                <label className="admin-form-label">API Key — OramaPay (live_...)</label>
-                <input
-                  className="admin-form-input"
-                  type="password"
-                  placeholder="live_xxxxxxxxxxxxxxxxxxxxxxxx"
-                  value={oramaApiKey}
-                  onChange={(e) => { setOramaApiKey(e.target.value); markDirty(); }}
-                />
-                <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
-                  OramaPay → Configurações → Credenciais → API Key
-                </p>
-              </div>
-              <div>
-                <label className="admin-form-label">Public Key — OramaPay</label>
-                <input
-                  className="admin-form-input"
-                  type="password"
-                  placeholder="pub_xxxxxxxxxxxxxxxxxxxxxxxx"
-                  value={oramaPublicKey}
-                  onChange={(e) => { setOramaPublicKey(e.target.value); markDirty(); }}
-                />
-                <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
-                  OramaPay → Configurações → Credenciais → Public Key — usada junto à API Key (Basic Auth).
-                </p>
-              </div>
-              <div>
-                <label className="admin-form-label">Webhook Secret (validação de assinatura)</label>
-                <input
-                  className="admin-form-input"
-                  type="password"
-                  placeholder="Mesmo secret configurado na Orama para o postback"
-                  value={oramaWebhookSecret}
-                  onChange={(e) => { setOramaWebhookSecret(e.target.value); markDirty(); }}
-                />
-                <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
-                  Usado no servidor para validar o header <code style={{ fontSize: "0.72rem" }}>x-webhook-signature</code>{" "}
-                  (HMAC-SHA256 do corpo JSON, conforme documentação OramaPay). Opcional se você só usar polling no checkout.
-                </p>
-              </div>
-            </>
-          )}
-
-          <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
-            <label className="admin-form-label">URL de Redirecionamento após pagamento confirmado</label>
-            <input
-              className="admin-form-input"
-              type="url"
-              placeholder="https://minhapagina.com/obrigado"
-              value={redirectUrl}
-              onChange={(e) => { setRedirectUrl(e.target.value); markDirty(); }}
-            />
-            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
-              Deixe em branco para apenas exibir mensagem de sucesso sem redirecionar.
-            </p>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Redirecionar automaticamente</div>
-              <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Após confirmar pagamento, vai para a URL acima</div>
-            </div>
-            <label className="admin-toggle">
-              <input type="checkbox" checked={redirectOn} onChange={(e) => { setRedirectOn(e.target.checked); markDirty(); }} />
-              <span className="admin-toggle-slider" />
-            </label>
-          </div>
-
-          {/* Botão salvar inline */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 12,
-            paddingTop: 14, borderTop: "1px solid var(--adm-border)",
-            flexWrap: "wrap",
-          }}>
-            <button
-              className="admin-btn-primary"
-              onClick={handleSave}
-              disabled={saving}
-              style={{ minWidth: 160 }}
-            >
-              {saving ? "Salvando…" : "Salvar configurações"}
-            </button>
-            {saveStatus === "saved" && (
-              <span style={{ fontSize: "0.82rem", color: "#10b981" }}>
-                Salvo com sucesso
-              </span>
-            )}
-            {saveStatus === "error" && (
-              <span style={{ fontSize: "0.82rem", color: "#ef4444" }}>
-                Erro ao salvar — tente novamente
-              </span>
-            )}
           </div>
         </div>
       </div>

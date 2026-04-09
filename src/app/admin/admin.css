@@ -1274,18 +1274,96 @@
   justify-content: flex-end;
 }
 
-/* ─── Checkout: seleção de provedor PIX (busca + lista rolável) ─── */
+/* ─── Checkout: hub Provedores PIX (sidebar + painel) ─── */
+.admin-pix-hub-wrap {
+  overflow: hidden;
+}
+
+.admin-pix-hub-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--adm-border);
+}
+
+.admin-pix-hub-title {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--adm-text);
+  letter-spacing: -0.02em;
+}
+
+.admin-pix-hub-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--adm-text-muted);
+  line-height: 1.45;
+}
+
+.admin-pix-hub-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--adm-success);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  white-space: nowrap;
+}
+
+.admin-pix-hub-status-pill--warn {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--adm-warning);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.admin-pix-hub-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.admin-pix-hub {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .admin-pix-hub {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-pix-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
 .admin-pix-provider-search {
   max-width: 100%;
+  margin-bottom: 4px;
 }
 
 .admin-pix-provider-scroll {
-  max-height: min(280px, 42vh);
+  max-height: min(360px, 50vh);
   overflow-y: auto;
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius);
-  background: var(--adm-bg-card);
-  margin-bottom: 16px;
+  background: var(--adm-bg-elevated);
 }
 
 .admin-pix-provider-empty {
@@ -1299,9 +1377,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  padding: 11px 14px;
+  padding: 12px 12px;
   border: none;
   border-bottom: 1px solid var(--adm-border);
   background: transparent;
@@ -1317,17 +1395,17 @@
 }
 
 .admin-pix-provider-row:hover:not(:disabled) {
-  background: var(--adm-accent-dim);
+  background: rgba(139, 92, 246, 0.06);
 }
 
 .admin-pix-provider-row:disabled {
   cursor: not-allowed;
-  opacity: 0.48;
+  opacity: 0.45;
 }
 
 .admin-pix-provider-row--active {
-  background: rgba(16, 185, 129, 0.08);
-  box-shadow: inset 3px 0 0 var(--adm-success);
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.45);
 }
 
 .admin-pix-provider-meta {
@@ -1337,65 +1415,236 @@
 
 .admin-pix-provider-name {
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--adm-text);
 }
 
-.admin-pix-provider-desc {
-  font-size: 0.74rem;
+.admin-pix-provider-row-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
   color: var(--adm-text-muted);
-  margin-top: 3px;
-  line-height: 1.45;
+  margin-top: 4px;
+  line-height: 1.35;
 }
 
-.admin-pix-provider-badge {
-  font-size: 0.62rem;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 999px;
+.admin-pix-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--adm-text-faint);
+  flex-shrink: 0;
+}
+
+.admin-pix-dot--on {
+  background: var(--adm-success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.admin-pix-provider-soon {
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  white-space: nowrap;
-  flex-shrink: 0;
-  align-self: center;
+  color: var(--adm-text-faint);
 }
 
-.admin-pix-provider-badge--ok {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--adm-success);
-}
-
-.admin-pix-provider-badge--soon {
+.admin-pix-provider-pill {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   background: var(--adm-border);
   color: var(--adm-text-muted);
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
-.admin-pix-provider-summary {
+.admin-pix-provider-pill--sel {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.admin-pix-main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-pix-hero-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
   border-radius: var(--adm-radius);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid var(--adm-border);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(30, 30, 42, 0.9) 100%);
 }
 
-.admin-pix-provider-summary-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.admin-pix-hero-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--adm-text);
+}
+
+.admin-pix-hero-meta {
+  font-size: 0.78rem;
   color: var(--adm-text-muted);
+  margin-top: 4px;
 }
 
-.admin-pix-provider-summary-name {
+.admin-pix-hero-sep {
+  margin: 0 6px;
+  opacity: 0.5;
+}
+
+.admin-pix-hero-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.18);
+  color: var(--adm-success);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.admin-pix-hero-badge--muted {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--adm-warning);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.admin-pix-card {
+  padding: 18px 18px 16px;
+  border-radius: var(--adm-radius);
+  border: 1px solid var(--adm-border);
+  background: var(--adm-bg-card);
+}
+
+.admin-pix-card--readonly {
+  background: var(--adm-bg-elevated);
+  border-style: dashed;
+}
+
+.admin-pix-card--redirect {
+  border-color: rgba(139, 92, 246, 0.25);
+  background: rgba(139, 92, 246, 0.04);
+}
+
+.admin-pix-card-title {
+  margin: 0 0 8px;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--adm-text);
 }
 
-.admin-pix-provider-summary-desc {
-  font-size: 0.78rem;
+.admin-pix-card-lead {
+  margin: 0 0 16px;
+  font-size: 0.8rem;
   color: var(--adm-text-muted);
+  line-height: 1.5;
+}
+
+.admin-pix-cred-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+}
+
+@media (max-width: 640px) {
+  .admin-pix-cred-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-pix-cred-grid--single {
+  grid-template-columns: 1fr;
+  max-width: 520px;
+}
+
+.admin-pix-field {
+  min-width: 0;
+}
+
+.admin-pix-field .admin-form-label {
+  margin-bottom: 6px;
+}
+
+.admin-pix-field-hint {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  color: var(--adm-text-faint);
+  line-height: 1.4;
+}
+
+.admin-pix-field--readonly {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--adm-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.admin-pix-readonly-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--adm-text-faint);
+  margin-bottom: 6px;
+}
+
+.admin-pix-readonly-value {
+  display: block;
+  font-size: 0.78rem;
+  word-break: break-all;
+  color: var(--adm-text-muted);
+}
+
+.admin-pix-redirect-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-border);
+}
+
+.admin-pix-main-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.admin-pix-main-footer-btn {
+  min-width: 200px;
+}
+
+.admin-pix-main-footer-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--adm-text-faint);
   line-height: 1.45;
+  max-width: 52ch;
+}
+
+.admin-pix-save-msg {
+  font-size: 0.82rem;
+}
+
+.admin-pix-save-msg--ok {
+  color: var(--adm-success);
+}
+
+.admin-pix-save-msg--err {
+  color: var(--adm-danger);
 }
