@@ -51,7 +51,7 @@ export interface Orderbump {
  * Provedores de pagamento PIX disponíveis.
  * Adicionar novos valores aqui conforme cada integração for implementada.
  */
-export type PixProvider = "paradise";  // expandir futuramente
+export type PixProvider = "paradise" | "orama";
 
 /** Uma conta UTMify (dashboard) com label para identificação */
 export interface UtmifyAccount {
@@ -63,6 +63,8 @@ export interface UtmifyAccount {
 export interface CheckoutConfig {
   pixProvider?: PixProvider | string;   // provedor ativo (default: "paradise")
   paradiseApiKey?: string;              // chave da API Paradise Pags
+  oramaApiKey?: string;                 // chave da API OramaPay (prefixo live_)
+  oramaPublicKey?: string;              // public key da conta OramaPay
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;

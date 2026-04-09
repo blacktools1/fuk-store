@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData } from "@/lib/store-data";
 import { createParadisePayment } from "@/lib/paradise";
+import { createOramaPayment } from "@/lib/orama";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
 
@@ -96,6 +97,43 @@ export async function POST(req: NextRequest) {
           phone,
           document: cpf,
         },
+      });
+
+    } else if (provider === "orama") {
+      // ── OramaPay ──────────────────────────────────────────────────────────
+      if (!config?.oramaApiKey?.trim() || !config?.oramaPublicKey?.trim()) {
+        return NextResponse.json(
+          { error: "Credenciais da OramaPay não configuradas. Acesse o painel admin → Checkout PIX." },
+          { status: 400 }
+        );
+      }
+
+      const items = (cartItems as { name: string; price: number; qty: number }[]).map((i) => ({
+        name: i.name,
+        unitPrice: Math.round(i.price * 100),
+        quantity: i.qty || 1,
+      }));
+      for (const ob of activeOrdebumps) {
+        items.push({
+          name: ob.title,
+          unitPrice: Math.round(ob.price * 100),
+          quantity: 1,
+        });
+      }
+
+      result = await createOramaPayment({
+        apiKey:      config.oramaApiKey,
+        publicKey:   config.oramaPublicKey,
+        amountInCents: Math.round(total * 100),
+        customer: {
+          name:     customer.name.trim(),
+          email:    customer.email.trim().toLowerCase(),
+          phone,
+          document: cpf,
+        },
+        items,
+        externalRef: reference,
+        webhookUrl,
       });
 
     } else {

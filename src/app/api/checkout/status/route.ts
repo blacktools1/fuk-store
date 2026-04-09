@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData } from "@/lib/store-data";
 import { checkParadiseStatus } from "@/lib/paradise";
+import { checkOramaStatus } from "@/lib/orama";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +13,7 @@ export async function POST(req: NextRequest) {
     const store = readStoreData(tenant);
     const config = store.checkoutConfig;
 
-    if (!config?.paradiseApiKey?.trim()) {
-      return NextResponse.json({ error: "Checkout não configurado" }, { status: 400 });
-    }
+    const provider = (config?.pixProvider || "paradise").toLowerCase();
 
     const body = await req.json();
     const { transactionId, utmifyFallback } = body;
@@ -23,10 +22,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "transactionId obrigatório" }, { status: 400 });
     }
 
-    const result = await checkParadiseStatus({
-      apiKey: config.paradiseApiKey,
-      transactionId: String(transactionId),
-    });
+    let result: { status: string; paid: boolean; amountInCents: number };
+
+    if (provider === "orama") {
+      if (!config?.oramaApiKey?.trim() || !config?.oramaPublicKey?.trim()) {
+        return NextResponse.json({ error: "Checkout OramaPay não configurado" }, { status: 400 });
+      }
+      result = await checkOramaStatus({
+        apiKey:    config.oramaApiKey,
+        publicKey: config.oramaPublicKey,
+        transactionId: String(transactionId),
+      });
+    } else {
+      if (!config?.paradiseApiKey?.trim()) {
+        return NextResponse.json({ error: "Checkout não configurado" }, { status: 400 });
+      }
+      result = await checkParadiseStatus({
+        apiKey: config.paradiseApiKey,
+        transactionId: String(transactionId),
+      });
+    }
 
     // ── Fallback UTMify "paid" via polling ────────────────────────────────────
     // Se o checkout detectou pagamento E enviou os dados do pedido,

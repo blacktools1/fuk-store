@@ -555,6 +555,8 @@ function CheckoutSection({
   const [saveStatus, setSaveStatus]       = useState<"idle" | "saved" | "error">("idle");
   const [isDirty, setIsDirty]             = useState(false);
   const [apiKey, setApiKey]               = useState(storeData?.checkoutConfig?.paradiseApiKey ?? "");
+  const [oramaApiKey, setOramaApiKey]     = useState(storeData?.checkoutConfig?.oramaApiKey ?? "");
+  const [oramaPublicKey, setOramaPublicKey] = useState(storeData?.checkoutConfig?.oramaPublicKey ?? "");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
   const [isTest, setIsTest]               = useState(storeData?.checkoutConfig?.utmifyIsTest ?? false);
@@ -585,7 +587,9 @@ function CheckoutSection({
 
   const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
 
-  const hasKey = apiKey.trim().length > 0;
+  const hasKey = pixProvider === "orama"
+    ? oramaApiKey.trim().length > 0 && oramaPublicKey.trim().length > 0
+    : apiKey.trim().length > 0;
 
   const handleSave = async () => {
     setSaving(true);
@@ -596,6 +600,8 @@ function CheckoutSection({
         checkoutConfig: {
           pixProvider,
           paradiseApiKey: apiKey.trim(),
+          oramaApiKey: oramaApiKey.trim(),
+          oramaPublicKey: oramaPublicKey.trim(),
           redirectUrl: redirectUrl.trim(),
           redirectEnabled: redirectOn,
           utmifyAccounts,
@@ -663,7 +669,9 @@ function CheckoutSection({
             <div style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
               {hasKey
                 ? "Ao clicar em Finalizar Compra, o cliente vai para /checkout nesta mesma loja."
-                : "Preencha a Chave da API Paradise abaixo para ativar o checkout integrado."}
+                : pixProvider === "orama"
+                  ? "Preencha a API Key e Public Key da OramaPay abaixo para ativar o checkout integrado."
+                  : "Preencha a Chave da API Paradise abaixo para ativar o checkout integrado."}
             </div>
           </div>
         </div>
@@ -673,6 +681,7 @@ function CheckoutSection({
       {(() => {
         const PROVIDERS = [
           { id: "paradise",    name: "Paradise Pags", logo: "💎", desc: "API PIX com aprovação imediata",  available: true  },
+          { id: "orama",       name: "OramaPay",      logo: "🔷", desc: "PIX via OramaPay (Basic Auth)",   available: true  },
           { id: "asaas",       name: "Asaas",         logo: "🏦", desc: "Gateway bancário completo",       available: false },
           { id: "pagseguro",   name: "PagSeguro",     logo: "🔵", desc: "Pagamentos PagBank / PIX",        available: false },
           { id: "mercadopago", name: "Mercado Pago",  logo: "🟡", desc: "PIX Mercado Pago",                available: false },
@@ -771,26 +780,60 @@ function CheckoutSection({
 
       {/* API Config */}
       <div className="admin-card">
-        <h2 className="admin-card-title">🔑 Configuração da API — {pixProvider === "paradise" ? "Paradise Pags" : pixProvider}</h2>
+        <h2 className="admin-card-title">
+          🔑 Configuração da API —{" "}
+          {pixProvider === "paradise" ? "Paradise Pags" : pixProvider === "orama" ? "OramaPay" : pixProvider}
+        </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
-          <div>
-            <label className="admin-form-label">
-              {pixProvider === "paradise" ? "Chave da API Paradise (sk_...)" : `Chave da API ${pixProvider}`}
-            </label>
-            <input
-              className="admin-form-input"
-              type="password"
-              placeholder={pixProvider === "paradise" ? "sk_xxxxxxxxxxxxxxxxxxxxxxxx" : "Chave de API"}
-              value={apiKey}
-              onChange={(e) => { setApiKey(e.target.value); markDirty(); }}
-            />
-            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
-              {pixProvider === "paradise"
-                ? "Painel Paradise → Configurações → API Key"
-                : `Painel ${pixProvider} → Configurações → Credenciais de API`}
-            </p>
-          </div>
+          {/* ── Paradise Pags ── */}
+          {pixProvider === "paradise" && (
+            <div>
+              <label className="admin-form-label">Chave da API Paradise (sk_...)</label>
+              <input
+                className="admin-form-input"
+                type="password"
+                placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx"
+                value={apiKey}
+                onChange={(e) => { setApiKey(e.target.value); markDirty(); }}
+              />
+              <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
+                Painel Paradise → Configurações → API Key
+              </p>
+            </div>
+          )}
+
+          {/* ── OramaPay ── */}
+          {pixProvider === "orama" && (
+            <>
+              <div>
+                <label className="admin-form-label">API Key — OramaPay (live_...)</label>
+                <input
+                  className="admin-form-input"
+                  type="password"
+                  placeholder="live_xxxxxxxxxxxxxxxxxxxxxxxx"
+                  value={oramaApiKey}
+                  onChange={(e) => { setOramaApiKey(e.target.value); markDirty(); }}
+                />
+                <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
+                  OramaPay → Configurações → Credenciais → API Key
+                </p>
+              </div>
+              <div>
+                <label className="admin-form-label">Public Key — OramaPay</label>
+                <input
+                  className="admin-form-input"
+                  type="password"
+                  placeholder="pub_xxxxxxxxxxxxxxxxxxxxxxxx"
+                  value={oramaPublicKey}
+                  onChange={(e) => { setOramaPublicKey(e.target.value); markDirty(); }}
+                />
+                <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
+                  OramaPay → Configurações → Credenciais → Public Key — usada junto à API Key (Basic Auth).
+                </p>
+              </div>
+            </>
+          )}
 
           <div style={{ borderTop: "1px solid var(--adm-border)", paddingTop: 14 }}>
             <label className="admin-form-label">URL de Redirecionamento após pagamento confirmado</label>
