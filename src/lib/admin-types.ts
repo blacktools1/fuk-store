@@ -65,6 +65,8 @@ export interface CheckoutConfig {
   paradiseApiKey?: string;              // chave da API Paradise Pags
   oramaApiKey?: string;                 // chave da API OramaPay (prefixo live_)
   oramaPublicKey?: string;              // public key da conta OramaPay
+  /** Secret para validar assinatura HMAC dos webhooks Orama (header x-webhook-signature) */
+  oramaWebhookSecret?: string;
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;

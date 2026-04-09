@@ -23,8 +23,14 @@ export async function GET(req: NextRequest) {
     token: maskToken(a.token),
   }));
 
+  const provider = (c.pixProvider || "paradise").toLowerCase();
+  const hasInternalCheckout =
+    provider === "orama"
+      ? !!(c.oramaApiKey?.trim() && c.oramaPublicKey?.trim())
+      : !!(c.paradiseApiKey?.trim());
+
   return NextResponse.json({
-    hasInternalCheckout: !!(c.paradiseApiKey?.trim()),
+    hasInternalCheckout,
     paradiseApiKey: c.paradiseApiKey ? maskToken(c.paradiseApiKey) : "",
     redirectUrl: c.redirectUrl ?? "",
     redirectEnabled: c.redirectEnabled ?? true,

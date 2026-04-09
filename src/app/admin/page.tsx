@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { StoreData, AdminProduct, Banner, TopBannerConfig, StorePixel } from "@/lib/admin-types";
+import { PIX_PROVIDER_CATALOG, getPixProviderEntry } from "@/lib/pix-providers";
 import { formatPrice } from "@/lib/products";
 
 // ─────────────────────────────────────────────────────────────
@@ -557,6 +558,10 @@ function CheckoutSection({
   const [apiKey, setApiKey]               = useState(storeData?.checkoutConfig?.paradiseApiKey ?? "");
   const [oramaApiKey, setOramaApiKey]     = useState(storeData?.checkoutConfig?.oramaApiKey ?? "");
   const [oramaPublicKey, setOramaPublicKey] = useState(storeData?.checkoutConfig?.oramaPublicKey ?? "");
+  const [oramaWebhookSecret, setOramaWebhookSecret] = useState(
+    storeData?.checkoutConfig?.oramaWebhookSecret ?? ""
+  );
+  const [providerQuery, setProviderQuery] = useState("");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
   const [isTest, setIsTest]               = useState(storeData?.checkoutConfig?.utmifyIsTest ?? false);
@@ -585,6 +590,25 @@ function CheckoutSection({
     markDirty();
   };
 
+  const filteredPixProviders = useMemo(() => {
+    const q = providerQuery.trim().toLowerCase();
+    if (!q) return PIX_PROVIDER_CATALOG;
+    return PIX_PROVIDER_CATALOG.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q)
+    );
+  }, [providerQuery]);
+
+  const activeProviderMeta =
+    getPixProviderEntry(pixProvider) ?? {
+      id: pixProvider,
+      name: pixProvider,
+      description: "Provedor salvo na configuração.",
+      available: true,
+    };
+
   const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
 
   const hasKey = pixProvider === "orama"
@@ -602,6 +626,7 @@ function CheckoutSection({
           paradiseApiKey: apiKey.trim(),
           oramaApiKey: oramaApiKey.trim(),
           oramaPublicKey: oramaPublicKey.trim(),
+          oramaWebhookSecret: oramaWebhookSecret.trim(),
           redirectUrl: redirectUrl.trim(),
           redirectEnabled: redirectOn,
           utmifyAccounts,
@@ -644,8 +669,8 @@ function CheckoutSection({
           borderRadius: 8, padding: "10px 16px", marginBottom: 4,
           flexWrap: "wrap",
         }}>
-          <span style={{ fontSize: "0.83rem", color: "#b45309", display: "flex", alignItems: "center", gap: 6 }}>
-            <span>⚠️</span> Você tem alterações não salvas
+          <span style={{ fontSize: "0.83rem", color: "#b45309" }}>
+            Você tem alterações não salvas
           </span>
           <button
             className="admin-btn-primary"
@@ -653,135 +678,95 @@ function CheckoutSection({
             disabled={saving}
             style={{ padding: "6px 18px", fontSize: "0.83rem" }}
           >
-            {saving ? "Salvando…" : "💾 Salvar agora"}
+            {saving ? "Salvando…" : "Salvar agora"}
           </button>
         </div>
       )}
 
       {/* Status banner */}
       <div className="admin-card" style={{ borderLeft: `4px solid ${hasKey ? "#10b981" : "#f59e0b"}`, paddingLeft: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: "1.5rem" }}>{hasKey ? "✅" : "⚠️"}</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--adm-text)" }}>
-              {hasKey ? "Checkout PIX ativo" : "Checkout PIX não configurado"}
-            </div>
-            <div style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
-              {hasKey
-                ? "Ao clicar em Finalizar Compra, o cliente vai para /checkout nesta mesma loja."
-                : pixProvider === "orama"
-                  ? "Preencha a API Key e Public Key da OramaPay abaixo para ativar o checkout integrado."
-                  : "Preencha a Chave da API Paradise abaixo para ativar o checkout integrado."}
-            </div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--adm-text)" }}>
+            {hasKey ? "Checkout PIX ativo" : "Checkout PIX não configurado"}
+          </div>
+          <div style={{ fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
+            {hasKey
+              ? "Ao clicar em Finalizar Compra, o cliente vai para /checkout nesta mesma loja."
+              : pixProvider === "orama"
+                ? "Preencha API Key, Public Key e (recomendado) Webhook Secret da Orama abaixo."
+                : "Preencha a chave da API Paradise abaixo para ativar o checkout integrado."}
           </div>
         </div>
       </div>
 
-      {/* Provedor de Pagamento PIX */}
-      {(() => {
-        const PROVIDERS = [
-          { id: "paradise",    name: "Paradise Pags", logo: "💎", desc: "API PIX com aprovação imediata",  available: true  },
-          { id: "orama",       name: "OramaPay",      logo: "🔷", desc: "PIX via OramaPay (Basic Auth)",   available: true  },
-          { id: "asaas",       name: "Asaas",         logo: "🏦", desc: "Gateway bancário completo",       available: false },
-          { id: "pagseguro",   name: "PagSeguro",     logo: "🔵", desc: "Pagamentos PagBank / PIX",        available: false },
-          { id: "mercadopago", name: "Mercado Pago",  logo: "🟡", desc: "PIX Mercado Pago",                available: false },
-        ] as const;
-        const active = PROVIDERS.find((p) => p.id === pixProvider) ?? PROVIDERS[0];
-        return (
-          <div className="admin-card">
-            <h2 className="admin-card-title">⚡ Integração de Pagamento PIX</h2>
+      {/* Provedor de Pagamento PIX — busca + lista rolável (escala com muitos provedores) */}
+      <div className="admin-card">
+        <h2 className="admin-card-title">Provedor de pagamento PIX</h2>
+        <p style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)", marginBottom: 14, lineHeight: 1.55 }}>
+          Use a busca para filtrar o catálogo. Com dezenas de integrações, só a lista correspondente aparece — role dentro da área tracejada para ver todos.
+        </p>
 
-            {/* Dropdown de seleção */}
-            <label className="admin-form-label" style={{ marginBottom: 6 }}>Provedor ativo</label>
-            <div style={{ position: "relative", marginBottom: 20 }}>
-              <select
-                value={pixProvider}
-                onChange={(e) => { setPixProvider(e.target.value); markDirty(); }}
-                className="admin-form-input"
-                style={{ paddingRight: 36, appearance: "none", cursor: "pointer" }}
-              >
-                {PROVIDERS.filter((p) => p.available).map((p) => (
-                  <option key={p.id} value={p.id}>{p.logo} {p.name}</option>
-                ))}
-              </select>
-              <span style={{
-                position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-                pointerEvents: "none", color: "var(--adm-text-faint)", fontSize: "0.8rem",
-              }}>▼</span>
-            </div>
+        <label className="admin-form-label" style={{ marginBottom: 6 }}>Buscar provedor</label>
+        <input
+          className="admin-form-input admin-pix-provider-search"
+          type="search"
+          placeholder="Nome ou identificador (ex.: orama, paradise…)"
+          value={providerQuery}
+          onChange={(e) => setProviderQuery(e.target.value)}
+          autoComplete="off"
+          style={{ marginBottom: 12 }}
+        />
 
-            {/* Provedor ativo em destaque */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 12,
-              padding: "12px 14px",
-              background: "rgba(16,185,129,.06)",
-              border: "1px solid rgba(16,185,129,.2)",
-              borderRadius: 8, marginBottom: 20,
-            }}>
-              <span style={{ fontSize: "1.5rem" }}>{active.logo}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--adm-text)" }}>{active.name}</div>
-                <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 1 }}>{active.desc}</div>
-              </div>
-              <span style={{
-                fontSize: "0.68rem", fontWeight: 700, padding: "3px 8px",
-                background: "rgba(16,185,129,.15)", color: "#10b981",
-                borderRadius: 20, textTransform: "uppercase", letterSpacing: ".05em", whiteSpace: "nowrap",
-              }}>● Ativo</span>
-            </div>
-
-            {/* Lista completa de provedores */}
-            <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--adm-text-faint)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>
-              Todos os provedores
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 1, borderRadius: 8, overflow: "hidden", border: "1px solid var(--adm-border)" }}>
-              {PROVIDERS.map((p, i) => {
-                const isActive = pixProvider === p.id;
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => p.available && (setPixProvider(p.id), markDirty())}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      padding: "11px 14px",
-                      background: isActive ? "rgba(16,185,129,.05)" : "var(--adm-bg-card, var(--adm-bg))",
-                      borderTop: i > 0 ? "1px solid var(--adm-border)" : "none",
-                      cursor: p.available ? "pointer" : "default",
-                      opacity: p.available ? 1 : 0.45,
-                      transition: "background .15s",
-                    }}
-                  >
-                    <span style={{ fontSize: "1.1rem", width: 22, textAlign: "center" }}>{p.logo}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--adm-text)" }}>{p.name}</div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--adm-text-faint)", marginTop: 1 }}>{p.desc}</div>
-                    </div>
-                    {isActive && (
-                      <span style={{
-                        fontSize: "0.65rem", fontWeight: 700, padding: "2px 7px",
-                        background: "rgba(16,185,129,.15)", color: "#10b981",
-                        borderRadius: 20, textTransform: "uppercase", letterSpacing: ".05em", whiteSpace: "nowrap",
-                      }}>Ativo</span>
-                    )}
-                    {!p.available && (
-                      <span style={{
-                        fontSize: "0.65rem", fontWeight: 600, padding: "2px 7px",
-                        background: "var(--adm-border)", color: "var(--adm-text-faint)",
-                        borderRadius: 20, textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap",
-                      }}>Em breve</span>
-                    )}
+        <div className="admin-pix-provider-scroll" role="listbox" aria-label="Lista de provedores PIX">
+          {filteredPixProviders.length === 0 ? (
+            <div className="admin-pix-provider-empty">Nenhum provedor corresponde à busca.</div>
+          ) : (
+            filteredPixProviders.map((p) => {
+              const isActive = pixProvider === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="option"
+                  aria-selected={isActive}
+                  disabled={!p.available}
+                  className={`admin-pix-provider-row${isActive ? " admin-pix-provider-row--active" : ""}`}
+                  onClick={() => {
+                    if (!p.available) return;
+                    setPixProvider(p.id);
+                    markDirty();
+                  }}
+                >
+                  <div className="admin-pix-provider-meta">
+                    <div className="admin-pix-provider-name">{p.name}</div>
+                    <div className="admin-pix-provider-desc">{p.description}</div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
+                  <span
+                    className={
+                      p.available
+                        ? "admin-pix-provider-badge admin-pix-provider-badge--ok"
+                        : "admin-pix-provider-badge admin-pix-provider-badge--soon"
+                    }
+                  >
+                    {p.available ? "Disponível" : "Em breve"}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <div className="admin-pix-provider-summary">
+          <span className="admin-pix-provider-summary-label">Selecionado para checkout</span>
+          <strong className="admin-pix-provider-summary-name">{activeProviderMeta.name}</strong>
+          <span className="admin-pix-provider-summary-desc">{activeProviderMeta.description}</span>
+        </div>
+      </div>
 
       {/* API Config */}
       <div className="admin-card">
         <h2 className="admin-card-title">
-          🔑 Configuração da API —{" "}
+          Credenciais —{" "}
           {pixProvider === "paradise" ? "Paradise Pags" : pixProvider === "orama" ? "OramaPay" : pixProvider}
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -832,6 +817,20 @@ function CheckoutSection({
                   OramaPay → Configurações → Credenciais → Public Key — usada junto à API Key (Basic Auth).
                 </p>
               </div>
+              <div>
+                <label className="admin-form-label">Webhook Secret (validação de assinatura)</label>
+                <input
+                  className="admin-form-input"
+                  type="password"
+                  placeholder="Mesmo secret configurado na Orama para o postback"
+                  value={oramaWebhookSecret}
+                  onChange={(e) => { setOramaWebhookSecret(e.target.value); markDirty(); }}
+                />
+                <p style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)", marginTop: 4 }}>
+                  Usado no servidor para validar o header <code style={{ fontSize: "0.72rem" }}>x-webhook-signature</code>{" "}
+                  (HMAC-SHA256 do corpo JSON, conforme documentação OramaPay). Opcional se você só usar polling no checkout.
+                </p>
+              </div>
             </>
           )}
 
@@ -872,16 +871,16 @@ function CheckoutSection({
               disabled={saving}
               style={{ minWidth: 160 }}
             >
-              {saving ? "Salvando…" : "💾 Salvar configurações"}
+              {saving ? "Salvando…" : "Salvar configurações"}
             </button>
             {saveStatus === "saved" && (
-              <span style={{ fontSize: "0.82rem", color: "#10b981", display: "flex", alignItems: "center", gap: 4 }}>
-                ✓ Salvo com sucesso
+              <span style={{ fontSize: "0.82rem", color: "#10b981" }}>
+                Salvo com sucesso
               </span>
             )}
             {saveStatus === "error" && (
-              <span style={{ fontSize: "0.82rem", color: "#ef4444", display: "flex", alignItems: "center", gap: 4 }}>
-                ✗ Erro ao salvar — tente novamente
+              <span style={{ fontSize: "0.82rem", color: "#ef4444" }}>
+                Erro ao salvar — tente novamente
               </span>
             )}
           </div>
@@ -895,7 +894,7 @@ function CheckoutSection({
           : "/api/checkout/webhook";
         return (
           <div className="admin-card" style={{ borderLeft: "4px solid #6366f1", paddingLeft: 20 }}>
-            <h2 className="admin-card-title">🔗 URL de Webhook</h2>
+            <h2 className="admin-card-title">URL de webhook</h2>
             <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 14, lineHeight: 1.6 }}>
               Ao configurar seu provedor de pagamento, cadastre esta URL como destino do webhook de confirmação de pagamento:
             </p>
@@ -916,11 +915,11 @@ function CheckoutSection({
                   fontSize: "0.85rem", color: "var(--adm-text-faint)", whiteSpace: "nowrap", flexShrink: 0,
                 }}
               >
-                📋 Copiar
+                Copiar
               </button>
             </div>
             <p style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 8, lineHeight: 1.5 }}>
-              💡 Sem webhook configurado? Tudo bem — o checkout confirma pagamentos automaticamente via polling.
+              Sem webhook no provedor? O checkout ainda confirma pagamento via polling. Com OramaPay e Webhook Secret preenchido, o endpoint valida a assinatura quando o header estiver presente.
             </p>
           </div>
         );
@@ -1076,13 +1075,13 @@ function CheckoutSection({
       {/* Salvar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, paddingBottom: 40, flexWrap: "wrap" }}>
         {saveStatus === "saved" && (
-          <span style={{ fontSize: "0.82rem", color: "#10b981" }}>✓ Todas as configurações salvas</span>
+          <span style={{ fontSize: "0.82rem", color: "#10b981" }}>Todas as configurações salvas</span>
         )}
         {saveStatus === "error" && (
-          <span style={{ fontSize: "0.82rem", color: "#ef4444" }}>✗ Erro ao salvar</span>
+          <span style={{ fontSize: "0.82rem", color: "#ef4444" }}>Erro ao salvar</span>
         )}
         <button className="admin-btn-primary" onClick={handleSave} disabled={saving} style={{ minWidth: 180 }}>
-          {saving ? "Salvando…" : isDirty ? "💾 Salvar Checkout *" : "💾 Salvar Checkout"}
+          {saving ? "Salvando…" : isDirty ? "Salvar checkout (alterações pendentes)" : "Salvar checkout"}
         </button>
       </div>
     </>

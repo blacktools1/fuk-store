@@ -53,29 +53,57 @@ export default function StorePage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/store/info")
-      .then((r) => r.json())
-      .then((data) => {
-        setShowHero(data.showHero !== false);
-        setHeroPosition(data.heroPosition === "before-banner" ? "before-banner" : "after-banner");
-        setHeroAlign(data.heroAlign === "left" ? "left" : "center");
-        if (data.heroTag !== undefined) setHeroTag(data.heroTag);
-        else setHeroTag(DEFAULT_HERO_TAG);
-        if (data.heroTitle !== undefined) setHeroTitle(data.heroTitle);
-        else setHeroTitle(DEFAULT_HERO_TITLE);
-        if (data.heroSubtitle !== undefined) setHeroSubtitle(data.heroSubtitle);
-        else setHeroSubtitle(DEFAULT_HERO_SUBTITLE);
-        setCardStyle(data.cardStyle || "default");
-        setTopBannerDesktop(data.topBannerDesktop || null);
-        setTopBannerMobile(data.topBannerMobile   || null);
-      })
-      .catch(() => {});
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 15000);
 
-    fetch("/api/store/products")
-      .then((r) => r.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
+    const applyInfo = (data: Record<string, unknown>) => {
+      setShowHero(data.showHero !== false);
+      setHeroPosition(data.heroPosition === "before-banner" ? "before-banner" : "after-banner");
+      setHeroAlign(data.heroAlign === "left" ? "left" : "center");
+      if (data.heroTag !== undefined) setHeroTag(String(data.heroTag));
+      else setHeroTag(DEFAULT_HERO_TAG);
+      if (data.heroTitle !== undefined) setHeroTitle(String(data.heroTitle));
+      else setHeroTitle(DEFAULT_HERO_TITLE);
+      if (data.heroSubtitle !== undefined) setHeroSubtitle(String(data.heroSubtitle));
+      else setHeroSubtitle(DEFAULT_HERO_SUBTITLE);
+      setCardStyle(typeof data.cardStyle === "string" ? data.cardStyle : "default");
+      setTopBannerDesktop((data.topBannerDesktop as TopBannerConfig) || null);
+      setTopBannerMobile((data.topBannerMobile as TopBannerConfig) || null);
+    };
+
+    Promise.allSettled([
+      fetch("/api/store/info", { signal: ac.signal }).then(async (r) => {
+        if (!r.ok) return;
+        return r.json() as Promise<Record<string, unknown>>;
+      }),
+      fetch("/api/store/products", { signal: ac.signal }).then(async (r) => {
+        if (!r.ok) return [];
+        const data = await r.json();
+        return Array.isArray(data) ? data : [];
+      }),
+    ])
+      .then(([infoRes, prodRes]) => {
+        if (infoRes.status === "fulfilled" && infoRes.value && typeof infoRes.value === "object") {
+          applyInfo(infoRes.value);
+        }
+        if (prodRes.status === "fulfilled" && prodRes.value) {
+          setProducts(prodRes.value as AdminProduct[]);
+        } else {
+          setProducts([]);
+        }
+      })
+      .catch(() => {
+        setProducts([]);
+      })
+      .finally(() => {
+        clearTimeout(t);
+        setLoading(false);
+      });
+
+    return () => {
+      clearTimeout(t);
+      ac.abort();
+    };
   }, []);
 
   const filtered = products.filter((p) =>

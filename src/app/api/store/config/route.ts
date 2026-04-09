@@ -15,12 +15,14 @@ export async function GET(req: NextRequest) {
     .filter(Boolean);
 
   // Checkout interno está ativo quando o provedor selecionado tem sua chave configurada
-  const provider = data.checkoutConfig?.pixProvider || "paradise";
+  const provider = (data.checkoutConfig?.pixProvider || "paradise").toLowerCase();
+  const c = data.checkoutConfig;
   let hasInternalCheckout = false;
   if (provider === "paradise") {
-    hasInternalCheckout = !!(data.checkoutConfig?.paradiseApiKey?.trim());
+    hasInternalCheckout = !!(c?.paradiseApiKey?.trim());
+  } else if (provider === "orama") {
+    hasInternalCheckout = !!(c?.oramaApiKey?.trim() && c?.oramaPublicKey?.trim());
   }
-  // Adicionar novos provedores aqui quando implementados
 
   return NextResponse.json({
     pixDiscountEnabled: data.pixDiscountEnabled ?? true,

@@ -1,19 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
+import { getTenantFromRequest } from "@/lib/tenant";
+import { readStoreData } from "@/lib/store-data";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Webhook chamado pela Paradise Pags quando o pagamento é confirmado.
+ * Webhook chamado por provedores (ex.: Paradise Pags, OramaPay) ao mudar status do pagamento.
  *
  * Não enviamos UTMify aqui porque não temos acesso às UTMs nem aos produtos
- * reais (são dados client-side, armazenados em localStorage). O polling
- * fallback em /api/checkout/status já envia o status "paid" com UTMs e
- * produtos corretos — enviar aqui com utms:{} sobrescreveria os dados de
- * campanha e quebraria a atribuição nas plataformas.
+ * reais (dados client-side). O polling em /api/checkout/status envia "paid"
+ * com UTMs corretos.
+ *
+ * OramaPay: se `oramaWebhookSecret` estiver salvo e o header `x-webhook-signature`
+ * vier na requisição, validamos HMAC-SHA256 do corpo bruto (documentação OramaPay).
  */
 export async function POST(req: NextRequest) {
   try {
-    await req.json(); // consome o body para não vazar memória
+    const rawBody = await req.text();
+    const tenant = getTenantFromRequest(req);
+    const store = readStoreData(tenant);
+    const secret = store.checkoutConfig?.oramaWebhookSecret?.trim();
+
+    const sigHeader = req.headers.get("x-webhook-signature");
+    if (sigHeader && secret) {
+      const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+      const a = Buffer.from(expected, "utf8");
+      const b = Buffer.from(sigHeader.trim(), "utf8");
+      if (a.length !== b.length || !timingSafeEqual(a, b)) {
+        return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("Webhook error:", e);
