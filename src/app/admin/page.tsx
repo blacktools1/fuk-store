@@ -756,7 +756,8 @@ function CheckoutSection({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Erro");
-      setShippingOptions(opts);
+      // NÃO sobrescreve o estado aqui — evita condição de corrida com saves concorrentes.
+      // O estado já foi atualizado antes de chamar saveShipping.
       setShippingStatus("saved");
       setTimeout(() => setShippingStatus("idle"), 3000);
     } catch {
@@ -823,13 +824,19 @@ function CheckoutSection({
 
   const saveEditShip = async () => {
     if (!editingShipId) return;
-    const newList = shippingOptions.map((s) =>
-      s.id === editingShipId
-        ? { ...s, name: editShip.name.trim() || s.name, price: parseFloat(editShip.price) || 0, days: editShip.days.trim(), logoUrl: editShip.logoUrl.trim() || undefined }
-        : s
-    );
-    setShippingOptions(newList);
+    const editingId = editingShipId;
+    const snap = { ...editShip };
+    let newList: import("@/lib/admin-types").ShippingOption[] = [];
+    setShippingOptions((prev) => {
+      newList = prev.map((s) =>
+        s.id === editingId
+          ? { ...s, name: snap.name.trim() || s.name, price: parseFloat(snap.price) || 0, days: snap.days.trim(), logoUrl: snap.logoUrl.trim() || undefined }
+          : s
+      );
+      return newList;
+    });
     setEditingShipId(null);
+    await new Promise((r) => setTimeout(r, 0));
     await saveShipping(newList);
   };
 
@@ -936,9 +943,15 @@ function CheckoutSection({
       days: newShip.days.trim(),
       logoUrl: newShip.logoUrl.trim() || undefined,
     };
-    const newList = [...shippingOptions, opt];
-    setShippingOptions(newList);
+    // Usa updater funcional para garantir que partimos do estado mais recente
+    let newList: import("@/lib/admin-types").ShippingOption[] = [];
+    setShippingOptions((prev) => {
+      newList = [...prev, opt];
+      return newList;
+    });
     setNewShip({ name: "", price: "0", days: "", logoUrl: "" });
+    // Pequeno tick para o estado React ser processado antes do save
+    await new Promise((r) => setTimeout(r, 0));
     await saveShipping(newList);
   };
 
@@ -970,8 +983,13 @@ function CheckoutSection({
       const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Erro no upload");
-      const updated = shippingOptions.map((o) => o.id === id ? { ...o, logoUrl: json.url } : o);
-      setShippingOptions(updated);
+      // Usa updater funcional para não capturar closure stale
+      let updated: import("@/lib/admin-types").ShippingOption[] = [];
+      setShippingOptions((prev) => {
+        updated = prev.map((o) => o.id === id ? { ...o, logoUrl: json.url } : o);
+        return updated;
+      });
+      await new Promise((r) => setTimeout(r, 0));
       await saveShipping(updated);
     } catch (err) {
       alert((err as Error).message);
@@ -980,13 +998,21 @@ function CheckoutSection({
     }
   };
   const removeShipping = async (id: string) => {
-    const newList = shippingOptions.filter((o) => o.id !== id);
-    setShippingOptions(newList);
+    let newList: import("@/lib/admin-types").ShippingOption[] = [];
+    setShippingOptions((prev) => {
+      newList = prev.filter((o) => o.id !== id);
+      return newList;
+    });
+    await new Promise((r) => setTimeout(r, 0));
     await saveShipping(newList);
   };
   const toggleShipping = async (id: string) => {
-    const newList = shippingOptions.map((o) => o.id === id ? { ...o, active: !o.active } : o);
-    setShippingOptions(newList);
+    let newList: import("@/lib/admin-types").ShippingOption[] = [];
+    setShippingOptions((prev) => {
+      newList = prev.map((o) => o.id === id ? { ...o, active: !o.active } : o);
+      return newList;
+    });
+    await new Promise((r) => setTimeout(r, 0));
     await saveShipping(newList);
   };
 
