@@ -665,7 +665,8 @@ function CheckoutSection({
   const [shippingOptions, setShippingOptions] = useState<import("@/lib/admin-types").ShippingOption[]>(
     () => storeData?.checkoutConfig?.shippingOptions ?? []
   );
-  const [newShip, setNewShip] = useState({ name: "", price: "0", days: "" });
+  const [newShip, setNewShip] = useState({ name: "", price: "0", days: "", logoUrl: "" });
+  const [shipLogoUploading, setShipLogoUploading] = useState(false);
 
   // UTMify — múltiplas contas
   const [utmifyAccounts, setUtmifyAccounts] = useState<import("@/lib/admin-types").UtmifyAccount[]>(
@@ -778,10 +779,48 @@ function CheckoutSection({
       name,
       price: parseFloat(newShip.price) || 0,
       days: newShip.days.trim(),
+      logoUrl: newShip.logoUrl.trim() || undefined,
     };
     setShippingOptions((p) => [...p, opt]);
-    setNewShip({ name: "", price: "0", days: "" });
+    setNewShip({ name: "", price: "0", days: "", logoUrl: "" });
     markDirty();
+  };
+
+  const handleShipLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setShipLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Erro no upload");
+      setNewShip((p) => ({ ...p, logoUrl: json.url }));
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setShipLogoUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleShipLogoUploadExisting = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Erro no upload");
+      setShippingOptions((p) => p.map((o) => o.id === id ? { ...o, logoUrl: json.url } : o));
+      markDirty();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      e.target.value = "";
+    }
   };
   const removeShipping = (id: string) => { setShippingOptions((p) => p.filter((o) => o.id !== id)); markDirty(); };
   const toggleShipping = (id: string) => { setShippingOptions((p) => p.map((o) => o.id === id ? { ...o, active: !o.active } : o)); markDirty(); };
@@ -1378,6 +1417,23 @@ function CheckoutSection({
 
         {shippingOptions.map((s) => (
           <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--adm-border)" }}>
+            {/* Logo existente ou botão de upload */}
+            <div style={{ flexShrink: 0, width: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <label title="Clique para trocar a logo" style={{ cursor: "pointer", display: "block" }}>
+                <input type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={(e) => handleShipLogoUploadExisting(s.id, e)} />
+                {s.logoUrl ? (
+                  <img src={s.logoUrl} alt={s.name}
+                    style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 6, border: "1px solid var(--adm-border)", background: "rgba(255,255,255,0.06)", padding: 4 }} />
+                ) : (
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 6, border: "1.5px dashed var(--adm-border)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "1rem", color: "var(--adm-text-faint)", background: "var(--adm-bg-card)",
+                  }} title="Adicionar logo">📷</div>
+                )}
+              </label>
+            </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "0.88rem", fontWeight: 600 }}>{s.name}</div>
               <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)" }}>
@@ -1404,6 +1460,29 @@ function CheckoutSection({
           <input className="admin-form-input" placeholder="Prazo (ex: 6 a 7 dias)" value={newShip.days}
             onChange={(e) => setNewShip((p) => ({ ...p, days: e.target.value }))} style={{ marginBottom: 0 }} />
         </div>
+
+        {/* Upload de logo (opcional) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+          <label style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            background: "var(--adm-bg-card)", border: "1.5px dashed var(--adm-border)",
+            borderRadius: 8, padding: "7px 14px", cursor: shipLogoUploading ? "wait" : "pointer",
+            fontSize: "0.8rem", fontWeight: 600, color: "var(--adm-text-muted)",
+          }}>
+            <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleShipLogoUpload} disabled={shipLogoUploading} />
+            {shipLogoUploading ? "Enviando…" : "📷 Logo da transportadora (opcional)"}
+          </label>
+          {newShip.logoUrl && (
+            <>
+              <img src={newShip.logoUrl} alt="logo" style={{ height: 36, maxWidth: 120, objectFit: "contain", borderRadius: 6, border: "1px solid var(--adm-border)", background: "rgba(255,255,255,0.06)", padding: 4 }} />
+              <button type="button" onClick={() => setNewShip((p) => ({ ...p, logoUrl: "" }))}
+                style={{ fontSize: "0.72rem", padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}>
+                Remover
+              </button>
+            </>
+          )}
+        </div>
+
         <button type="button" className="admin-btn-secondary" onClick={addShippingOption} disabled={!newShip.name.trim()} style={{ marginTop: 10, fontSize: "0.82rem" }}>
           + Adicionar Frete
         </button>
