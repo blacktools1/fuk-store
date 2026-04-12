@@ -668,10 +668,11 @@ function CheckoutSection({
   const [pixProvider, setPixProvider]     = useState<string>(storeData?.checkoutConfig?.pixProvider ?? "paradise");
   const [orderbumpStyle, setOrderbumpStyle] = useState<"style1" | "style2">(storeData?.checkoutConfig?.orderbumpStyle ?? "style1");
 
-  // Shipping options
-  const [shippingOptions, setShippingOptions] = useState<import("@/lib/admin-types").ShippingOption[]>(
-    () => storeData?.checkoutConfig?.shippingOptions ?? []
-  );
+  // Shipping options — gerenciados por /api/admin/shipping independentemente
+  const [shippingOptions, setShippingOptions] = useState<import("@/lib/admin-types").ShippingOption[]>([]);
+  const [shippingLoaded, setShippingLoaded]   = useState(false);
+  const [savingShipping, setSavingShipping]   = useState(false);
+  const [shippingStatus, setShippingStatus]   = useState<"idle" | "saved" | "error">("idle");
   const [newShip, setNewShip] = useState({ name: "", price: "0", days: "", logoUrl: "" });
   const [shipLogoUploading, setShipLogoUploading] = useState(false);
   const [editingShipId, setEditingShipId] = useState<string | null>(null);
@@ -731,6 +732,40 @@ function CheckoutSection({
     setPublicOrigin(typeof window !== "undefined" ? window.location.origin : "");
   }, []);
 
+  // Carrega fretes via rota dedicada (independente do storeData)
+  useEffect(() => {
+    fetch("/api/admin/shipping")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setShippingOptions(data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setShippingLoaded(true));
+  }, []);
+
+  const saveShipping = async (opts: import("@/lib/admin-types").ShippingOption[]) => {
+    setSavingShipping(true);
+    setShippingStatus("idle");
+    try {
+      const res = await fetch("/api/admin/shipping", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(opts),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Erro");
+      setShippingOptions(opts);
+      setShippingStatus("saved");
+      setTimeout(() => setShippingStatus("idle"), 3000);
+    } catch {
+      setShippingStatus("error");
+    } finally {
+      setSavingShipping(false);
+    }
+  };
+
   const internalWebhookUrl = publicOrigin
     ? `${publicOrigin}/api/checkout/webhook`
     : "/api/checkout/webhook";
@@ -765,7 +800,7 @@ function CheckoutSection({
           utmifyAccounts,
           utmifyIsTest: isTest,
           orderbumpStyle,
-          shippingOptions,
+          // shippingOptions é gerenciado exclusivamente por /api/admin/shipping
           salePendingWebhooks: salePendingWebhooks.map((u) => u.trim()).filter(Boolean),
           saleApprovedWebhooks: saleApprovedWebhooks.map((u) => u.trim()).filter(Boolean),
         },
@@ -793,8 +828,8 @@ function CheckoutSection({
         ? { ...s, name: editShip.name.trim() || s.name, price: parseFloat(editShip.price) || 0, days: editShip.days.trim(), logoUrl: editShip.logoUrl.trim() || undefined }
         : s
     ));
-    markDirty();
     setEditingShipId(null);
+    // usuário precisa clicar em "Salvar fretes" para persistir a edição
   };
 
   // ShippingList inline component
@@ -904,7 +939,7 @@ function CheckoutSection({
     };
     setShippingOptions((p) => [...p, opt]);
     setNewShip({ name: "", price: "0", days: "", logoUrl: "" });
-    markDirty();
+    // não marca dirty — usuário clica "Salvar fretes" para persistir
   };
 
   const handleShipLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -935,16 +970,19 @@ function CheckoutSection({
       const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Erro no upload");
-      setShippingOptions((p) => p.map((o) => o.id === id ? { ...o, logoUrl: json.url } : o));
-      markDirty();
+      setShippingOptions((prev) => {
+        const updated = prev.map((o) => o.id === id ? { ...o, logoUrl: json.url } : o);
+        void saveShipping(updated);
+        return updated;
+      });
     } catch (err) {
       alert((err as Error).message);
     } finally {
       e.target.value = "";
     }
   };
-  const removeShipping = (id: string) => { setShippingOptions((p) => p.filter((o) => o.id !== id)); markDirty(); };
-  const toggleShipping = (id: string) => { setShippingOptions((p) => p.map((o) => o.id === id ? { ...o, active: !o.active } : o)); markDirty(); };
+  const removeShipping = (id: string) => { setShippingOptions((p) => p.filter((o) => o.id !== id)); };
+  const toggleShipping = (id: string) => { setShippingOptions((p) => p.map((o) => o.id === id ? { ...o, active: !o.active } : o)); };
 
   return (
     <>
@@ -1534,12 +1572,14 @@ function CheckoutSection({
         </p>
 
         {/* Lista de fretes cadastrados */}
-        {shippingOptions.length === 0 ? (
+          {!shippingLoaded ? (
+          <p style={{ fontSize: "0.83rem", color: "var(--adm-text-faint)", marginBottom: 16 }}>Carregando fretes…</p>
+        ) : shippingOptions.length === 0 ? (
           <p style={{ fontSize: "0.83rem", color: "var(--adm-text-faint)", marginBottom: 16 }}>Nenhuma opção de frete cadastrada.</p>
         ) : (
           <ShippingList
             options={shippingOptions}
-            onUpdate={(updated) => { setShippingOptions(updated); markDirty(); }}
+            onUpdate={(updated) => { setShippingOptions(updated); }}
             onUpload={handleShipLogoUploadExisting}
           />
         )}
@@ -1579,11 +1619,11 @@ function CheckoutSection({
             <button type="button" className="admin-btn-secondary" onClick={addShippingOption} disabled={!newShip.name.trim()} style={{ fontSize: "0.82rem" }}>
               + Adicionar Frete
             </button>
-            <button type="button" className="admin-btn-primary" onClick={() => void handleSave()} disabled={saving} style={{ fontSize: "0.82rem" }}>
-              {saving ? "Salvando…" : "💾 Salvar fretes"}
+            <button type="button" className="admin-btn-primary" onClick={() => void saveShipping(shippingOptions)} disabled={savingShipping} style={{ fontSize: "0.82rem" }}>
+              {savingShipping ? "Salvando…" : "💾 Salvar fretes"}
             </button>
-            {isDirty && <span style={{ fontSize: "0.78rem", color: "#f59e0b", fontWeight: 600 }}>● Alterações não salvas</span>}
-            {saveStatus === "saved" && <span style={{ fontSize: "0.78rem", color: "#10b981", fontWeight: 600 }}>✓ Fretes salvos</span>}
+            {shippingStatus === "error" && <span style={{ fontSize: "0.78rem", color: "#ef4444", fontWeight: 600 }}>✗ Erro ao salvar</span>}
+            {shippingStatus === "saved" && <span style={{ fontSize: "0.78rem", color: "#10b981", fontWeight: 600 }}>✓ Fretes salvos</span>}
           </div>
         </div>
       </div>
