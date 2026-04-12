@@ -440,7 +440,7 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* Endereço de Entrega */}
+        {/* Endereço de Entrega + Formas de Entrega (dentro do mesmo card) */}
         <div className="co2-card">
           <div className="co2-section-header">
             <div className="co2-section-icon">
@@ -487,48 +487,41 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Formas de entrega */}
-        {(config?.shippingOptions ?? []).length > 0 && (
-          <div className="co2-card">
-            <div className="co2-section-header">
-              <div className="co2-section-icon">
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
-                </svg>
+          {/* Formas de entrega — aparece dentro do card de endereço, só após o CEP estar preenchido */}
+          {(config?.shippingOptions ?? []).length > 0 && addr.cep.replace(/\D/g, "").length >= 8 && (
+            <div className="co2-shipping-section">
+              <p className="co2-shipping-label">Formas de entrega</p>
+              <div className="co2-shipping-list">
+                {(config!.shippingOptions!).map((s) => (
+                  <label
+                    key={s.id}
+                    className={`co2-shipping-row${selectedShipping === s.id ? " co2-shipping-row--sel" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="shipping"
+                      value={s.id}
+                      checked={selectedShipping === s.id}
+                      onChange={() => setSelectedShipping(s.id)}
+                      className="co2-shipping-radio"
+                    />
+                    {s.logoUrl && (
+                      <img src={s.logoUrl} alt={s.name} className="co2-shipping-logo" />
+                    )}
+                    <div className="co2-shipping-info">
+                      <span className="co2-shipping-name">{s.name}</span>
+                      {s.days && <span className="co2-shipping-days">{s.days}</span>}
+                    </div>
+                    <span className={`co2-shipping-price${s.price === 0 ? " co2-shipping-price--free" : ""}`}>
+                      {s.price === 0 ? "Grátis" : formatPrice(s.price)}
+                    </span>
+                  </label>
+                ))}
               </div>
-              <h2 className="co2-section-title">Formas de entrega</h2>
             </div>
-            <div className="co2-shipping-list">
-              {(config!.shippingOptions!).map((s) => (
-                <label
-                  key={s.id}
-                  className={`co2-shipping-row${selectedShipping === s.id ? " co2-shipping-row--sel" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="shipping"
-                    value={s.id}
-                    checked={selectedShipping === s.id}
-                    onChange={() => setSelectedShipping(s.id)}
-                    className="co2-shipping-radio"
-                  />
-                  {s.logoUrl && (
-                    <img src={s.logoUrl} alt={s.name} className="co2-shipping-logo" />
-                  )}
-                  <div className="co2-shipping-info">
-                    <span className="co2-shipping-name">{s.name}</span>
-                    {s.days && <span className="co2-shipping-days">{s.days}</span>}
-                  </div>
-                  <span className={`co2-shipping-price${s.price === 0 ? " co2-shipping-price--free" : ""}`}>
-                    {s.price === 0 ? "Grátis" : formatPrice(s.price)}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Order Bumps */}
         {activeOrderbumps.length > 0 && config?.orderbumpStyle === "style2" ? (
