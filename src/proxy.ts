@@ -6,7 +6,7 @@ function safeTenant(raw: string): string {
   return raw.split(":")[0].toLowerCase().replace(/[^a-z0-9.-]/g, "_");
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const rawHost = req.headers.get("host") ?? req.headers.get("x-forwarded-host") ?? "localhost";
   const host = rawHost.split(":")[0].trim().toLowerCase();
   const { pathname } = req.nextUrl;
