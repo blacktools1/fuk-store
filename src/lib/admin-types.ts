@@ -40,6 +40,8 @@ export interface TopBannerConfig {
 export interface Orderbump {
   id: string;
   active: boolean;
+  /** ID do produto base (usado no admin para seleção — checkout usa os campos abaixo) */
+  productId?: string;
   title: string;
   description: string;
   price: number;

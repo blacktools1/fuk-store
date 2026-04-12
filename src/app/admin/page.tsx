@@ -1435,49 +1435,79 @@ function OrderBumpsSection({
   storeData: StoreData | null;
   onSaveConfig: (patch: Partial<StoreData>) => Promise<void>;
 }) {
-  const [list, setList] = useState<import("@/lib/admin-types").Orderbump[]>(
-    () => storeData?.checkoutConfig?.orderbumps ?? []
-  );
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [form, setForm] = useState({
-    title: "", description: "", price: "0", oldPrice: "",
-    badge: "", imageUrl: "", offerHash: "",
-  });
+  type OB = import("@/lib/admin-types").Orderbump;
+  const products = storeData?.products?.filter((p) => p.active) ?? [];
 
-  const update = (next: import("@/lib/admin-types").Orderbump[]) => { setList(next); setDirty(true); };
+  const [list, setList] = useState<OB[]>(() => storeData?.checkoutConfig?.orderbumps ?? []);
+  const [saving, setSaving]   = useState(false);
+  const [dirty, setDirty]     = useState(false);
+  const [search, setSearch]   = useState("");
+
+  // New-bump form
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [discountType, setDiscountType]            = useState<"pct" | "fixed">("pct");
+  const [discountPct, setDiscountPct]              = useState("10");
+  const [discountFixed, setDiscountFixed]          = useState("");
+  const [badge, setBadge]                          = useState("");
+  const [offerHash, setOfferHash]                  = useState("");
+
+  const selectedProduct = products.find((p) => p.id === selectedProductId) ?? null;
+
+  const discountedPrice = (() => {
+    if (!selectedProduct) return 0;
+    if (discountType === "pct") {
+      const pct = Math.min(99, Math.max(0, parseFloat(discountPct) || 0));
+      return parseFloat((selectedProduct.price * (1 - pct / 100)).toFixed(2));
+    }
+    const fixed = parseFloat(discountFixed);
+    return isNaN(fixed) || fixed <= 0 ? selectedProduct.price : fixed;
+  })();
+
+  const discountPctComputed = selectedProduct
+    ? Math.round(((selectedProduct.price - discountedPrice) / selectedProduct.price) * 100)
+    : 0;
+
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q)
+    );
+  }, [products, search]);
+
+  const update = (next: OB[]) => { setList(next); setDirty(true); };
 
   const addOb = () => {
-    const title = form.title.trim();
-    if (!title) return;
-    const newOb: import("@/lib/admin-types").Orderbump = {
-      id: Date.now().toString(),
-      active: true,
-      title,
-      description: form.description.trim(),
-      price: parseFloat(form.price) || 0,
-      oldPrice: form.oldPrice ? parseFloat(form.oldPrice) || undefined : undefined,
-      badge: form.badge.trim() || undefined,
-      imageUrl: form.imageUrl.trim() || undefined,
-      offerHash: form.offerHash.trim(),
+    if (!selectedProduct) return;
+    const newOb: OB = {
+      id:          `ob-${Date.now()}`,
+      active:      true,
+      productId:   selectedProduct.id,
+      title:       selectedProduct.name,
+      description: selectedProduct.description ?? "",
+      price:       discountedPrice,
+      oldPrice:    selectedProduct.price,
+      imageUrl:    selectedProduct.image || selectedProduct.images?.[0],
+      badge:       badge.trim() || undefined,
+      offerHash:   offerHash.trim(),
     };
     update([...list, newOb]);
-    setForm({ title: "", description: "", price: "0", oldPrice: "", badge: "", imageUrl: "", offerHash: "" });
+    // reset form
+    setSelectedProductId("");
+    setDiscountPct("10");
+    setDiscountFixed("");
+    setBadge("");
+    setOfferHash("");
+    setSearch("");
   };
 
-  const removeOb  = (id: string) => update(list.filter((o) => o.id !== id));
-  const toggleOb  = (id: string) => update(list.map((o) => o.id === id ? { ...o, active: !o.active } : o));
-  const setField  = (id: string, patch: Partial<import("@/lib/admin-types").Orderbump>) =>
-    update(list.map((o) => o.id === id ? { ...o, ...patch } : o));
+  const removeOb = (id: string) => update(list.filter((o) => o.id !== id));
+  const toggleOb = (id: string) => update(list.map((o) => o.id === id ? { ...o, active: !o.active } : o));
+  const setField = (id: string, patch: Partial<OB>) => update(list.map((o) => o.id === id ? { ...o, ...patch } : o));
 
   const handleSave = async () => {
     setSaving(true);
-    await onSaveConfig({
-      checkoutConfig: {
-        ...storeData?.checkoutConfig,
-        orderbumps: list,
-      },
-    });
+    await onSaveConfig({ checkoutConfig: { ...storeData?.checkoutConfig, orderbumps: list } });
     setSaving(false);
     setDirty(false);
   };
@@ -1485,126 +1515,219 @@ function OrderBumpsSection({
   return (
     <div className="admin-card" style={{ marginTop: 24 }}>
       <h2 className="admin-card-title">🛒 Order Bumps</h2>
-      <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
-        Ofertas exibidas no checkout antes do pagamento. O cliente pode adicioná-las com um clique.
+      <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 20, lineHeight: 1.6 }}>
+        Selecione um produto cadastrado, defina o desconto e ele aparece no checkout antes do pagamento.
         O estilo de exibição é configurado em <strong>Checkout PIX</strong>.
       </p>
 
-      {/* Lista */}
-      {list.length === 0 && (
-        <p style={{ fontSize: "0.83rem", color: "var(--adm-text-faint)", marginBottom: 16 }}>Nenhum order bump cadastrado.</p>
+      {/* ── Lista de order bumps ── */}
+      {list.length === 0 ? (
+        <p style={{ fontSize: "0.83rem", color: "var(--adm-text-faint)", marginBottom: 20 }}>Nenhum order bump cadastrado.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+          {list.map((ob) => {
+            const disc = ob.oldPrice && ob.oldPrice > ob.price
+              ? Math.round(((ob.oldPrice - ob.price) / ob.oldPrice) * 100)
+              : null;
+            return (
+              <div key={ob.id} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                border: "1px solid var(--adm-border)", borderRadius: 10,
+                padding: "12px 14px", opacity: ob.active ? 1 : 0.55,
+                background: "var(--adm-bg-card)",
+              }}>
+                {ob.imageUrl && (
+                  <img
+                    src={ob.imageUrl} alt={ob.title}
+                    style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 8, flexShrink: 0, border: "1px solid var(--adm-border)" }}
+                  />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "0.88rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ob.title}</div>
+                  <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    {ob.badge && (
+                      <span style={{ background: "rgba(139,92,246,.15)", color: "var(--adm-accent)", fontSize: "0.68rem", fontWeight: 700, padding: "1px 7px", borderRadius: 20 }}>{ob.badge}</span>
+                    )}
+                    <span style={{ fontWeight: 600, color: "var(--adm-text)" }}>R$ {ob.price.toFixed(2)}</span>
+                    {ob.oldPrice && <span style={{ textDecoration: "line-through" }}>R$ {ob.oldPrice.toFixed(2)}</span>}
+                    {disc && <span style={{ color: "#10b981", fontWeight: 700 }}>{disc}% OFF</span>}
+                  </div>
+                </div>
+
+                {/* Badge e offerHash editáveis inline de forma compacta */}
+                <input
+                  className="admin-form-input"
+                  value={ob.badge ?? ""}
+                  placeholder="Badge"
+                  title="Badge (ex: BRINDE 1)"
+                  onChange={(e) => setField(ob.id, { badge: e.target.value || undefined })}
+                  style={{ width: 100, marginBottom: 0, fontSize: "0.78rem" }}
+                />
+                <input
+                  className="admin-form-input"
+                  value={ob.offerHash}
+                  placeholder="Offer Hash"
+                  title="Offer Hash UTMify"
+                  onChange={(e) => setField(ob.id, { offerHash: e.target.value })}
+                  style={{ width: 120, marginBottom: 0, fontSize: "0.78rem" }}
+                />
+                <button type="button" onClick={() => toggleOb(ob.id)}
+                  style={{ fontSize: "0.72rem", padding: "4px 10px", borderRadius: 4, border: "1px solid var(--adm-border)", background: ob.active ? "rgba(16,185,129,.15)" : "transparent", color: ob.active ? "#10b981" : "var(--adm-text-muted)", cursor: "pointer", flexShrink: 0 }}>
+                  {ob.active ? "Ativo" : "Inativo"}
+                </button>
+                <button type="button" onClick={() => removeOb(ob.id)}
+                  style={{ fontSize: "0.72rem", padding: "4px 10px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer", flexShrink: 0 }}>
+                  Remover
+                </button>
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-        {list.map((ob) => (
-          <div key={ob.id} style={{
-            border: "1px solid var(--adm-border)", borderRadius: 10, padding: "14px 16px",
-            opacity: ob.active ? 1 : 0.62,
-            background: "var(--adm-bg-card)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+      {/* ── Adicionar novo ── */}
+      <div style={{ border: "1px dashed var(--adm-border)", borderRadius: 10, padding: "18px 16px" }}>
+        <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--adm-text-faint)", margin: "0 0 14px", textTransform: "uppercase", letterSpacing: ".06em" }}>
+          + Adicionar order bump
+        </p>
+
+        {/* Busca de produto */}
+        <div className="admin-form-field">
+          <label className="admin-form-label">Buscar produto</label>
+          <input
+            className="admin-form-input"
+            type="search"
+            placeholder="Digite o nome do produto…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setSelectedProductId(""); }}
+            style={{ marginBottom: 6 }}
+          />
+
+          {/* Resultados da busca */}
+          {search.trim() && !selectedProduct && (
+            <div style={{
+              border: "1px solid var(--adm-border)", borderRadius: 8, overflow: "hidden",
+              maxHeight: 240, overflowY: "auto", background: "var(--adm-bg-card)",
+            }}>
+              {filteredProducts.length === 0 ? (
+                <div style={{ padding: "12px 14px", fontSize: "0.82rem", color: "var(--adm-text-faint)" }}>Nenhum produto encontrado.</div>
+              ) : (
+                filteredProducts.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => { setSelectedProductId(p.id); setSearch(p.name); if (!discountFixed) setDiscountFixed(String((p.price * 0.9).toFixed(2))); }}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 10,
+                      padding: "9px 12px", background: "transparent", border: "none",
+                      borderBottom: "1px solid var(--adm-border)", cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    {p.image && (
+                      <img src={p.image} alt={p.name} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--adm-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                      <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)" }}>R$ {p.price.toFixed(2)} · {p.category}</div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Produto selecionado */}
+          {selectedProduct && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(139,92,246,.07)", borderRadius: 8, border: "1px solid rgba(139,92,246,.25)" }}>
+              {selectedProduct.image && (
+                <img src={selectedProduct.image} alt={selectedProduct.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+              )}
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "0.9rem", fontWeight: 600 }}>{ob.title}</div>
-                <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
-                  {ob.badge && <span style={{ marginRight: 8, background: "rgba(139,92,246,.15)", color: "var(--adm-accent)", fontSize: "0.68rem", fontWeight: 700, padding: "2px 7px", borderRadius: 20 }}>{ob.badge}</span>}
-                  R$ {ob.price.toFixed(2)}
-                  {ob.oldPrice ? ` (de R$ ${ob.oldPrice.toFixed(2)})` : ""}
-                  {ob.description ? ` · ${ob.description.substring(0, 50)}` : ""}
-                </div>
+                <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>{selectedProduct.name}</div>
+                <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)" }}>Preço original: R$ {selectedProduct.price.toFixed(2)}</div>
               </div>
-              <button type="button" onClick={() => toggleOb(ob.id)}
-                style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 4, border: "1px solid var(--adm-border)", background: ob.active ? "rgba(16,185,129,.15)" : "transparent", color: ob.active ? "#10b981" : "var(--adm-text-muted)", cursor: "pointer" }}>
-                {ob.active ? "Ativo" : "Inativo"}
-              </button>
-              <button type="button" onClick={() => removeOb(ob.id)}
-                style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}>
-                Remover
+              <button type="button" onClick={() => { setSelectedProductId(""); setSearch(""); }}
+                style={{ fontSize: "0.75rem", padding: "3px 9px", borderRadius: 4, border: "1px solid var(--adm-border)", background: "transparent", color: "var(--adm-text-muted)", cursor: "pointer" }}>
+                Trocar
               </button>
             </div>
-
-            {/* Campos editáveis inline */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
-              <div>
-                <label className="admin-form-label">Título</label>
-                <input className="admin-form-input" value={ob.title} style={{ marginBottom: 0 }}
-                  onChange={(e) => setField(ob.id, { title: e.target.value })} />
-              </div>
-              <div>
-                <label className="admin-form-label">Preço (R$)</label>
-                <input className="admin-form-input" type="number" min="0" step="0.01" value={ob.price} style={{ marginBottom: 0 }}
-                  onChange={(e) => setField(ob.id, { price: parseFloat(e.target.value) || 0 })} />
-              </div>
-              <div>
-                <label className="admin-form-label">Preço original (R$) — Estilo 2</label>
-                <input className="admin-form-input" type="number" min="0" step="0.01" value={ob.oldPrice ?? ""} placeholder="Opcional" style={{ marginBottom: 0 }}
-                  onChange={(e) => setField(ob.id, { oldPrice: e.target.value ? parseFloat(e.target.value) || undefined : undefined })} />
-              </div>
-              <div>
-                <label className="admin-form-label">Badge — Estilo 2</label>
-                <input className="admin-form-input" value={ob.badge ?? ""} placeholder="ex: BRINDE 1" style={{ marginBottom: 0 }}
-                  onChange={(e) => setField(ob.id, { badge: e.target.value || undefined })} />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label className="admin-form-label">URL da Imagem — Estilo 2</label>
-                <input className="admin-form-input" value={ob.imageUrl ?? ""} placeholder="https://... ou /products/..." style={{ marginBottom: 0 }}
-                  onChange={(e) => setField(ob.id, { imageUrl: e.target.value || undefined })} />
-              </div>
-              <div>
-                <label className="admin-form-label">Descrição</label>
-                <input className="admin-form-input" value={ob.description} style={{ marginBottom: 0 }}
-                  onChange={(e) => setField(ob.id, { description: e.target.value })} />
-              </div>
-              <div>
-                <label className="admin-form-label">Offer Hash UTMify</label>
-                <input className="admin-form-input" value={ob.offerHash} style={{ marginBottom: 0 }}
-                  onChange={(e) => setField(ob.id, { offerHash: e.target.value })} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Adicionar novo */}
-      <div style={{ border: "1px dashed var(--adm-border)", borderRadius: 10, padding: "16px" }}>
-        <p style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--adm-text-faint)", margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".05em" }}>+ Novo order bump</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
-          <div>
-            <label className="admin-form-label">Título *</label>
-            <input className="admin-form-input" placeholder="Nome do produto" value={form.title}
-              onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} style={{ marginBottom: 0 }} />
-          </div>
-          <div>
-            <label className="admin-form-label">Preço (R$)</label>
-            <input className="admin-form-input" type="number" min="0" step="0.01" placeholder="0,00" value={form.price}
-              onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} style={{ marginBottom: 0 }} />
-          </div>
-          <div>
-            <label className="admin-form-label">Preço original (R$)</label>
-            <input className="admin-form-input" type="number" min="0" step="0.01" placeholder="Opcional" value={form.oldPrice}
-              onChange={(e) => setForm((p) => ({ ...p, oldPrice: e.target.value }))} style={{ marginBottom: 0 }} />
-          </div>
-          <div>
-            <label className="admin-form-label">Badge (Estilo 2)</label>
-            <input className="admin-form-input" placeholder="ex: BRINDE 1" value={form.badge}
-              onChange={(e) => setForm((p) => ({ ...p, badge: e.target.value }))} style={{ marginBottom: 0 }} />
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label className="admin-form-label">URL da imagem (Estilo 2)</label>
-            <input className="admin-form-input" placeholder="https://..." value={form.imageUrl}
-              onChange={(e) => setForm((p) => ({ ...p, imageUrl: e.target.value }))} style={{ marginBottom: 0 }} />
-          </div>
-          <div>
-            <label className="admin-form-label">Descrição</label>
-            <input className="admin-form-input" placeholder="Descrição curta" value={form.description}
-              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} style={{ marginBottom: 0 }} />
-          </div>
-          <div>
-            <label className="admin-form-label">Offer Hash UTMify</label>
-            <input className="admin-form-input" placeholder="hash" value={form.offerHash}
-              onChange={(e) => setForm((p) => ({ ...p, offerHash: e.target.value }))} style={{ marginBottom: 0 }} />
-          </div>
+          )}
         </div>
-        <button type="button" className="admin-btn-primary" onClick={addOb} disabled={!form.title.trim()} style={{ marginTop: 14, fontSize: "0.85rem" }}>
+
+        {/* Configuração de desconto */}
+        {selectedProduct && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 12px", alignItems: "center", margin: "14px 0 10px" }}>
+              <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--adm-text-muted)" }}>Tipo de desconto</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {([["pct", "Percentual (%)"], ["fixed", "Preço fixo (R$)"]] as const).map(([val, lbl]) => (
+                  <label key={val} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.83rem", cursor: "pointer" }}>
+                    <input type="radio" name="discType" value={val} checked={discountType === val}
+                      onChange={() => setDiscountType(val)} style={{ accentColor: "var(--adm-accent)" }} />
+                    {lbl}
+                  </label>
+                ))}
+              </div>
+
+              {discountType === "pct" ? (
+                <>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--adm-text-muted)" }}>Desconto</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input className="admin-form-input" type="number" min="1" max="99" step="1"
+                      value={discountPct}
+                      onChange={(e) => setDiscountPct(e.target.value)}
+                      style={{ width: 80, marginBottom: 0 }} />
+                    <span style={{ fontSize: "0.82rem", color: "var(--adm-text-muted)" }}>%</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--adm-text-muted)" }}>Preço com desconto</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: "0.82rem", color: "var(--adm-text-muted)" }}>R$</span>
+                    <input className="admin-form-input" type="number" min="0.01" step="0.01"
+                      value={discountFixed}
+                      onChange={(e) => setDiscountFixed(e.target.value)}
+                      placeholder={selectedProduct.price.toFixed(2)}
+                      style={{ width: 100, marginBottom: 0 }} />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Preview do preço resultante */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--adm-bg)", borderRadius: 8, marginBottom: 14 }}>
+              <span style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)" }}>Resultado:</span>
+              <span style={{ fontSize: "1.05rem", fontWeight: 700, color: "#10b981" }}>R$ {discountedPrice.toFixed(2)}</span>
+              <span style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)", textDecoration: "line-through" }}>R$ {selectedProduct.price.toFixed(2)}</span>
+              {discountPctComputed > 0 && (
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,.12)", padding: "2px 7px", borderRadius: 20 }}>{discountPctComputed}% OFF</span>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+              <div>
+                <label className="admin-form-label">Badge (Estilo 2) — opcional</label>
+                <input className="admin-form-input" placeholder="ex: BRINDE 1" value={badge}
+                  onChange={(e) => setBadge(e.target.value)} style={{ marginBottom: 0 }} />
+              </div>
+              <div>
+                <label className="admin-form-label">Offer Hash UTMify — opcional</label>
+                <input className="admin-form-input" placeholder="hash" value={offerHash}
+                  onChange={(e) => setOfferHash(e.target.value)} style={{ marginBottom: 0 }} />
+              </div>
+            </div>
+          </>
+        )}
+
+        <button
+          type="button"
+          className="admin-btn-primary"
+          onClick={addOb}
+          disabled={!selectedProduct}
+          style={{ fontSize: "0.85rem", opacity: selectedProduct ? 1 : 0.5 }}
+        >
           + Adicionar Order Bump
         </button>
       </div>
