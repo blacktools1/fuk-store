@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { readStoreData, writeStoreData } from "@/lib/store-data";
+import { mergeStorePatch } from "@/lib/store-merge";
 import { getTenantFromRequest } from "@/lib/tenant";
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -33,7 +34,7 @@ export async function PATCH(req: NextRequest) {
     const tenant = getTenantFromRequest(req);
     const body = await req.json();
     const current = readStoreData(tenant);
-    const updated = { ...current, ...body };
+    const updated = mergeStorePatch(current, body);
     writeStoreData(updated, tenant);
     return NextResponse.json({ message: "Salvo com sucesso" });
   } catch (err) {

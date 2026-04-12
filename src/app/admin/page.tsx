@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { StoreData, AdminProduct, Banner, TopBannerConfig, StorePixel } from "@/lib/admin-types";
+import { mergeStorePatch } from "@/lib/store-merge";
 import { PIX_PROVIDER_CATALOG, getPixProviderEntry } from "@/lib/pix-providers";
 import { formatPrice } from "@/lib/products";
 
@@ -96,7 +97,7 @@ export default function AdminPage() {
         body: JSON.stringify(patch),
       });
       if (!res.ok) throw new Error();
-      setData((d) => d ? { ...d, ...patch } : d);
+      setData((d) => (d ? mergeStorePatch(d, patch) : d));
       show("Salvo com sucesso!");
     } catch {
       show("Erro ao salvar", "error");
@@ -743,7 +744,6 @@ function CheckoutSection({
     setSaveStatus("idle");
     try {
       await onSaveConfig({
-        checkoutUrl: "",
         checkoutConfig: {
           ...storeData?.checkoutConfig,
           pixProvider,
