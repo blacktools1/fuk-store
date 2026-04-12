@@ -821,25 +821,24 @@ function CheckoutSection({
 
   const cancelEditShip = () => { setEditingShipId(null); };
 
-  const saveEditShip = () => {
+  const saveEditShip = async () => {
     if (!editingShipId) return;
-    setShippingOptions((prev) => prev.map((s) =>
+    const newList = shippingOptions.map((s) =>
       s.id === editingShipId
         ? { ...s, name: editShip.name.trim() || s.name, price: parseFloat(editShip.price) || 0, days: editShip.days.trim(), logoUrl: editShip.logoUrl.trim() || undefined }
         : s
-    ));
+    );
+    setShippingOptions(newList);
     setEditingShipId(null);
-    // usuário precisa clicar em "Salvar fretes" para persistir a edição
+    await saveShipping(newList);
   };
 
   // ShippingList inline component
   const ShippingList = ({
     options,
-    onUpdate,
     onUpload,
   }: {
     options: import("@/lib/admin-types").ShippingOption[];
-    onUpdate: (opts: import("@/lib/admin-types").ShippingOption[]) => void;
     onUpload: (id: string, e: React.ChangeEvent<HTMLInputElement>) => void;
   }) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
@@ -875,7 +874,7 @@ function CheckoutSection({
 
               {/* Ações */}
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <button type="button" onClick={() => onUpdate(options.map((o) => o.id === s.id ? { ...o, active: !o.active } : o))}
+                <button type="button" onClick={() => void toggleShipping(s.id)}
                   style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 4, border: "1px solid var(--adm-border)", background: s.active ? "rgba(16,185,129,.15)" : "transparent", color: s.active ? "#10b981" : "var(--adm-text-muted)", cursor: "pointer", fontWeight: 600 }}>
                   {s.active ? "Ativo" : "Inativo"}
                 </button>
@@ -883,7 +882,7 @@ function CheckoutSection({
                   style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 4, border: "1px solid var(--adm-border)", background: isEditing ? "rgba(139,92,246,.1)" : "transparent", color: isEditing ? "var(--adm-accent)" : "var(--adm-text-muted)", cursor: "pointer" }}>
                   {isEditing ? "Cancelar" : "Editar"}
                 </button>
-                <button type="button" onClick={() => onUpdate(options.filter((o) => o.id !== s.id))}
+                <button type="button" onClick={() => void removeShipping(s.id)}
                   style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}>
                   Remover
                 </button>
@@ -926,7 +925,7 @@ function CheckoutSection({
     </div>
   );
 
-  const addShippingOption = () => {
+  const addShippingOption = async () => {
     const name = newShip.name.trim();
     if (!name) return;
     const opt: import("@/lib/admin-types").ShippingOption = {
@@ -937,9 +936,10 @@ function CheckoutSection({
       days: newShip.days.trim(),
       logoUrl: newShip.logoUrl.trim() || undefined,
     };
-    setShippingOptions((p) => [...p, opt]);
+    const newList = [...shippingOptions, opt];
+    setShippingOptions(newList);
     setNewShip({ name: "", price: "0", days: "", logoUrl: "" });
-    // não marca dirty — usuário clica "Salvar fretes" para persistir
+    await saveShipping(newList);
   };
 
   const handleShipLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -970,19 +970,25 @@ function CheckoutSection({
       const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Erro no upload");
-      setShippingOptions((prev) => {
-        const updated = prev.map((o) => o.id === id ? { ...o, logoUrl: json.url } : o);
-        void saveShipping(updated);
-        return updated;
-      });
+      const updated = shippingOptions.map((o) => o.id === id ? { ...o, logoUrl: json.url } : o);
+      setShippingOptions(updated);
+      await saveShipping(updated);
     } catch (err) {
       alert((err as Error).message);
     } finally {
       e.target.value = "";
     }
   };
-  const removeShipping = (id: string) => { setShippingOptions((p) => p.filter((o) => o.id !== id)); };
-  const toggleShipping = (id: string) => { setShippingOptions((p) => p.map((o) => o.id === id ? { ...o, active: !o.active } : o)); };
+  const removeShipping = async (id: string) => {
+    const newList = shippingOptions.filter((o) => o.id !== id);
+    setShippingOptions(newList);
+    await saveShipping(newList);
+  };
+  const toggleShipping = async (id: string) => {
+    const newList = shippingOptions.map((o) => o.id === id ? { ...o, active: !o.active } : o);
+    setShippingOptions(newList);
+    await saveShipping(newList);
+  };
 
   return (
     <>
@@ -1579,7 +1585,6 @@ function CheckoutSection({
         ) : (
           <ShippingList
             options={shippingOptions}
-            onUpdate={(updated) => { setShippingOptions(updated); }}
             onUpload={handleShipLogoUploadExisting}
           />
         )}
@@ -1616,14 +1621,11 @@ function CheckoutSection({
             )}
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <button type="button" className="admin-btn-secondary" onClick={addShippingOption} disabled={!newShip.name.trim()} style={{ fontSize: "0.82rem" }}>
-              + Adicionar Frete
+            <button type="button" className="admin-btn-primary" onClick={() => void addShippingOption()} disabled={!newShip.name.trim() || savingShipping} style={{ fontSize: "0.82rem" }}>
+              {savingShipping ? "Salvando…" : "✓ Adicionar e Salvar"}
             </button>
-            <button type="button" className="admin-btn-primary" onClick={() => void saveShipping(shippingOptions)} disabled={savingShipping} style={{ fontSize: "0.82rem" }}>
-              {savingShipping ? "Salvando…" : "💾 Salvar fretes"}
-            </button>
-            {shippingStatus === "error" && <span style={{ fontSize: "0.78rem", color: "#ef4444", fontWeight: 600 }}>✗ Erro ao salvar</span>}
-            {shippingStatus === "saved" && <span style={{ fontSize: "0.78rem", color: "#10b981", fontWeight: 600 }}>✓ Fretes salvos</span>}
+            {shippingStatus === "error" && <span style={{ fontSize: "0.78rem", color: "#ef4444", fontWeight: 600 }}>✗ Erro ao salvar. Tente novamente.</span>}
+            {shippingStatus === "saved" && <span style={{ fontSize: "0.78rem", color: "#10b981", fontWeight: 600 }}>✓ Frete salvo!</span>}
           </div>
         </div>
       </div>
