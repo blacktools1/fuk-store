@@ -124,7 +124,7 @@ export function SalesSection() {
               }}
               style={{ width: "auto", fontSize: "0.82rem", padding: "6px 10px", marginBottom: 0 }}
             >
-              <option value="today">Hoje (SP)</option>
+              <option value="today">Hoje</option>
               <option value="all">Últimas 200</option>
             </select>
           </label>
