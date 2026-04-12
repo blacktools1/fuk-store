@@ -621,8 +621,8 @@ export default function CheckoutPage() {
         )}
 
         {/* Resumo do pedido (após frete e ofertas) */}
-        <div className="co2-card">
-          <p className="co2-summary-label">Resumo do pedido</p>
+        <div className="co2-summary-wrap">
+          <p className="co2-summary-label">Resumo</p>
           {items.map((item) => (
             <div key={item.id} className="co2-summary-row">
               {item.product.image && (
@@ -631,7 +631,7 @@ export default function CheckoutPage() {
                     src={item.product.image}
                     alt={item.product.name}
                     fill
-                    sizes="48px"
+                    sizes="32px"
                     quality={STORE_IMAGE_QUALITY_THUMB}
                     style={{ objectFit: "cover" }}
                   />
@@ -641,8 +641,8 @@ export default function CheckoutPage() {
                 <p className="co2-summary-name">
                   {item.product.name}
                   {item.variation && <span className="co2-summary-var"> — {item.variation}</span>}
+                  {item.quantity > 1 && <span className="co2-summary-qty-inline"> ×{item.quantity}</span>}
                 </p>
-                {item.quantity > 1 && <p className="co2-summary-qty">Qtd: {item.quantity}</p>}
               </div>
               <p className="co2-summary-price">{formatPrice(item.product.price * item.quantity)}</p>
             </div>
@@ -650,56 +650,57 @@ export default function CheckoutPage() {
           {totals.activeBumps.map((ob) => (
             <div key={`bump-${ob.id}`} className="co2-summary-row co2-summary-row--bump">
               <div className="co2-summary-info">
-                <p className="co2-summary-name">Oferta: {ob.title}</p>
+                <p className="co2-summary-name">
+                  <span className="co2-summary-bump-tag">Oferta</span>
+                  {ob.title}
+                </p>
               </div>
               <p className="co2-summary-price">{formatPrice(ob.price)}</p>
             </div>
           ))}
           {totals.pixDiscountAmount > 0 && (
             <div className="co2-summary-discount-row">
-              <span>Desconto PIX ({pixDiscountPct}%)</span>
+              <span>PIX −{pixDiscountPct}%</span>
               <span>− {formatPrice(totals.pixDiscountAmount)}</span>
             </div>
           )}
-          <hr className="co2-divider" />
-          <div className="co2-summary-shipping-row">
-            <span>
-              Frete
-              {totals.shippingLabel ? ` (${totals.shippingLabel})` : ""}
-            </span>
-            <span>
-              {(() => {
-                const sel = (config?.shippingOptions ?? []).find((s) => s.id === selectedShipping);
-                const base = sel ? sel.price : 0;
-                const freeApplied =
-                  sel?.freeShippingEligible &&
-                  totals.qualifiesFreeShipping &&
-                  base > 0;
-                if ((config?.shippingOptions ?? []).length === 0) {
-                  return <span style={{ color: "#6b7280" }}>—</span>;
-                }
-                if (freeApplied) {
-                  return (
-                    <>
-                      <span style={{ textDecoration: "line-through", opacity: 0.55, marginRight: 8 }}>
-                        {formatPrice(base)}
-                      </span>
-                      <span style={{ color: "#16a34a", fontWeight: 700 }}>Grátis</span>
-                    </>
+          <div className="co2-summary-footer">
+            <div className="co2-summary-shipping-row">
+              <span className="co2-summary-shipping-label">
+                Frete
+                {totals.shippingLabel ? ` · ${totals.shippingLabel}` : ""}
+              </span>
+              <span className="co2-summary-shipping-value">
+                {(() => {
+                  const sel = (config?.shippingOptions ?? []).find((s) => s.id === selectedShipping);
+                  const base = sel ? sel.price : 0;
+                  const freeApplied =
+                    sel?.freeShippingEligible &&
+                    totals.qualifiesFreeShipping &&
+                    base > 0;
+                  if ((config?.shippingOptions ?? []).length === 0) {
+                    return <span className="co2-summary-muted">—</span>;
+                  }
+                  if (freeApplied) {
+                    return (
+                      <>
+                        <span className="co2-summary-strike">{formatPrice(base)}</span>
+                        <span className="co2-summary-free">Grátis</span>
+                      </>
+                    );
+                  }
+                  return base === 0 ? (
+                    <span className="co2-summary-free">Grátis</span>
+                  ) : (
+                    formatPrice(totals.shippingPrice)
                   );
-                }
-                return base === 0 ? (
-                  <span style={{ color: "#16a34a", fontWeight: 700 }}>Grátis</span>
-                ) : (
-                  formatPrice(totals.shippingPrice)
-                );
-              })()}
-            </span>
-          </div>
-          <hr className="co2-divider" />
-          <div className="co2-total-row">
-            <span className="co2-total-label">Total a pagar</span>
-            <span className="co2-total-value">{formatPrice(grandTotal)}</span>
+                })()}
+              </span>
+            </div>
+            <div className="co2-summary-total-row">
+              <span>Total</span>
+              <span>{formatPrice(grandTotal)}</span>
+            </div>
           </div>
         </div>
 
