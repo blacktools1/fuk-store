@@ -105,15 +105,23 @@ export default function CheckoutPage() {
           fetch("/api/admin/checkout-config"),
         ]);
         const cfg = await storeRes.json();
-        const d = await checkoutRes.json();
+        const d = checkoutRes.ok
+          ? await checkoutRes.json().catch(() => null)
+          : null;
         if (cancelled) return;
+
+        // Fonte pública (/api/store/config) tem prioridade para frete e bumps — mesmo disco,
+        // mas evita depender só de /api/admin/* e divergências de resposta vazia.
+        const shippingOptions: ShippingOption[] =
+          (cfg.shippingOptions?.length ?? 0) > 0
+            ? cfg.shippingOptions!
+            : ((d && !d.error ? d.shippingOptions : undefined) ?? []);
+        const orderbumps =
+          (cfg.orderbumps?.length ?? 0) > 0
+            ? cfg.orderbumps!
+            : ((d && !d.error ? d.orderbumps : undefined) ?? []);
+
         if (d && !d.error) {
-          const shippingOptions: ShippingOption[] =
-            (d.shippingOptions?.length ?? 0) > 0
-              ? d.shippingOptions!
-              : (cfg.shippingOptions ?? []);
-          const orderbumps =
-            (d.orderbumps?.length ?? 0) > 0 ? d.orderbumps! : (cfg.orderbumps ?? []);
           setConfig({
             ...d,
             orderbumps,
@@ -127,11 +135,11 @@ export default function CheckoutPage() {
           setConfig((prev) => ({
             ...(prev ?? {}),
             hasInternalCheckout: cfg.hasInternalCheckout,
-            orderbumps: cfg.orderbumps ?? prev?.orderbumps ?? [],
+            orderbumps,
             orderbumpStyle: cfg.orderbumpStyle ?? prev?.orderbumpStyle ?? "style1",
-            shippingOptions: cfg.shippingOptions ?? prev?.shippingOptions ?? [],
+            shippingOptions,
           }));
-          const firstShip = (cfg.shippingOptions ?? []).find((s: ShippingOption) => s.active !== false);
+          const firstShip = shippingOptions.find((s: ShippingOption) => s.active !== false);
           if (firstShip) setSelectedShipping(firstShip.id);
         }
       } catch {

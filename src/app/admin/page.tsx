@@ -1409,6 +1409,9 @@ function CheckoutSection({
         <h2 className="admin-card-title">🚚 Opções de Frete</h2>
         <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
           Exibidas no checkout para o cliente escolher. O preço selecionado é somado ao valor do pedido.
+          <strong style={{ color: "var(--adm-text-muted)", display: "block", marginTop: 8 }}>
+            Depois de adicionar ou alterar fretes, salve — use o botão abaixo ou &quot;Salvar checkout&quot; no rodapé da página.
+          </strong>
         </p>
 
         {shippingOptions.length === 0 && (
@@ -1483,9 +1486,23 @@ function CheckoutSection({
           )}
         </div>
 
-        <button type="button" className="admin-btn-secondary" onClick={addShippingOption} disabled={!newShip.name.trim()} style={{ marginTop: 10, fontSize: "0.82rem" }}>
-          + Adicionar Frete
-        </button>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 10 }}>
+          <button type="button" className="admin-btn-secondary" onClick={addShippingOption} disabled={!newShip.name.trim()} style={{ fontSize: "0.82rem" }}>
+            + Adicionar Frete
+          </button>
+          <button
+            type="button"
+            className="admin-btn-primary"
+            onClick={() => void handleSave()}
+            disabled={saving}
+            style={{ fontSize: "0.82rem" }}
+          >
+            {saving ? "Salvando…" : "💾 Salvar opções de frete"}
+          </button>
+          {isDirty && (
+            <span style={{ fontSize: "0.78rem", color: "#f59e0b", fontWeight: 600 }}>Alterações de frete não publicadas</span>
+          )}
+        </div>
       </div>
 
       {/* Salvar */}
