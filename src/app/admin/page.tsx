@@ -20,6 +20,7 @@ function checkoutConfigWithoutShipping(cc: CheckoutConfig | undefined): Omit<Che
 }
 import { PIX_PROVIDER_CATALOG, getPixProviderEntry } from "@/lib/pix-providers";
 import { formatPrice } from "@/lib/products";
+import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 
 /** Exibe credencial mascarada (somente leitura no painel). */
 function maskPixCredential(value: string): string {
@@ -2137,6 +2138,8 @@ function ProductsSection({
                         alt={p.name}
                         width={44}
                         height={44}
+                        sizes="44px"
+                        quality={STORE_IMAGE_QUALITY_THUMB}
                         className="admin-table-img"
                         style={{ objectFit: "cover" }}
                       />

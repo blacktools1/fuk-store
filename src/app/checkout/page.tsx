@@ -11,6 +11,7 @@ import { formatPrice } from "@/lib/products";
 import { firePixelEvent } from "@/lib/pixel";
 import { validateCPF, formatCPF, formatPhone, digitsOnly } from "@/lib/cpf";
 import type { Orderbump, ShippingOption } from "@/lib/admin-types";
+import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 
 interface CheckoutConfig {
   orderbumps?: Orderbump[];
@@ -389,7 +390,14 @@ export default function CheckoutPage() {
             <div key={item.id} className="co2-summary-row">
               {item.product.image && (
                 <div className="co2-summary-img">
-                  <Image src={item.product.image} alt={item.product.name} fill sizes="48px" style={{ objectFit: "cover" }} />
+                  <Image
+                    src={item.product.image}
+                    alt={item.product.name}
+                    fill
+                    sizes="48px"
+                    quality={STORE_IMAGE_QUALITY_THUMB}
+                    style={{ objectFit: "cover" }}
+                  />
                 </div>
               )}
               <div className="co2-summary-info">

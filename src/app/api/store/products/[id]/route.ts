@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readStoreData } from "@/lib/store-data";
 import { getTenantFromRequest } from "@/lib/tenant";
+import { STORE_JSON_CACHE_CONTROL } from "@/lib/http-cache";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,5 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ message: "Product not found" }, { status: 404 });
   }
 
-  return NextResponse.json(product);
+  return NextResponse.json(product, {
+    headers: { "Cache-Control": STORE_JSON_CACHE_CONTROL },
+  });
 }

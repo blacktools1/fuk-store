@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 import { useCart } from "@/context/CartContext";
 import { cartCount, cartTotal } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
@@ -30,6 +31,22 @@ export default function CartPage() {
       })
       .catch(() => {});
   }, []);
+
+  /** Pré-carrega o bundle da rota /checkout quando o PIX interno está ativo — acelera a ida ao checkout. */
+  useEffect(() => {
+    if (!hasInternalCheckout || typeof document === "undefined") return;
+    const l = document.createElement("link");
+    l.rel = "prefetch";
+    l.href = "/checkout";
+    document.head.appendChild(l);
+    return () => {
+      try {
+        document.head.removeChild(l);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [hasInternalCheckout]);
 
   function handleProceed() {
     const lines = items.map((item) => ({
@@ -174,6 +191,7 @@ export default function CartPage() {
                           alt={item.product.name}
                           fill
                           sizes="100px"
+                          quality={STORE_IMAGE_QUALITY_THUMB}
                           style={{ objectFit: "cover" }}
                         />
                       </div>

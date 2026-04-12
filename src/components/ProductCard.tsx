@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { formatPrice } from "@/lib/products";
+import { STORE_IMAGE_QUALITY } from "@/lib/store-image";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/ToastProvider";
@@ -55,6 +56,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           alt={product.name}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          quality={STORE_IMAGE_QUALITY}
           style={{ objectFit: "cover" }}
         />
         {discount !== null && (

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { readStoreData } from "@/lib/store-data";
 import { getTenant } from "@/lib/tenant";
+import { STORE_IMAGE_QUALITY } from "@/lib/store-image";
 import HeaderActions from "./HeaderActions";
 
 export default async function Header() {
@@ -20,9 +22,15 @@ export default async function Header() {
     <header className={`header${sticky ? " header--sticky" : ""}`}>
       <div className={`container header-inner header-inner--logo-${position}`}>
         <Link href="/" className="header-logo">
-          {showImage && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={store.logoUrl} alt={store.storeName} style={{ width: size, height: size }} />
+          {showImage && store.logoUrl && (
+            <Image
+              src={store.logoUrl}
+              alt={store.storeName}
+              width={size}
+              height={size}
+              quality={STORE_IMAGE_QUALITY}
+              style={{ width: size, height: size, objectFit: "contain" }}
+            />
           )}
           {!showImage && store.storeLogo && (
             <span dangerouslySetInnerHTML={{ __html: store.storeLogo }} />

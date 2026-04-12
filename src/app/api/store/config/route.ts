@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readStoreData } from "@/lib/store-data";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { filterOrderbumpsForCheckout, filterShippingForCheckout } from "@/lib/checkout-public";
+import { STORE_JSON_CACHE_CONTROL } from "@/lib/http-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -25,20 +26,23 @@ export async function GET(req: NextRequest) {
     hasInternalCheckout = !!(c?.oramaApiKey?.trim() && c?.oramaPublicKey?.trim());
   }
 
-  return NextResponse.json({
-    pixDiscountEnabled: data.pixDiscountEnabled ?? true,
-    pixDiscount: data.pixDiscount ?? 5,
-    freeShippingMin: data.freeShippingMin ?? 199,
-    checkoutUrl: data.checkoutUrl ?? "",
-    hasInternalCheckout,
-    pixProvider: provider,
-    ttPixelIds,
-    /** Config de checkout pública */
-    orderbumps: filterOrderbumpsForCheckout(c?.orderbumps),
-    orderbumpStyle: c?.orderbumpStyle ?? "style1",
-    shippingOptions: filterShippingForCheckout(c?.shippingOptions),
-    redirectUrl: c?.redirectUrl ?? "",
-    redirectEnabled: c?.redirectEnabled ?? true,
-    backLink: c?.backLink ?? "",
-  });
+  return NextResponse.json(
+    {
+      pixDiscountEnabled: data.pixDiscountEnabled ?? true,
+      pixDiscount: data.pixDiscount ?? 5,
+      freeShippingMin: data.freeShippingMin ?? 199,
+      checkoutUrl: data.checkoutUrl ?? "",
+      hasInternalCheckout,
+      pixProvider: provider,
+      ttPixelIds,
+      /** Config de checkout pública */
+      orderbumps: filterOrderbumpsForCheckout(c?.orderbumps),
+      orderbumpStyle: c?.orderbumpStyle ?? "style1",
+      shippingOptions: filterShippingForCheckout(c?.shippingOptions),
+      redirectUrl: c?.redirectUrl ?? "",
+      redirectEnabled: c?.redirectEnabled ?? true,
+      backLink: c?.backLink ?? "",
+    },
+    { headers: { "Cache-Control": STORE_JSON_CACHE_CONTROL } }
+  );
 }

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
+import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 import { cartCount, cartTotal } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
 
@@ -58,6 +59,8 @@ export default function CartDrawer() {
                     alt={item.product.name}
                     width={72}
                     height={72}
+                    sizes="72px"
+                    quality={STORE_IMAGE_QUALITY_THUMB}
                     style={{ objectFit: "cover" }}
                   />
                 </div>

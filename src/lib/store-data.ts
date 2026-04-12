@@ -7,6 +7,23 @@ import { sanitizeTenant } from "./tenant";
 // Root directory that holds all tenant data
 const TENANTS_ROOT = path.join(process.cwd(), "data", "tenants");
 
+/** Cache em memória por tenant — evita ler/parsear JSON do disco a cada request (checkout, APIs, PIX). */
+const storeDataCache = new Map<string, { mtimeMs: number; data: StoreData }>();
+
+function cacheSet(tenant: string, mtimeMs: number, data: StoreData) {
+  storeDataCache.set(tenant, { mtimeMs, data });
+}
+
+function cacheGet(tenant: string, mtimeMs: number): StoreData | null {
+  const hit = storeDataCache.get(tenant);
+  if (hit && hit.mtimeMs === mtimeMs) return hit.data;
+  return null;
+}
+
+function cacheInvalidate(tenant: string) {
+  storeDataCache.delete(tenant);
+}
+
 /** Absolute path to a tenant's data directory */
 export function tenantDir(tenant: string): string {
   return path.join(TENANTS_ROOT, sanitizeTenant(tenant));
@@ -128,11 +145,24 @@ export function readStoreData(tenant: string = "localhost"): StoreData {
   if (!fs.existsSync(file)) {
     const defaults = DEFAULT_STORE();
     fs.writeFileSync(file, JSON.stringify(defaults, null, 2));
+    const st = fs.statSync(file);
+    cacheSet(tenant, st.mtimeMs, defaults);
     return defaults;
   }
 
   // Migrate upload files from old dot-format dir to underscore-format dir
   migrateUploadsDir(tenant);
+
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(file);
+  } catch {
+    const defaults = DEFAULT_STORE();
+    return defaults;
+  }
+
+  const cached = cacheGet(tenant, stat.mtimeMs);
+  if (cached) return cached;
 
   const raw = fs.readFileSync(file, "utf-8");
   const parsed = JSON.parse(raw) as StoreData;
@@ -144,14 +174,25 @@ export function readStoreData(tenant: string = "localhost"): StoreData {
   if (changed) {
     // Persist so migration only runs once per URL
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
+    const st2 = fs.statSync(file);
+    cacheSet(tenant, st2.mtimeMs, data);
+    return data;
   }
 
+  cacheSet(tenant, stat.mtimeMs, data);
   return data;
 }
 
 export function writeStoreData(data: StoreData, tenant: string = "localhost"): void {
   ensureDir(tenant);
-  fs.writeFileSync(dataFile(tenant), JSON.stringify(data, null, 2));
+  const file = dataFile(tenant);
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  try {
+    const st = fs.statSync(file);
+    cacheSet(tenant, st.mtimeMs, data);
+  } catch {
+    cacheInvalidate(tenant);
+  }
 }
 
 /** List all registered tenant domain names */
@@ -181,5 +222,6 @@ export function deleteTenant(domain: string): boolean {
   const dir = tenantDir(domain);
   if (!fs.existsSync(dir)) return false;
   fs.rmSync(dir, { recursive: true, force: true });
+  cacheInvalidate(domain);
   return true;
 }

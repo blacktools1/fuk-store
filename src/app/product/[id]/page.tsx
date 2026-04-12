@@ -9,6 +9,7 @@ import { formatPrice } from "@/lib/products";
 import { useToast } from "@/components/ToastProvider";
 import { AdminProduct } from "@/lib/admin-types";
 import { firePixelEvent } from "@/lib/pixel";
+import { STORE_IMAGE_QUALITY, STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 
 function IconTruck() {
   return (
@@ -197,7 +198,14 @@ export default function ProductDetailPage() {
                     onClick={() => setSelectedImage(i)}
                     aria-label={`Imagem ${i + 1}`}
                   >
-                    <Image src={img} alt={`${product.name} ${i + 1}`} fill style={{ objectFit: "cover" }} sizes="72px" />
+                    <Image
+                      src={img}
+                      alt={`${product.name} ${i + 1}`}
+                      fill
+                      style={{ objectFit: "cover" }}
+                      sizes="72px"
+                      quality={STORE_IMAGE_QUALITY_THUMB}
+                    />
                   </button>
                 ))}
               </div>
@@ -215,6 +223,7 @@ export default function ProductDetailPage() {
                 fill
                 style={{ objectFit: "cover" }}
                 sizes="(max-width: 768px) 100vw, 50vw"
+                quality={STORE_IMAGE_QUALITY}
                 priority
               />
             </div>
@@ -371,6 +380,7 @@ export default function ProductDetailPage() {
                         fill
                         style={{ objectFit: "cover" }}
                         sizes="220px"
+                        quality={STORE_IMAGE_QUALITY_THUMB}
                       />
                       {relDiscount !== null && (
                         <span className="pdp-rel-badge">-{relDiscount}%</span>
