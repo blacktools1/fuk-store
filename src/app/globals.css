@@ -3542,23 +3542,30 @@ a.co2-back-cart--modal {
 .co2-shipping-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 8px;
 }
 .co2-shipping-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 2px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   background: #fff;
-  transition: border-color .15s, background .15s;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+  position: relative;
+  user-select: none;
+}
+.co2-shipping-row:hover {
+  border-color: #c4b5fd;
+  box-shadow: 0 1px 6px rgba(124,58,237,.08);
 }
 .co2-shipping-row--sel {
   border-color: #7c3aed;
   background: #faf5ff;
+  box-shadow: 0 0 0 3px rgba(124,58,237,.1);
 }
 .co2-shipping-radio {
   width: 18px;
@@ -3568,35 +3575,41 @@ a.co2-back-cart--modal {
   cursor: pointer;
 }
 .co2-shipping-logo {
-  width: 36px;
-  height: 24px;
+  width: 44px;
+  height: 30px;
   object-fit: contain;
   flex-shrink: 0;
+  border-radius: 4px;
 }
 .co2-shipping-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
 .co2-shipping-name {
   font-size: 0.875rem;
-  font-weight: 600;
-  color: #111827;
-}
-.co2-shipping-days {
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-.co2-shipping-price {
-  font-size: 0.875rem;
   font-weight: 700;
   color: #111827;
+  line-height: 1.2;
+}
+.co2-shipping-days {
+  font-size: 0.72rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+.co2-shipping-price {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #111827;
   white-space: nowrap;
+  margin-left: auto;
 }
 .co2-shipping-price--free {
   color: #16a34a;
+  font-size: 0.85rem;
+  letter-spacing: -.01em;
 }
 
 /* Modal PIX Tema 2 */

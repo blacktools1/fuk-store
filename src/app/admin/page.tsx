@@ -668,6 +668,8 @@ function CheckoutSection({
   );
   const [newShip, setNewShip] = useState({ name: "", price: "0", days: "", logoUrl: "" });
   const [shipLogoUploading, setShipLogoUploading] = useState(false);
+  const [editingShipId, setEditingShipId] = useState<string | null>(null);
+  const [editShip, setEditShip] = useState({ name: "", price: "0", days: "", logoUrl: "" });
 
   // UTMify — múltiplas contas
   const [utmifyAccounts, setUtmifyAccounts] = useState<import("@/lib/admin-types").UtmifyAccount[]>(
@@ -769,6 +771,118 @@ function CheckoutSection({
       setSaving(false);
     }
   };
+
+  const startEditShip = (s: import("@/lib/admin-types").ShippingOption) => {
+    setEditingShipId(s.id);
+    setEditShip({ name: s.name, price: String(s.price), days: s.days, logoUrl: s.logoUrl ?? "" });
+  };
+
+  const cancelEditShip = () => { setEditingShipId(null); };
+
+  const saveEditShip = () => {
+    if (!editingShipId) return;
+    setShippingOptions((prev) => prev.map((s) =>
+      s.id === editingShipId
+        ? { ...s, name: editShip.name.trim() || s.name, price: parseFloat(editShip.price) || 0, days: editShip.days.trim(), logoUrl: editShip.logoUrl.trim() || undefined }
+        : s
+    ));
+    markDirty();
+    setEditingShipId(null);
+  };
+
+  // ShippingList inline component
+  const ShippingList = ({
+    options,
+    onUpdate,
+    onUpload,
+  }: {
+    options: import("@/lib/admin-types").ShippingOption[];
+    onUpdate: (opts: import("@/lib/admin-types").ShippingOption[]) => void;
+    onUpload: (id: string, e: React.ChangeEvent<HTMLInputElement>) => void;
+  }) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+      {options.map((s) => {
+        const isEditing = editingShipId === s.id;
+        return (
+          <div key={s.id} style={{
+            border: `1.5px solid ${isEditing ? "var(--adm-accent)" : "var(--adm-border)"}`,
+            borderRadius: 10, overflow: "hidden", background: "var(--adm-bg-card)",
+          }}>
+            {/* Cabeçalho do card */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
+              {/* Logo clicável */}
+              <label title="Clique para trocar o logo" style={{ cursor: "pointer", flexShrink: 0 }}>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => onUpload(s.id, e)} />
+                {s.logoUrl ? (
+                  <img src={s.logoUrl} alt={s.name} style={{ width: 42, height: 32, objectFit: "contain", borderRadius: 6, border: "1px solid var(--adm-border)", background: "rgba(255,255,255,0.06)", padding: 3 }} />
+                ) : (
+                  <div style={{ width: 42, height: 32, borderRadius: 6, border: "1.5px dashed var(--adm-border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "var(--adm-text-faint)", background: "var(--adm-bg)" }}>
+                    📷
+                  </div>
+                )}
+              </label>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--adm-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+                <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
+                  {s.price === 0 ? <span style={{ color: "#10b981", fontWeight: 600 }}>Grátis</span> : `R$ ${s.price.toFixed(2)}`}
+                  {s.days ? ` · ${s.days}` : ""}
+                </div>
+              </div>
+
+              {/* Ações */}
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button type="button" onClick={() => onUpdate(options.map((o) => o.id === s.id ? { ...o, active: !o.active } : o))}
+                  style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 4, border: "1px solid var(--adm-border)", background: s.active ? "rgba(16,185,129,.15)" : "transparent", color: s.active ? "#10b981" : "var(--adm-text-muted)", cursor: "pointer", fontWeight: 600 }}>
+                  {s.active ? "Ativo" : "Inativo"}
+                </button>
+                <button type="button" onClick={() => isEditing ? cancelEditShip() : startEditShip(s)}
+                  style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 4, border: "1px solid var(--adm-border)", background: isEditing ? "rgba(139,92,246,.1)" : "transparent", color: isEditing ? "var(--adm-accent)" : "var(--adm-text-muted)", cursor: "pointer" }}>
+                  {isEditing ? "Cancelar" : "Editar"}
+                </button>
+                <button type="button" onClick={() => onUpdate(options.filter((o) => o.id !== s.id))}
+                  style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}>
+                  Remover
+                </button>
+              </div>
+            </div>
+
+            {/* Formulário de edição */}
+            {isEditing && (
+              <div style={{ padding: "14px", borderTop: "1px solid var(--adm-border)", background: "var(--adm-bg)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                  <div>
+                    <label className="admin-form-label">Nome da transportadora</label>
+                    <input className="admin-form-input" value={editShip.name}
+                      onChange={(e) => setEditShip((p) => ({ ...p, name: e.target.value }))} style={{ marginBottom: 0 }} />
+                  </div>
+                  <div>
+                    <label className="admin-form-label">Preço (R$)</label>
+                    <input className="admin-form-input" type="number" min="0" step="0.01" value={editShip.price}
+                      onChange={(e) => setEditShip((p) => ({ ...p, price: e.target.value }))} style={{ marginBottom: 0 }} />
+                  </div>
+                  <div>
+                    <label className="admin-form-label">Prazo</label>
+                    <input className="admin-form-input" placeholder="ex: 6 a 7 dias" value={editShip.days}
+                      onChange={(e) => setEditShip((p) => ({ ...p, days: e.target.value }))} style={{ marginBottom: 0 }} />
+                  </div>
+                </div>
+                <div>
+                  <label className="admin-form-label">URL do logo (opcional)</label>
+                  <input className="admin-form-input" placeholder="https://... ou /api/uploads/..." value={editShip.logoUrl}
+                    onChange={(e) => setEditShip((p) => ({ ...p, logoUrl: e.target.value }))} style={{ marginBottom: 0 }} />
+                </div>
+                <button type="button" className="admin-btn-primary" onClick={saveEditShip} style={{ marginTop: 12, fontSize: "0.82rem" }}>
+                  ✓ Confirmar edição
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const addShippingOption = () => {
     const name = newShip.name.trim();
@@ -1408,100 +1522,62 @@ function CheckoutSection({
       <div className="admin-card">
         <h2 className="admin-card-title">🚚 Opções de Frete</h2>
         <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
-          Exibidas no checkout para o cliente escolher. O preço selecionado é somado ao valor do pedido.
-          <strong style={{ color: "var(--adm-text-muted)", display: "block", marginTop: 8 }}>
-            Depois de adicionar ou alterar fretes, salve — use o botão abaixo ou &quot;Salvar checkout&quot; no rodapé da página.
-          </strong>
+          Exibidas no checkout. O preço da opção escolhida é somado ao total do pedido.
+          Clique em <strong>Editar</strong> para alterar um frete existente.
         </p>
 
-        {shippingOptions.length === 0 && (
-          <p style={{ fontSize: "0.83rem", color: "var(--adm-text-faint)", marginBottom: 12 }}>Nenhuma opção de frete cadastrada.</p>
+        {/* Lista de fretes cadastrados */}
+        {shippingOptions.length === 0 ? (
+          <p style={{ fontSize: "0.83rem", color: "var(--adm-text-faint)", marginBottom: 16 }}>Nenhuma opção de frete cadastrada.</p>
+        ) : (
+          <ShippingList
+            options={shippingOptions}
+            onUpdate={(updated) => { setShippingOptions(updated); markDirty(); }}
+            onUpload={handleShipLogoUploadExisting}
+          />
         )}
 
-        {shippingOptions.map((s) => (
-          <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--adm-border)" }}>
-            {/* Logo existente ou botão de upload */}
-            <div style={{ flexShrink: 0, width: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <label title="Clique para trocar a logo" style={{ cursor: "pointer", display: "block" }}>
-                <input type="file" accept="image/*" style={{ display: "none" }}
-                  onChange={(e) => handleShipLogoUploadExisting(s.id, e)} />
-                {s.logoUrl ? (
-                  <img src={s.logoUrl} alt={s.name}
-                    style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 6, border: "1px solid var(--adm-border)", background: "rgba(255,255,255,0.06)", padding: 4 }} />
-                ) : (
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 6, border: "1.5px dashed var(--adm-border)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "1rem", color: "var(--adm-text-faint)", background: "var(--adm-bg-card)",
-                  }} title="Adicionar logo">📷</div>
-                )}
-              </label>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "0.88rem", fontWeight: 600 }}>{s.name}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--adm-text-faint)" }}>
-                {s.price === 0 ? "Grátis" : `R$ ${s.price.toFixed(2)}`}
-                {s.days ? ` · ${s.days}` : ""}
-              </div>
-            </div>
-            <button type="button" onClick={() => toggleShipping(s.id)}
-              style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: 4, border: "1px solid var(--adm-border)", background: s.active ? "rgba(16,185,129,.15)" : "transparent", color: s.active ? "#10b981" : "var(--adm-text-muted)", cursor: "pointer" }}>
-              {s.active ? "Ativo" : "Inativo"}
-            </button>
-            <button type="button" onClick={() => removeShipping(s.id)}
-              style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}>
-              Remover
-            </button>
+        {/* Novo frete */}
+        <div style={{ border: "1px dashed var(--adm-border)", borderRadius: 10, padding: "16px", marginTop: 8 }}>
+          <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--adm-text-faint)", margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".06em" }}>+ Novo frete</p>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+            <input className="admin-form-input" placeholder="Nome da transportadora *" value={newShip.name}
+              onChange={(e) => setNewShip((p) => ({ ...p, name: e.target.value }))} style={{ marginBottom: 0 }} />
+            <input className="admin-form-input" type="number" min="0" step="0.01" placeholder="Preço (R$)" value={newShip.price}
+              onChange={(e) => setNewShip((p) => ({ ...p, price: e.target.value }))} style={{ marginBottom: 0 }} />
+            <input className="admin-form-input" placeholder="Prazo (ex: 6 a 7 dias)" value={newShip.days}
+              onChange={(e) => setNewShip((p) => ({ ...p, days: e.target.value }))} style={{ marginBottom: 0 }} />
           </div>
-        ))}
-
-        <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8 }}>
-          <input className="admin-form-input" placeholder="Nome da transportadora *" value={newShip.name}
-            onChange={(e) => setNewShip((p) => ({ ...p, name: e.target.value }))} style={{ marginBottom: 0 }} />
-          <input className="admin-form-input" type="number" min="0" step="0.01" placeholder="Preço (R$)" value={newShip.price}
-            onChange={(e) => setNewShip((p) => ({ ...p, price: e.target.value }))} style={{ marginBottom: 0 }} />
-          <input className="admin-form-input" placeholder="Prazo (ex: 6 a 7 dias)" value={newShip.days}
-            onChange={(e) => setNewShip((p) => ({ ...p, days: e.target.value }))} style={{ marginBottom: 0 }} />
-        </div>
-
-        {/* Upload de logo (opcional) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-          <label style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            background: "var(--adm-bg-card)", border: "1.5px dashed var(--adm-border)",
-            borderRadius: 8, padding: "7px 14px", cursor: shipLogoUploading ? "wait" : "pointer",
-            fontSize: "0.8rem", fontWeight: 600, color: "var(--adm-text-muted)",
-          }}>
-            <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleShipLogoUpload} disabled={shipLogoUploading} />
-            {shipLogoUploading ? "Enviando…" : "📷 Logo da transportadora (opcional)"}
-          </label>
-          {newShip.logoUrl && (
-            <>
-              <img src={newShip.logoUrl} alt="logo" style={{ height: 36, maxWidth: 120, objectFit: "contain", borderRadius: 6, border: "1px solid var(--adm-border)", background: "rgba(255,255,255,0.06)", padding: 4 }} />
-              <button type="button" onClick={() => setNewShip((p) => ({ ...p, logoUrl: "" }))}
-                style={{ fontSize: "0.72rem", padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}>
-                Remover
-              </button>
-            </>
-          )}
-        </div>
-
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 10 }}>
-          <button type="button" className="admin-btn-secondary" onClick={addShippingOption} disabled={!newShip.name.trim()} style={{ fontSize: "0.82rem" }}>
-            + Adicionar Frete
-          </button>
-          <button
-            type="button"
-            className="admin-btn-primary"
-            onClick={() => void handleSave()}
-            disabled={saving}
-            style={{ fontSize: "0.82rem" }}
-          >
-            {saving ? "Salvando…" : "💾 Salvar opções de frete"}
-          </button>
-          {isDirty && (
-            <span style={{ fontSize: "0.78rem", color: "#f59e0b", fontWeight: 600 }}>Alterações de frete não publicadas</span>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <label style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "var(--adm-bg-card)", border: "1.5px dashed var(--adm-border)",
+              borderRadius: 8, padding: "6px 12px", cursor: shipLogoUploading ? "wait" : "pointer",
+              fontSize: "0.78rem", fontWeight: 600, color: "var(--adm-text-muted)",
+            }}>
+              <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleShipLogoUpload} disabled={shipLogoUploading} />
+              {shipLogoUploading ? "Enviando…" : "📷 Logo (opcional)"}
+            </label>
+            {newShip.logoUrl && (
+              <>
+                <img src={newShip.logoUrl} alt="logo" style={{ height: 32, maxWidth: 100, objectFit: "contain", borderRadius: 6, border: "1px solid var(--adm-border)", background: "rgba(255,255,255,0.06)", padding: 3 }} />
+                <button type="button" onClick={() => setNewShip((p) => ({ ...p, logoUrl: "" }))}
+                  style={{ fontSize: "0.72rem", padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(248,113,113,.3)", background: "rgba(248,113,113,.1)", color: "#f87171", cursor: "pointer" }}>
+                  ✕
+                </button>
+              </>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <button type="button" className="admin-btn-secondary" onClick={addShippingOption} disabled={!newShip.name.trim()} style={{ fontSize: "0.82rem" }}>
+              + Adicionar Frete
+            </button>
+            <button type="button" className="admin-btn-primary" onClick={() => void handleSave()} disabled={saving} style={{ fontSize: "0.82rem" }}>
+              {saving ? "Salvando…" : "💾 Salvar fretes"}
+            </button>
+            {isDirty && <span style={{ fontSize: "0.78rem", color: "#f59e0b", fontWeight: 600 }}>● Alterações não salvas</span>}
+            {saveStatus === "saved" && <span style={{ fontSize: "0.78rem", color: "#10b981", fontWeight: 600 }}>✓ Fretes salvos</span>}
+          </div>
         </div>
       </div>
 

@@ -94,58 +94,27 @@ export default function CheckoutPage() {
   });
   const [cepLoading, setCepLoading] = useState(false);
 
-  // Config do checkout: um único merge evita corrida entre /api/store/config e
-  // /api/admin/checkout-config (o merge antigo zerava orderbumps quando prev ainda era null).
+  // Carrega config pública da loja — fonte única de verdade para o checkout.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const [storeRes, checkoutRes] = await Promise.all([
-          fetch("/api/store/config"),
-          fetch("/api/admin/checkout-config"),
-        ]);
-        const cfg = await storeRes.json();
-        const d = checkoutRes.ok
-          ? await checkoutRes.json().catch(() => null)
-          : null;
+    fetch("/api/store/config")
+      .then((r) => r.json())
+      .then((cfg: Record<string, unknown>) => {
         if (cancelled) return;
-
-        // Fonte pública (/api/store/config) tem prioridade para frete e bumps — mesmo disco,
-        // mas evita depender só de /api/admin/* e divergências de resposta vazia.
-        const shippingOptions: ShippingOption[] =
-          (cfg.shippingOptions?.length ?? 0) > 0
-            ? cfg.shippingOptions!
-            : ((d && !d.error ? d.shippingOptions : undefined) ?? []);
-        const orderbumps =
-          (cfg.orderbumps?.length ?? 0) > 0
-            ? cfg.orderbumps!
-            : ((d && !d.error ? d.orderbumps : undefined) ?? []);
-
-        if (d && !d.error) {
-          setConfig({
-            ...d,
-            orderbumps,
-            orderbumpStyle: d.orderbumpStyle ?? cfg.orderbumpStyle ?? "style1",
-            shippingOptions,
-            hasInternalCheckout: cfg.hasInternalCheckout ?? d.hasInternalCheckout,
-          });
-          const firstShip = shippingOptions.find((s) => s.active !== false);
-          if (firstShip) setSelectedShipping(firstShip.id);
-        } else {
-          setConfig((prev) => ({
-            ...(prev ?? {}),
-            hasInternalCheckout: cfg.hasInternalCheckout,
-            orderbumps,
-            orderbumpStyle: cfg.orderbumpStyle ?? prev?.orderbumpStyle ?? "style1",
-            shippingOptions,
-          }));
-          const firstShip = shippingOptions.find((s: ShippingOption) => s.active !== false);
-          if (firstShip) setSelectedShipping(firstShip.id);
-        }
-      } catch {
-        /* silencioso */
-      }
-    })();
+        const shipping = (cfg.shippingOptions as ShippingOption[] | undefined) ?? [];
+        setConfig({
+          hasInternalCheckout: !!(cfg.hasInternalCheckout),
+          orderbumps: (cfg.orderbumps as Orderbump[] | undefined) ?? [],
+          orderbumpStyle: (cfg.orderbumpStyle as "style1" | "style2" | undefined) ?? "style1",
+          shippingOptions: shipping,
+          redirectUrl: (cfg.redirectUrl as string | undefined) ?? "",
+          redirectEnabled: cfg.redirectEnabled !== false,
+          backLink: (cfg.backLink as string | undefined) ?? "",
+        });
+        const firstShip = shipping.find((s) => s.active !== false);
+        if (firstShip) setSelectedShipping(firstShip.id);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };

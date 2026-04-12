@@ -33,9 +33,12 @@ export async function GET(req: NextRequest) {
     hasInternalCheckout,
     pixProvider: provider,
     ttPixelIds,
-    /** Dados públicos do checkout (espelha admin; usado como fallback no cliente) */
+    /** Config de checkout pública */
     orderbumps: filterOrderbumpsForCheckout(c?.orderbumps),
     orderbumpStyle: c?.orderbumpStyle ?? "style1",
     shippingOptions: filterShippingForCheckout(c?.shippingOptions),
+    redirectUrl: c?.redirectUrl ?? "",
+    redirectEnabled: c?.redirectEnabled ?? true,
+    backLink: c?.backLink ?? "",
   });
 }
