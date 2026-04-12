@@ -94,34 +94,39 @@ export default function CheckoutPage() {
   });
   const [cepLoading, setCepLoading] = useState(false);
 
-  // Fetch checkout config
+  // Config do checkout: um único merge evita corrida entre /api/store/config e
+  // /api/admin/checkout-config (o merge antigo zerava orderbumps quando prev ainda era null).
   useEffect(() => {
-    fetch("/api/store/config")
-      .then((r) => r.json())
-      .then((cfg) => {
-        setConfig((prev) => ({
-          orderbumps: [],
-          orderbumpStyle: "style1",
-          shippingOptions: [],
-          redirectUrl: "",
-          redirectEnabled: true,
-          ...prev,
-          hasInternalCheckout: cfg.hasInternalCheckout,
-        }));
-      })
-      .catch(() => {});
-
-    fetch("/api/admin/checkout-config")
-      .then((r) => r.json())
-      .then((d) => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [storeRes, checkoutRes] = await Promise.all([
+          fetch("/api/store/config"),
+          fetch("/api/admin/checkout-config"),
+        ]);
+        const cfg = await storeRes.json();
+        const d = await checkoutRes.json();
+        if (cancelled) return;
         if (d && !d.error) {
-          setConfig(d);
-          // Pré-selecionar primeira opção de frete ativa
+          setConfig({
+            ...d,
+            hasInternalCheckout: cfg.hasInternalCheckout ?? d.hasInternalCheckout,
+          });
           const firstShip = (d.shippingOptions ?? []).find((s: ShippingOption) => s.active);
           if (firstShip) setSelectedShipping(firstShip.id);
+        } else {
+          setConfig((prev) => ({
+            ...(prev ?? {}),
+            hasInternalCheckout: cfg.hasInternalCheckout,
+          }));
         }
-      })
-      .catch(() => {});
+      } catch {
+        /* silencioso */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Status polling
