@@ -5,6 +5,7 @@ import {
   readSalesLog,
   dateKeySaoPaulo,
   todayKeySaoPaulo,
+  summarizeSaleEntries,
   type SaleLogEntry,
 } from "@/lib/sales-log";
 
@@ -21,10 +22,6 @@ async function verifyAdmin(req: NextRequest) {
   const { payload } = await jwtVerify(token, JWT_SECRET);
   const tenant = getTenantFromRequest(req);
   if (payload.tenant && payload.tenant !== tenant) throw new Error("Unauthorized");
-}
-
-function round2(n: number) {
-  return Math.round(n * 100) / 100;
 }
 
 function filterByRange(items: SaleLogEntry[], range: "today" | "all"): SaleLogEntry[] {
@@ -78,33 +75,6 @@ function collectLineOptions(items: SaleLogEntry[]): { value: string; label: stri
   return out.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 }
 
-function summarize(items: SaleLogEntry[]) {
-  let revenueTotal = 0;
-  let revenueMerch = 0;
-  let revenueShip = 0;
-  let withBreak = 0;
-  for (const e of items) {
-    revenueTotal += e.amount;
-    if (e.amountCart !== undefined && e.amountShipping !== undefined) {
-      revenueMerch += (e.amountCart ?? 0) + (e.amountBumps ?? 0);
-      revenueShip += e.amountShipping;
-      withBreak++;
-    }
-  }
-  const paidCount = items.filter((e) => e.status === "paid").length;
-  const pendingCount = items.filter((e) => e.status === "waiting_payment").length;
-
-  return {
-    orderCount: items.length,
-    paidCount,
-    pendingCount,
-    revenueTotal: round2(revenueTotal),
-    revenueMerchandise: withBreak > 0 ? round2(revenueMerch) : null,
-    revenueShipping: withBreak > 0 ? round2(revenueShip) : null,
-    ordersWithBreakdown: withBreak,
-  };
-}
-
 /**
  * GET ?range=today|all&status=all|paid|pending&line=p:ID|b:ID
  * Resposta: items, summary (totais no conjunto filtrado), lineOptions (período sem filtro de linha)
@@ -124,7 +94,7 @@ export async function GET(req: NextRequest) {
     scoped = filterByLine(scoped, line);
     if (range === "today") scoped = scoped.slice(0, 300);
 
-    const summary = summarize(scoped);
+    const summary = summarizeSaleEntries(scoped);
 
     return NextResponse.json(
       { items: scoped, summary, lineOptions },

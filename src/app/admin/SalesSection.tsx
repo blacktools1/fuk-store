@@ -100,10 +100,18 @@ export function SalesSection() {
 
   return (
     <div className="admin-card">
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-        <h2 className="admin-card-title" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>
-          Vendas
-        </h2>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+        <div>
+          <h2 className="admin-card-title" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>
+            Vendas
+          </h2>
+          {range === "today" && (
+            <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--adm-text-faint)", maxWidth: "42ch", lineHeight: 1.45 }}>
+              Totais no fuso <strong style={{ color: "var(--adm-text-muted)" }}>America/São_Paulo</strong>.
+              Para bater com o card <strong>Faturamento de hoje</strong> no dashboard, use <strong>Hoje</strong> + status <strong>Pagos</strong>.
+            </p>
+          )}
+        </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.75rem", color: "var(--adm-text-faint)" }}>
             Período

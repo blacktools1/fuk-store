@@ -90,6 +90,72 @@ export function todayKeySaoPaulo(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: TZ });
 }
 
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
+/** Resumo financeiro sobre uma lista de pedidos (já filtrada). */
+export interface SalesRevenueSummary {
+  orderCount: number;
+  paidCount: number;
+  pendingCount: number;
+  revenueTotal: number;
+  revenueMerchandise: number | null;
+  revenueShipping: number | null;
+  ordersWithBreakdown: number;
+}
+
+export function summarizeSaleEntries(items: SaleLogEntry[]): SalesRevenueSummary {
+  let revenueTotal = 0;
+  let revenueMerch = 0;
+  let revenueShip = 0;
+  let withBreak = 0;
+  for (const e of items) {
+    revenueTotal += e.amount;
+    if (e.amountCart !== undefined && e.amountShipping !== undefined) {
+      revenueMerch += (e.amountCart ?? 0) + (e.amountBumps ?? 0);
+      revenueShip += e.amountShipping;
+      withBreak++;
+    }
+  }
+  const paidCount = items.filter((e) => e.status === "paid").length;
+  const pendingCount = items.filter((e) => e.status === "waiting_payment").length;
+
+  return {
+    orderCount: items.length,
+    paidCount,
+    pendingCount,
+    revenueTotal: round2(revenueTotal),
+    revenueMerchandise: withBreak > 0 ? round2(revenueMerch) : null,
+    revenueShipping: withBreak > 0 ? round2(revenueShip) : null,
+    ordersWithBreakdown: withBreak,
+  };
+}
+
+/** Pedidos do dia (fuso SP), mais recentes primeiro. */
+export function getEntriesForToday(tenant: string): SaleLogEntry[] {
+  const all = readSalesLog(tenant);
+  const today = todayKeySaoPaulo();
+  return all.filter((e) => dateKeySaoPaulo(e.createdAt) === today);
+}
+
+/** Somente vendas pagas hoje — para o dashboard. */
+export function getTodayPaidSummary(tenant: string): SalesRevenueSummary {
+  const items = getEntriesForToday(tenant).filter((e) => e.status === "paid");
+  return summarizeSaleEntries(items);
+}
+
+export function getTodayPendingSnapshot(tenant: string): {
+  orderCount: number;
+  amountTotal: number;
+} {
+  const items = getEntriesForToday(tenant).filter((e) => e.status === "waiting_payment");
+  return {
+    orderCount: items.length,
+    amountTotal: round2(items.reduce((s, e) => s + e.amount, 0)),
+  };
+}
+
 /**
  * Registra ou atualiza pedido após gerar PIX (idempotente por transactionId).
  */

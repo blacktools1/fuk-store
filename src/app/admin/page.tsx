@@ -22,6 +22,7 @@ import { PIX_PROVIDER_CATALOG, getPixProviderEntry } from "@/lib/pix-providers";
 import { formatPrice } from "@/lib/products";
 import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 import { SalesSection } from "./SalesSection";
+import type { SalesRevenueSummary } from "@/lib/sales-log";
 
 /** Exibe credencial mascarada (somente leitura no painel). */
 function maskPixCredential(value: string): string {
@@ -319,6 +320,7 @@ export default function AdminPage() {
               totalBanners={totalBanners}
               storeData={data}
               onSaveConfig={save}
+              onOpenSales={() => navigate("sales")}
             />
           )}
 
@@ -450,6 +452,7 @@ function DashboardSection({
   totalBanners,
   storeData,
   onSaveConfig,
+  onOpenSales,
 }: {
   totalProducts: number;
   activeProducts: number;
@@ -457,7 +460,30 @@ function DashboardSection({
   totalBanners: number;
   storeData: StoreData | null;
   onSaveConfig: (patch: Partial<StoreData>) => Promise<void>;
+  onOpenSales: () => void;
 }) {
+  const [revLoading, setRevLoading] = useState(true);
+  const [revData, setRevData] = useState<{
+    dateKey: string;
+    paidToday: SalesRevenueSummary;
+    pendingToday: { orderCount: number; amountTotal: number };
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/dashboard-revenue", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.paidToday) setRevData(j);
+      })
+      .finally(() => {
+        if (!cancelled) setRevLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [pixEnabled, setPixEnabled] = useState(storeData?.pixDiscountEnabled ?? true);
   const [pixPct, setPixPct]         = useState(storeData?.pixDiscount ?? 5);
   const [freeShip, setFreeShip]     = useState(storeData?.freeShippingMin ?? 199);
@@ -482,8 +508,84 @@ function DashboardSection({
     setSaving(false);
   };
 
+  const paid = revData?.paidToday;
+  const fretePct =
+    paid &&
+    paid.revenueTotal > 0 &&
+    paid.revenueShipping != null &&
+    paid.revenueShipping > 0
+      ? Math.round((paid.revenueShipping / paid.revenueTotal) * 1000) / 10
+      : null;
+
   return (
     <>
+      <div className="admin-rev-block">
+        <div className="admin-rev-head">
+          <div>
+            <h3 className="admin-rev-title">Faturamento de hoje</h3>
+            <p className="admin-rev-subtitle">
+              Valores em <strong>pedidos pagos</strong> (PIX confirmado), fuso America/São_Paulo
+              {revData?.dateKey ? (
+                <> · data <code className="admin-rev-datecode">{revData.dateKey}</code></>
+              ) : null}
+            </p>
+          </div>
+          <button type="button" className="admin-btn-secondary admin-rev-link-btn" onClick={onOpenSales}>
+            Abrir Vendas
+          </button>
+        </div>
+
+        {revLoading ? (
+          <p style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>Carregando faturamento…</p>
+        ) : paid ? (
+          <div className="admin-rev-grid">
+            <div className="admin-stat-card admin-rev-card--hero">
+              <span className="admin-stat-icon" aria-hidden>💰</span>
+              <div className="admin-rev-value-xl">{formatPrice(paid.revenueTotal)}</div>
+              <div className="admin-stat-label">Total faturado hoje</div>
+              <div className="admin-rev-foot">{paid.orderCount} pedido(ns) pago(s)</div>
+            </div>
+            <div className="admin-stat-card">
+              <span className="admin-stat-icon" aria-hidden>🛒</span>
+              <div className="admin-stat-value" style={{ fontSize: "1.05rem" }}>
+                {paid.revenueMerchandise != null ? formatPrice(paid.revenueMerchandise) : "—"}
+              </div>
+              <div className="admin-stat-label">Produtos + ofertas</div>
+              {paid.ordersWithBreakdown < paid.orderCount && paid.orderCount > 0 && (
+                <div className="admin-rev-foot">Parcial: pedidos antigos sem detalhe</div>
+              )}
+            </div>
+            <div className="admin-stat-card">
+              <span className="admin-stat-icon" aria-hidden>🚚</span>
+              <div className="admin-stat-value" style={{ fontSize: "1.05rem" }}>
+                {paid.revenueShipping != null ? formatPrice(paid.revenueShipping) : "—"}
+              </div>
+              <div className="admin-stat-label">Frete cobrado</div>
+              {fretePct != null && (
+                <div className="admin-rev-foot">{fretePct}% do faturamento de hoje</div>
+              )}
+              {paid.revenueShipping === 0 && paid.ordersWithBreakdown > 0 && (
+                <div className="admin-rev-foot">Frete grátis / zerado nos pedidos com detalhe</div>
+              )}
+            </div>
+            {revData && (
+              <div className="admin-stat-card">
+                <span className="admin-stat-icon" aria-hidden>⏳</span>
+                <div className="admin-stat-value" style={{ fontSize: "1.05rem" }}>
+                  {formatPrice(revData.pendingToday.amountTotal)}
+                </div>
+                <div className="admin-stat-label">PIX aguardando (hoje)</div>
+                <div className="admin-rev-foot">{revData.pendingToday.orderCount} pedido(ns)</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>
+            Não foi possível carregar o faturamento.
+          </p>
+        )}
+      </div>
+
       <div className="admin-stats-grid">
         <div className="admin-stat-card">
           <span className="admin-stat-icon">📦</span>

@@ -1807,6 +1807,81 @@
   color: var(--adm-danger);
 }
 
+/* ─── Dashboard — faturamento hoje ─────────────────────────── */
+.admin-rev-block {
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  border-radius: var(--adm-radius);
+  border: 1px solid var(--adm-border);
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.06), transparent 55%);
+}
+
+.admin-rev-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-rev-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--adm-text);
+}
+
+.admin-rev-subtitle {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: var(--adm-text-muted);
+  line-height: 1.45;
+  max-width: 52ch;
+}
+
+.admin-rev-datecode {
+  font-size: 0.75em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--adm-bg-elevated);
+  border: 1px solid var(--adm-border);
+}
+
+.admin-rev-link-btn {
+  font-size: 0.82rem;
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+.admin-rev-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
+}
+
+.admin-rev-card--hero {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.07);
+}
+
+.admin-rev-value-xl {
+  font-size: 1.42rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--adm-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.admin-rev-foot {
+  font-size: 0.68rem;
+  color: var(--adm-text-faint);
+  margin-top: 8px;
+  line-height: 1.35;
+}
+
 /* ─── Vendas — resumo ─────────────────────────────────────── */
 .admin-sales-summary {
   display: grid;
