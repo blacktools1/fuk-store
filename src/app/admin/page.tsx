@@ -690,7 +690,13 @@ function CheckoutSection({
   const [newShip, setNewShip] = useState({ name: "", price: "0", days: "", logoUrl: "" });
   const [shipLogoUploading, setShipLogoUploading] = useState(false);
   const [editingShipId, setEditingShipId] = useState<string | null>(null);
-  const [editShip, setEditShip] = useState({ name: "", price: "0", days: "", logoUrl: "" });
+  const [editShip, setEditShip] = useState({
+    name: "",
+    price: "0",
+    days: "",
+    logoUrl: "",
+    freeShippingEligible: false,
+  });
 
   // UTMify — múltiplas contas
   const [utmifyAccounts, setUtmifyAccounts] = useState<import("@/lib/admin-types").UtmifyAccount[]>(
@@ -831,7 +837,13 @@ function CheckoutSection({
 
   const startEditShip = (s: import("@/lib/admin-types").ShippingOption) => {
     setEditingShipId(s.id);
-    setEditShip({ name: s.name, price: String(s.price), days: s.days, logoUrl: s.logoUrl ?? "" });
+    setEditShip({
+      name: s.name,
+      price: String(s.price),
+      days: s.days,
+      logoUrl: s.logoUrl ?? "",
+      freeShippingEligible: !!s.freeShippingEligible,
+    });
   };
 
   const cancelEditShip = () => { setEditingShipId(null); };
@@ -842,11 +854,22 @@ function CheckoutSection({
     const snap = { ...editShip };
     let newList: import("@/lib/admin-types").ShippingOption[] = [];
     setShippingOptions((prev) => {
-      newList = prev.map((s) =>
-        s.id === editingId
-          ? { ...s, name: snap.name.trim() || s.name, price: parseFloat(snap.price) || 0, days: snap.days.trim(), logoUrl: snap.logoUrl.trim() || undefined }
-          : s
-      );
+      newList = prev.map((s) => {
+        if (s.id === editingId) {
+          return {
+            ...s,
+            name: snap.name.trim() || s.name,
+            price: parseFloat(snap.price) || 0,
+            days: snap.days.trim(),
+            logoUrl: snap.logoUrl.trim() || undefined,
+            freeShippingEligible: snap.freeShippingEligible,
+          };
+        }
+        if (snap.freeShippingEligible) {
+          return { ...s, freeShippingEligible: false };
+        }
+        return s;
+      });
       return newList;
     });
     setEditingShipId(null);
@@ -890,6 +913,9 @@ function CheckoutSection({
                 <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
                   {s.price === 0 ? <span style={{ color: "#10b981", fontWeight: 600 }}>Grátis</span> : `R$ ${s.price.toFixed(2)}`}
                   {s.days ? ` · ${s.days}` : ""}
+                  {s.freeShippingEligible && (
+                    <span style={{ marginLeft: 6, color: "#a78bfa", fontWeight: 600 }}>· Frete grátis no mínimo</span>
+                  )}
                 </div>
               </div>
 
@@ -935,6 +961,17 @@ function CheckoutSection({
                   <input className="admin-form-input" placeholder="https://... ou /api/uploads/..." value={editShip.logoUrl}
                     onChange={(e) => setEditShip((p) => ({ ...p, logoUrl: e.target.value }))} style={{ marginBottom: 0 }} />
                 </div>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 12, cursor: "pointer", fontSize: "0.82rem", color: "var(--adm-text-muted)", lineHeight: 1.45 }}>
+                  <input
+                    type="checkbox"
+                    checked={editShip.freeShippingEligible}
+                    onChange={(e) => setEditShip((p) => ({ ...p, freeShippingEligible: e.target.checked }))}
+                    style={{ marginTop: 3, flexShrink: 0 }}
+                  />
+                  <span>
+                    Esta transportadora fica <strong style={{ color: "var(--adm-text)" }}>grátis</strong> quando o pedido (produtos + ofertas) atingir o valor mínimo de frete grátis da loja. Apenas uma opção pode ser marcada.
+                  </span>
+                </label>
                 <button type="button" className="admin-btn-primary" onClick={saveEditShip} style={{ marginTop: 12, fontSize: "0.82rem" }}>
                   ✓ Confirmar edição
                 </button>
@@ -956,6 +993,7 @@ function CheckoutSection({
       price: parseFloat(newShip.price) || 0,
       days: newShip.days.trim(),
       logoUrl: newShip.logoUrl.trim() || undefined,
+      freeShippingEligible: false,
     };
     // Usa updater funcional para garantir que partimos do estado mais recente
     let newList: import("@/lib/admin-types").ShippingOption[] = [];

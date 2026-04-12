@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getPixQrImgSrc } from "@/lib/pix-qr";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
-import { cartTotal, cartCount } from "@/lib/cart";
+import { cartCount } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
 import { firePixelEvent } from "@/lib/pixel";
 import { validateCPF, formatCPF, formatPhone, digitsOnly } from "@/lib/cpf";
 import type { Orderbump, ShippingOption } from "@/lib/admin-types";
 import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
+import { computeCheckoutTotals } from "@/lib/checkout-totals";
 
 interface CheckoutConfig {
   orderbumps?: Orderbump[];
@@ -21,6 +22,9 @@ interface CheckoutConfig {
   redirectEnabled?: boolean;
   backLink?: string;
   hasInternalCheckout?: boolean;
+  pixDiscountEnabled?: boolean;
+  pixDiscount?: number;
+  freeShippingMin?: number;
 }
 
 interface CustomerForm {
@@ -69,7 +73,6 @@ function readStoredUtms(): Record<string, string> {
 export default function CheckoutPage() {
   const { items, clear } = useCart();
   const { user } = useUser();
-  const total = cartTotal(items);
 
   const [config, setConfig] = useState<CheckoutConfig | null>(null);
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
@@ -111,6 +114,9 @@ export default function CheckoutPage() {
           redirectUrl: (cfg.redirectUrl as string | undefined) ?? "",
           redirectEnabled: cfg.redirectEnabled !== false,
           backLink: (cfg.backLink as string | undefined) ?? "",
+          pixDiscountEnabled: cfg.pixDiscountEnabled !== false,
+          pixDiscount: typeof cfg.pixDiscount === "number" ? cfg.pixDiscount : 5,
+          freeShippingMin: typeof cfg.freeShippingMin === "number" ? cfg.freeShippingMin : 199,
         });
         const firstShip = shipping.find((s) => s.active !== false);
         if (firstShip) setSelectedShipping(firstShip.id);
@@ -230,18 +236,45 @@ export default function CheckoutPage() {
     );
   };
 
-  const bumpTotal = (config?.orderbumps ?? [])
-    .filter((ob) => ob.active !== false && selectedBumps.includes(ob.id))
-    .reduce((s, ob) => s + ob.price, 0);
+  const pixDiscountEnabled = config?.pixDiscountEnabled ?? true;
+  const pixDiscountPct = config?.pixDiscount ?? 5;
+  const freeShippingMin = config?.freeShippingMin ?? 199;
 
-  const shippingTotal = (() => {
-    const opts = config?.shippingOptions ?? [];
-    if (opts.length === 0) return 0;
-    const sel = opts.find((s) => s.id === selectedShipping);
-    return sel ? sel.price : 0;
-  })();
+  const cartItemsForCalc = useMemo(
+    () =>
+      items.map((i) => ({
+        price: i.product.price,
+        qty: i.quantity,
+      })),
+    [items]
+  );
 
-  const grandTotal = total + bumpTotal + shippingTotal;
+  const totals = useMemo(
+    () =>
+      computeCheckoutTotals({
+        cartItems: cartItemsForCalc,
+        selectedOrderbumpIds: selectedBumps,
+        orderbumps: config?.orderbumps ?? [],
+        selectedShippingId: selectedShipping,
+        shippingOptions: config?.shippingOptions ?? [],
+        paymentMethod: "pix",
+        pixDiscountEnabled,
+        pixDiscountPct,
+        freeShippingMin,
+      }),
+    [
+      cartItemsForCalc,
+      selectedBumps,
+      config?.orderbumps,
+      selectedShipping,
+      config?.shippingOptions,
+      pixDiscountEnabled,
+      pixDiscountPct,
+      freeShippingMin,
+    ]
+  );
+
+  const grandTotal = totals.total;
 
   // InitiateCheckout: direto em /checkout; se veio do carrinho, IC já foi disparado lá
   useEffect(() => {
@@ -313,6 +346,7 @@ export default function CheckoutPage() {
           utms,
           selectedOrderbumps: selectedBumps,
           selectedShippingId: selectedShipping,
+          paymentMethod: "pix",
         }),
       });
       const data = await res.json();
@@ -383,39 +417,6 @@ export default function CheckoutPage() {
             ← Voltar ao carrinho
           </Link>
         )}
-        {/* Resumo do pedido */}
-        <div className="co2-card">
-          <p className="co2-summary-label">Resumo do seu pedido:</p>
-          {items.map((item) => (
-            <div key={item.id} className="co2-summary-row">
-              {item.product.image && (
-                <div className="co2-summary-img">
-                  <Image
-                    src={item.product.image}
-                    alt={item.product.name}
-                    fill
-                    sizes="48px"
-                    quality={STORE_IMAGE_QUALITY_THUMB}
-                    style={{ objectFit: "cover" }}
-                  />
-                </div>
-              )}
-              <div className="co2-summary-info">
-                <p className="co2-summary-name">
-                  {item.product.name}
-                  {item.variation && <span className="co2-summary-var"> — {item.variation}</span>}
-                </p>
-                {item.quantity > 1 && <p className="co2-summary-qty">Qtd: {item.quantity}</p>}
-              </div>
-              <p className="co2-summary-price">{formatPrice(item.product.price * item.quantity)}</p>
-            </div>
-          ))}
-          <hr className="co2-divider" />
-          <div className="co2-total-row">
-            <span className="co2-total-label">Total:</span>
-            <span className="co2-total-value">{formatPrice(grandTotal)}</span>
-          </div>
-        </div>
 
         {/* Identificação */}
         <div className="co2-card">
@@ -521,8 +522,32 @@ export default function CheckoutPage() {
                       <span className="co2-shipping-name">{s.name}</span>
                       {s.days && <span className="co2-shipping-days">{s.days}</span>}
                     </div>
-                    <span className={`co2-shipping-price${s.price === 0 ? " co2-shipping-price--free" : ""}`}>
-                      {s.price === 0 ? "Grátis" : formatPrice(s.price)}
+                    <span className={`co2-shipping-price${(() => {
+                      const base = s.price;
+                      const freeHere =
+                        s.freeShippingEligible &&
+                        totals.qualifiesFreeShipping &&
+                        base > 0;
+                      return freeHere || base === 0 ? " co2-shipping-price--free" : "";
+                    })()}`}>
+                      {(() => {
+                        const base = s.price;
+                        const freeHere =
+                          s.freeShippingEligible &&
+                          totals.qualifiesFreeShipping &&
+                          base > 0;
+                        if (freeHere) {
+                          return (
+                            <>
+                              <span style={{ textDecoration: "line-through", opacity: 0.55, marginRight: 6 }}>
+                                {formatPrice(base)}
+                              </span>
+                              Grátis
+                            </>
+                          );
+                        }
+                        return base === 0 ? "Grátis" : formatPrice(base);
+                      })()}
                     </span>
                   </label>
                 ))}
@@ -594,6 +619,89 @@ export default function CheckoutPage() {
             ))}
           </div>
         )}
+
+        {/* Resumo do pedido (após frete e ofertas) */}
+        <div className="co2-card">
+          <p className="co2-summary-label">Resumo do pedido</p>
+          {items.map((item) => (
+            <div key={item.id} className="co2-summary-row">
+              {item.product.image && (
+                <div className="co2-summary-img">
+                  <Image
+                    src={item.product.image}
+                    alt={item.product.name}
+                    fill
+                    sizes="48px"
+                    quality={STORE_IMAGE_QUALITY_THUMB}
+                    style={{ objectFit: "cover" }}
+                  />
+                </div>
+              )}
+              <div className="co2-summary-info">
+                <p className="co2-summary-name">
+                  {item.product.name}
+                  {item.variation && <span className="co2-summary-var"> — {item.variation}</span>}
+                </p>
+                {item.quantity > 1 && <p className="co2-summary-qty">Qtd: {item.quantity}</p>}
+              </div>
+              <p className="co2-summary-price">{formatPrice(item.product.price * item.quantity)}</p>
+            </div>
+          ))}
+          {totals.activeBumps.map((ob) => (
+            <div key={`bump-${ob.id}`} className="co2-summary-row co2-summary-row--bump">
+              <div className="co2-summary-info">
+                <p className="co2-summary-name">Oferta: {ob.title}</p>
+              </div>
+              <p className="co2-summary-price">{formatPrice(ob.price)}</p>
+            </div>
+          ))}
+          {totals.pixDiscountAmount > 0 && (
+            <div className="co2-summary-discount-row">
+              <span>Desconto PIX ({pixDiscountPct}%)</span>
+              <span>− {formatPrice(totals.pixDiscountAmount)}</span>
+            </div>
+          )}
+          <hr className="co2-divider" />
+          <div className="co2-summary-shipping-row">
+            <span>
+              Frete
+              {totals.shippingLabel ? ` (${totals.shippingLabel})` : ""}
+            </span>
+            <span>
+              {(() => {
+                const sel = (config?.shippingOptions ?? []).find((s) => s.id === selectedShipping);
+                const base = sel ? sel.price : 0;
+                const freeApplied =
+                  sel?.freeShippingEligible &&
+                  totals.qualifiesFreeShipping &&
+                  base > 0;
+                if ((config?.shippingOptions ?? []).length === 0) {
+                  return <span style={{ color: "#6b7280" }}>—</span>;
+                }
+                if (freeApplied) {
+                  return (
+                    <>
+                      <span style={{ textDecoration: "line-through", opacity: 0.55, marginRight: 8 }}>
+                        {formatPrice(base)}
+                      </span>
+                      <span style={{ color: "#16a34a", fontWeight: 700 }}>Grátis</span>
+                    </>
+                  );
+                }
+                return base === 0 ? (
+                  <span style={{ color: "#16a34a", fontWeight: 700 }}>Grátis</span>
+                ) : (
+                  formatPrice(totals.shippingPrice)
+                );
+              })()}
+            </span>
+          </div>
+          <hr className="co2-divider" />
+          <div className="co2-total-row">
+            <span className="co2-total-label">Total a pagar</span>
+            <span className="co2-total-value">{formatPrice(grandTotal)}</span>
+          </div>
+        </div>
 
         {/* Pagamento */}
         <div className="co2-card">

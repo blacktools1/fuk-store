@@ -55,9 +55,11 @@ export interface ShippingOption {
   id: string;
   active: boolean;
   name: string;        // ex: "Correios com Rastreio Online/NF"
-  price: number;       // 0 = grátis
+  price: number;       // 0 = sempre grátis
   days: string;        // ex: "6 a 7 dias"
   logoUrl?: string;    // URL de ícone/logo da transportadora (opcional)
+  /** Só uma opção deve ter: ao atingir freeShippingMin da loja (produtos + order bumps), este frete fica R$ 0 */
+  freeShippingEligible?: boolean;
 }
 
 /**

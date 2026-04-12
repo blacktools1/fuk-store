@@ -6,6 +6,7 @@ import { createOramaPayment } from "@/lib/orama";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
+import { computeCheckoutTotals, type PaymentMethodCheckout } from "@/lib/checkout-totals";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,14 @@ export async function POST(req: NextRequest) {
     const provider = (config?.pixProvider || "paradise").toLowerCase();
 
     const body = await req.json();
-    const { customer, cartItems = [], utms = {}, selectedOrderbumps = [], selectedShippingId } = body;
+    const {
+      customer,
+      cartItems = [],
+      utms = {},
+      selectedOrderbumps = [],
+      selectedShippingId,
+      paymentMethod: paymentMethodRaw,
+    } = body;
 
     // Validação comum a todos os provedores
     const validationError = validateCommonFields(customer, cartItems);
@@ -39,25 +47,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
+    const paymentMethod: PaymentMethodCheckout =
+      paymentMethodRaw === "other" ? "other" : "pix";
+    if (paymentMethod === "other") {
+      return NextResponse.json(
+        { error: "No momento só aceitamos pagamento via PIX." },
+        { status: 400 }
+      );
+    }
+
     const cpf   = digitsOnly(customer.cpf);
     const phone = digitsOnly(customer.phone);
 
-    // Calcular total
-    let total = (cartItems as { price: number; qty: number }[]).reduce(
-      (sum, item) => sum + item.price * (item.qty || 1), 0
-    );
+    const totals = computeCheckoutTotals({
+      cartItems: cartItems as { price: number; qty: number }[],
+      selectedOrderbumpIds: Array.isArray(selectedOrderbumps) ? selectedOrderbumps : [],
+      orderbumps: config?.orderbumps ?? [],
+      selectedShippingId: selectedShippingId ?? null,
+      shippingOptions: config?.shippingOptions ?? [],
+      paymentMethod,
+      pixDiscountEnabled: store.pixDiscountEnabled !== false,
+      pixDiscountPct: store.pixDiscount ?? 5,
+      freeShippingMin: store.freeShippingMin ?? 199,
+    });
 
-    // Orderbumps selecionados
-    const activeOrdebumps = (config?.orderbumps ?? []).filter(
-      (ob) => ob.active !== false && selectedOrderbumps.includes(ob.id)
-    );
-    total += activeOrdebumps.reduce((sum, ob) => sum + ob.price, 0);
-
-    // Shipping
-    const activeShipping = (config?.shippingOptions ?? []).find(
-      (s) => s.active !== false && s.id === selectedShippingId
-    );
-    if (activeShipping) total += activeShipping.price;
+    const total = totals.total;
+    const activeOrdebumps = totals.activeBumps;
 
     if (total < 0.1) {
       return NextResponse.json({ error: "Valor mínimo é R$ 0,10" }, { status: 400 });
@@ -115,15 +130,29 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const items = (cartItems as { name: string; price: number; qty: number }[]).map((i) => ({
+      const cartSum = (cartItems as { price: number; qty: number }[]).reduce(
+        (s, i) => s + i.price * (i.qty || 1),
+        0
+      );
+      const scale = cartSum > 0 ? totals.cartAfterPix / cartSum : 1;
+      const items: { name: string; unitPrice: number; quantity: number }[] = (
+        cartItems as { name: string; price: number; qty: number }[]
+      ).map((i) => ({
         name: i.name,
-        unitPrice: Math.round(i.price * 100),
+        unitPrice: Math.round(i.price * scale * 100),
         quantity: i.qty || 1,
       }));
       for (const ob of activeOrdebumps) {
         items.push({
           name: ob.title,
           unitPrice: Math.round(ob.price * 100),
+          quantity: 1,
+        });
+      }
+      if (totals.shippingPrice > 0) {
+        items.push({
+          name: `Frete — ${totals.shippingLabel}`,
+          unitPrice: Math.round(totals.shippingPrice * 100),
           quantity: 1,
         });
       }
