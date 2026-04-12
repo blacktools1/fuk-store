@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const provider = (config?.pixProvider || "paradise").toLowerCase();
 
     const body = await req.json();
-    const { customer, cartItems = [], utms = {}, selectedOrderbumps = [] } = body;
+    const { customer, cartItems = [], utms = {}, selectedOrderbumps = [], selectedShippingId } = body;
 
     // Validação comum a todos os provedores
     const validationError = validateCommonFields(customer, cartItems);
@@ -52,6 +52,12 @@ export async function POST(req: NextRequest) {
       (ob) => ob.active && selectedOrderbumps.includes(ob.id)
     );
     total += activeOrdebumps.reduce((sum, ob) => sum + ob.price, 0);
+
+    // Shipping
+    const activeShipping = (config?.shippingOptions ?? []).find(
+      (s) => s.active && s.id === selectedShippingId
+    );
+    if (activeShipping) total += activeShipping.price;
 
     if (total < 0.1) {
       return NextResponse.json({ error: "Valor mínimo é R$ 0,10" }, { status: 400 });

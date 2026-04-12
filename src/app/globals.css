@@ -3411,6 +3411,194 @@ a.co2-back-cart--modal {
 }
 .co2-ob-btn-text { color: white; font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; }
 
+/* Order Bump — Estilo 2 (card com imagem, badge, desconto) */
+.co2-ob2-card {
+  position: relative;
+  border: 2px dashed #d8b4fe;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .18s, box-shadow .18s;
+}
+.co2-ob2-card--sel {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124,58,237,.15);
+}
+.co2-ob2-badge {
+  position: absolute;
+  top: -1px;
+  left: 14px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.co2-ob2-badge::before {
+  content: "✦";
+  font-size: 0.6rem;
+}
+.co2-ob2-radio {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #c4b5fd;
+  background: #fff;
+  cursor: pointer;
+  padding: 0;
+  transition: background .15s, border-color .15s;
+}
+.co2-ob2-radio--sel {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124,58,237,.25);
+}
+.co2-ob2-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding-top: 12px;
+}
+.co2-ob2-img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+  border: 1px solid #f3e8ff;
+}
+.co2-ob2-info {
+  flex: 1;
+  min-width: 0;
+}
+.co2-ob2-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 6px;
+  padding-right: 28px;
+}
+.co2-ob2-price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.co2-ob2-price {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #7c3aed;
+}
+.co2-ob2-old {
+  font-size: 0.82rem;
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+.co2-ob2-disc {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+.co2-ob2-desc {
+  font-size: 0.82rem;
+  color: #4b5563;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.co2-ob2-btn {
+  width: 100%;
+  padding: 11px;
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.co2-ob2-btn:hover { opacity: .9; }
+.co2-ob2-btn--sel {
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+
+/* Shipping options */
+.co2-shipping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.co2-shipping-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #fff;
+  transition: border-color .15s, background .15s;
+}
+.co2-shipping-row--sel {
+  border-color: #7c3aed;
+  background: #faf5ff;
+}
+.co2-shipping-radio {
+  width: 18px;
+  height: 18px;
+  accent-color: #7c3aed;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.co2-shipping-logo {
+  width: 36px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.co2-shipping-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.co2-shipping-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+}
+.co2-shipping-days {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+.co2-shipping-price {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap;
+}
+.co2-shipping-price--free {
+  color: #16a34a;
+}
+
 /* Modal PIX Tema 2 */
 .co2-modal-overlay {
   position: fixed; inset: 0;

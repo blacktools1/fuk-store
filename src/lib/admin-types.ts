@@ -43,8 +43,19 @@ export interface Orderbump {
   title: string;
   description: string;
   price: number;
+  oldPrice?: number;   // preço original para exibir desconto no estilo 2
+  badge?: string;      // ex: "BRINDE 1" — badge no canto do card estilo 2
   offerHash: string;
   imageUrl?: string;
+}
+
+export interface ShippingOption {
+  id: string;
+  active: boolean;
+  name: string;        // ex: "Correios com Rastreio Online/NF"
+  price: number;       // 0 = grátis
+  days: string;        // ex: "6 a 7 dias"
+  logoUrl?: string;    // URL de ícone/logo da transportadora (opcional)
 }
 
 /**
@@ -75,6 +86,10 @@ export interface CheckoutConfig {
   utmifyAccounts?: UtmifyAccount[];     // múltiplos dashboards UTMify
   utmifyIsTest?: boolean;
   orderbumps?: Orderbump[];
+  /** Estilo de exibição dos order bumps no checkout: "style1" = padrão, "style2" = cards com imagem */
+  orderbumpStyle?: "style1" | "style2";
+  /** Opções de frete exibidas no checkout para o cliente escolher */
+  shippingOptions?: ShippingOption[];
   /** POST JSON quando o PIX é gerado (pedido aguardando pagamento) */
   salePendingWebhooks?: string[];
   /** POST JSON quando o pagamento é confirmado */

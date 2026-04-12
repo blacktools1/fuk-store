@@ -10,10 +10,12 @@ import { cartTotal, cartCount } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
 import { firePixelEvent } from "@/lib/pixel";
 import { validateCPF, formatCPF, formatPhone, digitsOnly } from "@/lib/cpf";
-import type { Orderbump } from "@/lib/admin-types";
+import type { Orderbump, ShippingOption } from "@/lib/admin-types";
 
 interface CheckoutConfig {
   orderbumps?: Orderbump[];
+  orderbumpStyle?: "style1" | "style2";
+  shippingOptions?: ShippingOption[];
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;
@@ -70,6 +72,7 @@ export default function CheckoutPage() {
 
   const [config, setConfig] = useState<CheckoutConfig | null>(null);
   const [selectedBumps, setSelectedBumps] = useState<string[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("form");
   const [pixResult, setPixResult] = useState<PixResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -98,6 +101,8 @@ export default function CheckoutPage() {
       .then((cfg) => {
         setConfig((prev) => ({
           orderbumps: [],
+          orderbumpStyle: "style1",
+          shippingOptions: [],
           redirectUrl: "",
           redirectEnabled: true,
           ...prev,
@@ -109,7 +114,12 @@ export default function CheckoutPage() {
     fetch("/api/admin/checkout-config")
       .then((r) => r.json())
       .then((d) => {
-        if (d && !d.error) setConfig(d);
+        if (d && !d.error) {
+          setConfig(d);
+          // Pré-selecionar primeira opção de frete ativa
+          const firstShip = (d.shippingOptions ?? []).find((s: ShippingOption) => s.active);
+          if (firstShip) setSelectedShipping(firstShip.id);
+        }
       })
       .catch(() => {});
   }, []);
@@ -226,7 +236,15 @@ export default function CheckoutPage() {
   const bumpTotal = (config?.orderbumps ?? [])
     .filter((ob) => ob.active && selectedBumps.includes(ob.id))
     .reduce((s, ob) => s + ob.price, 0);
-  const grandTotal = total + bumpTotal;
+
+  const shippingTotal = (() => {
+    const opts = config?.shippingOptions ?? [];
+    if (opts.length === 0) return 0;
+    const sel = opts.find((s) => s.id === selectedShipping);
+    return sel ? sel.price : 0;
+  })();
+
+  const grandTotal = total + bumpTotal + shippingTotal;
 
   // InitiateCheckout: direto em /checkout; se veio do carrinho, IC já foi disparado lá
   useEffect(() => {
@@ -297,6 +315,7 @@ export default function CheckoutPage() {
           cartItems,
           utms,
           selectedOrderbumps: selectedBumps,
+          selectedShippingId: selectedShipping,
         }),
       });
       const data = await res.json();
@@ -474,8 +493,90 @@ export default function CheckoutPage() {
           </div>
         </div>
 
+        {/* Formas de entrega */}
+        {(config?.shippingOptions ?? []).length > 0 && (
+          <div className="co2-card">
+            <div className="co2-section-header">
+              <div className="co2-section-icon">
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+                </svg>
+              </div>
+              <h2 className="co2-section-title">Formas de entrega</h2>
+            </div>
+            <div className="co2-shipping-list">
+              {(config!.shippingOptions!).map((s) => (
+                <label
+                  key={s.id}
+                  className={`co2-shipping-row${selectedShipping === s.id ? " co2-shipping-row--sel" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="shipping"
+                    value={s.id}
+                    checked={selectedShipping === s.id}
+                    onChange={() => setSelectedShipping(s.id)}
+                    className="co2-shipping-radio"
+                  />
+                  {s.logoUrl && (
+                    <img src={s.logoUrl} alt={s.name} className="co2-shipping-logo" />
+                  )}
+                  <div className="co2-shipping-info">
+                    <span className="co2-shipping-name">{s.name}</span>
+                    {s.days && <span className="co2-shipping-days">{s.days}</span>}
+                  </div>
+                  <span className={`co2-shipping-price${s.price === 0 ? " co2-shipping-price--free" : ""}`}>
+                    {s.price === 0 ? "Grátis" : formatPrice(s.price)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Order Bumps */}
-        {activeOrderbumps.length > 0 && (
+        {activeOrderbumps.length > 0 && config?.orderbumpStyle === "style2" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {activeOrderbumps.map((ob) => {
+              const sel = selectedBumps.includes(ob.id);
+              const disc = ob.oldPrice && ob.oldPrice > ob.price
+                ? Math.round(((ob.oldPrice - ob.price) / ob.oldPrice) * 100)
+                : null;
+              return (
+                <div key={ob.id} className={`co2-ob2-card${sel ? " co2-ob2-card--sel" : ""}`}>
+                  {ob.badge && <span className="co2-ob2-badge">{ob.badge}</span>}
+                  <button
+                    type="button"
+                    className={`co2-ob2-radio${sel ? " co2-ob2-radio--sel" : ""}`}
+                    onClick={() => toggleBump(ob.id)}
+                    aria-pressed={sel}
+                  />
+                  <div className="co2-ob2-body">
+                    {ob.imageUrl && (
+                      <img src={ob.imageUrl} alt={ob.title} className="co2-ob2-img" />
+                    )}
+                    <div className="co2-ob2-info">
+                      <p className="co2-ob2-name">{ob.title}</p>
+                      <div className="co2-ob2-price-row">
+                        <span className="co2-ob2-price">{formatPrice(ob.price)}</span>
+                        {ob.oldPrice && <span className="co2-ob2-old">{formatPrice(ob.oldPrice)}</span>}
+                        {disc && <span className="co2-ob2-disc">{disc}% OFF</span>}
+                      </div>
+                      {ob.description && <p className="co2-ob2-desc">{ob.description}</p>}
+                      <button
+                        type="button"
+                        className={`co2-ob2-btn${sel ? " co2-ob2-btn--sel" : ""}`}
+                        onClick={() => toggleBump(ob.id)}
+                      >
+                        {sel ? "✓ Adicionado" : "Adicionar oferta"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : activeOrderbumps.length > 0 && (
           <div className="co2-ob-card">
             <p className="co2-ob-title">🎁 Oferta especial para adicionar ao seu pedido:</p>
             {activeOrderbumps.map((ob) => (

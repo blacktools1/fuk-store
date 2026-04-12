@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
     utmifyAccounts,
     utmifyIsTest: c.utmifyIsTest ?? false,
     orderbumps: c.orderbumps ?? [],
+    orderbumpStyle: c.orderbumpStyle ?? "style1",
+    shippingOptions: (c.shippingOptions ?? []).filter((s) => s.active),
   });
 }
 
@@ -86,6 +88,8 @@ export async function PUT(req: NextRequest) {
     utmifyAccounts,
     utmifyIsTest: body.utmifyIsTest ?? current.utmifyIsTest ?? false,
     orderbumps: body.orderbumps ?? current.orderbumps ?? [],
+    orderbumpStyle: body.orderbumpStyle ?? current.orderbumpStyle ?? "style1",
+    shippingOptions: body.shippingOptions ?? current.shippingOptions ?? [],
     salePendingWebhooks: body.salePendingWebhooks ?? current.salePendingWebhooks ?? [],
     saleApprovedWebhooks: body.saleApprovedWebhooks ?? current.saleApprovedWebhooks ?? [],
   };
