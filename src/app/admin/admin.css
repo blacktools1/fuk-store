@@ -1806,3 +1806,135 @@
 .admin-pix-save-msg--err {
   color: var(--adm-danger);
 }
+
+/* ─── Vendas — resumo ─────────────────────────────────────── */
+.admin-sales-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.admin-sales-stat {
+  background: var(--adm-bg-elevated);
+  border: 1px solid var(--adm-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.admin-sales-stat-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--adm-text-faint);
+  margin-bottom: 4px;
+}
+
+.admin-sales-stat-value {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--adm-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-sales-stat-sub {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--adm-text-muted);
+  margin-top: 4px;
+}
+
+/* ─── Vendas (tabela compacta) ───────────────────────────── */
+.admin-sales-scroll {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.admin-sales-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.admin-sales-table th {
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--adm-text-faint);
+  padding: 8px 10px 10px 0;
+  border-bottom: 1px solid var(--adm-border);
+  white-space: nowrap;
+}
+
+.admin-sales-table td {
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--adm-border);
+  vertical-align: top;
+  line-height: 1.4;
+}
+
+.admin-sales-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-sales-name {
+  font-weight: 600;
+  color: var(--adm-text);
+  font-size: 0.82rem;
+}
+
+.admin-sales-sub {
+  font-size: 0.72rem;
+  color: var(--adm-text-muted);
+  margin-top: 2px;
+}
+
+.admin-sales-cell-muted {
+  color: var(--adm-text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.admin-sales-cell-num {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-sales-cell-strong {
+  color: var(--adm-text);
+  font-weight: 700;
+}
+
+.admin-sales-utm {
+  font-size: 0.72rem;
+  color: var(--adm-text-faint);
+  max-width: 280px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.admin-sales-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.admin-sales-badge--paid {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+
+.admin-sales-badge--wait {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+}

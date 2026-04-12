@@ -7,6 +7,7 @@ import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
 import { computeCheckoutTotals, type PaymentMethodCheckout } from "@/lib/checkout-totals";
+import { upsertSalePending } from "@/lib/sales-log";
 
 export const dynamic = "force-dynamic";
 
@@ -255,6 +256,41 @@ export async function POST(req: NextRequest) {
       items: pendingItems,
       utms: utms && typeof utms === "object" ? (utms as Record<string, unknown>) : {},
     }).catch((e) => console.error("Webhooks sale_pending:", e));
+
+    const utmRecord: Record<string, string> = {};
+    if (utms && typeof utms === "object") {
+      for (const [k, v] of Object.entries(utms as Record<string, unknown>)) {
+        if (v != null && String(v).trim() !== "") utmRecord[k] = String(v).trim();
+      }
+    }
+    const cartForLines = cartItems as { id?: string; name: string; price: number; qty: number }[];
+    const lineProducts = cartForLines.map((i) => ({
+      id: String(i.id ?? "item"),
+      name: i.name,
+      qty: i.qty || 1,
+      lineTotal: i.price * (i.qty || 1),
+    }));
+    const lineBumps = activeOrdebumps.map((ob) => ({
+      id: ob.id,
+      title: ob.title,
+      price: ob.price,
+    }));
+
+    upsertSalePending(tenant, {
+      id: result.transactionId,
+      customer: {
+        name: customer.name.trim(),
+        email: customer.email.trim().toLowerCase(),
+        phone,
+        document: cpf,
+      },
+      amount: total,
+      amountCart: totals.cartAfterPix,
+      amountBumps: totals.bumpSum,
+      amountShipping: totals.shippingPrice,
+      lines: { products: lineProducts, bumps: lineBumps },
+      utms: utmRecord,
+    });
 
     return NextResponse.json({
       transactionId: result.transactionId,

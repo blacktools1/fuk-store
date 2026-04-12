@@ -5,6 +5,7 @@ import { checkParadiseStatus } from "@/lib/paradise";
 import { checkOramaStatus } from "@/lib/orama";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
+import { markSalePaid } from "@/lib/sales-log";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (result.paid) {
+      markSalePaid(tenant, String(transactionId));
       const hooks = config?.saleApprovedWebhooks;
       let payload: Record<string, unknown>;
       if (utmifyFallback && typeof utmifyFallback === "object") {

@@ -21,6 +21,7 @@ function checkoutConfigWithoutShipping(cc: CheckoutConfig | undefined): Omit<Che
 import { PIX_PROVIDER_CATALOG, getPixProviderEntry } from "@/lib/pix-providers";
 import { formatPrice } from "@/lib/products";
 import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
+import { SalesSection } from "./SalesSection";
 
 /** Exibe credencial mascarada (somente leitura no painel). */
 function maskPixCredential(value: string): string {
@@ -47,7 +48,7 @@ function useAdminToast() {
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
-type Section = "dashboard" | "products" | "banners" | "settings" | "pixels" | "checkout";
+type Section = "dashboard" | "products" | "banners" | "settings" | "pixels" | "checkout" | "sales";
 // ─────────────────────────────────────────────────────────────
 // Main Admin Page
 // ─────────────────────────────────────────────────────────────
@@ -234,6 +235,7 @@ export default function AdminPage() {
               { key: "banners",   icon: "🖼️", label: "Banners" },
               { key: "products",  icon: "📦", label: "Produtos" },
               { key: "checkout",  icon: "💳", label: "Checkout PIX" },
+              { key: "sales",     icon: "📋", label: "Vendas" },
               { key: "pixels",    icon: "📡", label: "Pixels" },
             ] as { key: Section; icon: string; label: string }[]).map((item) => (
               <button
@@ -279,6 +281,7 @@ export default function AdminPage() {
               {section === "settings"  && "Aparência da Loja"}
               {section === "pixels"    && "Pixels de Rastreamento"}
               {section === "checkout"  && "Checkout PIX"}
+              {section === "sales"     && "Vendas"}
             </h1>
           </div>
           <div className="admin-topbar-actions">
@@ -399,6 +402,9 @@ export default function AdminPage() {
               saving={saving}
             />
           )}
+
+          {/* ── Vendas (log leve, JSON por tenant) ── */}
+          {section === "sales" && <SalesSection />}
 
           {/* ── Checkout PIX ── */}
           {section === "checkout" && !data && (
