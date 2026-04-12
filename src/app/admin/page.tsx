@@ -3,8 +3,21 @@
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { StoreData, AdminProduct, Banner, TopBannerConfig, StorePixel } from "@/lib/admin-types";
-import { mergeStorePatch } from "@/lib/store-merge";
+import {
+  StoreData,
+  AdminProduct,
+  Banner,
+  TopBannerConfig,
+  StorePixel,
+  type CheckoutConfig,
+} from "@/lib/admin-types";
+
+/** PATCH da loja nunca deve incluir shippingOptions vindos do storeData em memória — senão sobrescreve o disco com lista antiga (fretes vêm só de /api/admin/shipping). */
+function checkoutConfigWithoutShipping(cc: CheckoutConfig | undefined): Omit<CheckoutConfig, "shippingOptions"> {
+  if (!cc) return {} as Omit<CheckoutConfig, "shippingOptions">;
+  const { shippingOptions: _omitShipping, ...rest } = cc;
+  return rest;
+}
 import { PIX_PROVIDER_CATALOG, getPixProviderEntry } from "@/lib/pix-providers";
 import { formatPrice } from "@/lib/products";
 
@@ -97,7 +110,7 @@ export default function AdminPage() {
         body: JSON.stringify(patch),
       });
       if (!res.ok) throw new Error();
-      setData((d) => (d ? mergeStorePatch(d, patch) : d));
+      await fetchData();
       show("Salvo com sucesso!");
     } catch {
       show("Erro ao salvar", "error");
@@ -756,8 +769,9 @@ function CheckoutSection({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Erro");
-      // NÃO sobrescreve o estado aqui — evita condição de corrida com saves concorrentes.
-      // O estado já foi atualizado antes de chamar saveShipping.
+      const verify = await fetch("/api/admin/shipping");
+      const fresh = await verify.json();
+      if (Array.isArray(fresh)) setShippingOptions(fresh);
       setShippingStatus("saved");
       setTimeout(() => setShippingStatus("idle"), 3000);
     } catch {
@@ -790,7 +804,7 @@ function CheckoutSection({
     try {
       await onSaveConfig({
         checkoutConfig: {
-          ...storeData.checkoutConfig,
+          ...checkoutConfigWithoutShipping(storeData.checkoutConfig),
           pixProvider,
           paradiseApiKey: apiKey.trim(),
           oramaApiKey: oramaApiKey.trim(),
@@ -801,7 +815,6 @@ function CheckoutSection({
           utmifyAccounts,
           utmifyIsTest: isTest,
           orderbumpStyle,
-          // shippingOptions é gerenciado exclusivamente por /api/admin/shipping
           salePendingWebhooks: salePendingWebhooks.map((u) => u.trim()).filter(Boolean),
           saleApprovedWebhooks: saleApprovedWebhooks.map((u) => u.trim()).filter(Boolean),
         },
@@ -1755,7 +1768,9 @@ function OrderBumpsSection({
   const handleSave = async () => {
     if (!storeData) return;
     setSaving(true);
-    await onSaveConfig({ checkoutConfig: { ...storeData.checkoutConfig, orderbumps: list } });
+    await onSaveConfig({
+      checkoutConfig: { ...checkoutConfigWithoutShipping(storeData.checkoutConfig), orderbumps: list },
+    });
     setSaving(false);
     setDirty(false);
   };
