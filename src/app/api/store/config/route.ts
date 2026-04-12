@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readStoreData } from "@/lib/store-data";
 import { getTenantFromRequest } from "@/lib/tenant";
+import { filterOrderbumpsForCheckout, filterShippingForCheckout } from "@/lib/checkout-public";
 
 export const dynamic = "force-dynamic";
 
@@ -32,5 +33,9 @@ export async function GET(req: NextRequest) {
     hasInternalCheckout,
     pixProvider: provider,
     ttPixelIds,
+    /** Dados públicos do checkout (espelha admin; usado como fallback no cliente) */
+    orderbumps: filterOrderbumpsForCheckout(c?.orderbumps),
+    orderbumpStyle: c?.orderbumpStyle ?? "style1",
+    shippingOptions: filterShippingForCheckout(c?.shippingOptions),
   });
 }

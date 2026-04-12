@@ -49,13 +49,13 @@ export async function POST(req: NextRequest) {
 
     // Orderbumps selecionados
     const activeOrdebumps = (config?.orderbumps ?? []).filter(
-      (ob) => ob.active && selectedOrderbumps.includes(ob.id)
+      (ob) => ob.active !== false && selectedOrderbumps.includes(ob.id)
     );
     total += activeOrdebumps.reduce((sum, ob) => sum + ob.price, 0);
 
     // Shipping
     const activeShipping = (config?.shippingOptions ?? []).find(
-      (s) => s.active && s.id === selectedShippingId
+      (s) => s.active !== false && s.id === selectedShippingId
     );
     if (activeShipping) total += activeShipping.price;
 

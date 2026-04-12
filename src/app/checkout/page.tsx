@@ -108,17 +108,31 @@ export default function CheckoutPage() {
         const d = await checkoutRes.json();
         if (cancelled) return;
         if (d && !d.error) {
+          const shippingOptions: ShippingOption[] =
+            (d.shippingOptions?.length ?? 0) > 0
+              ? d.shippingOptions!
+              : (cfg.shippingOptions ?? []);
+          const orderbumps =
+            (d.orderbumps?.length ?? 0) > 0 ? d.orderbumps! : (cfg.orderbumps ?? []);
           setConfig({
             ...d,
+            orderbumps,
+            orderbumpStyle: d.orderbumpStyle ?? cfg.orderbumpStyle ?? "style1",
+            shippingOptions,
             hasInternalCheckout: cfg.hasInternalCheckout ?? d.hasInternalCheckout,
           });
-          const firstShip = (d.shippingOptions ?? []).find((s: ShippingOption) => s.active);
+          const firstShip = shippingOptions.find((s) => s.active !== false);
           if (firstShip) setSelectedShipping(firstShip.id);
         } else {
           setConfig((prev) => ({
             ...(prev ?? {}),
             hasInternalCheckout: cfg.hasInternalCheckout,
+            orderbumps: cfg.orderbumps ?? prev?.orderbumps ?? [],
+            orderbumpStyle: cfg.orderbumpStyle ?? prev?.orderbumpStyle ?? "style1",
+            shippingOptions: cfg.shippingOptions ?? prev?.shippingOptions ?? [],
           }));
+          const firstShip = (cfg.shippingOptions ?? []).find((s: ShippingOption) => s.active !== false);
+          if (firstShip) setSelectedShipping(firstShip.id);
         }
       } catch {
         /* silencioso */
@@ -239,7 +253,7 @@ export default function CheckoutPage() {
   };
 
   const bumpTotal = (config?.orderbumps ?? [])
-    .filter((ob) => ob.active && selectedBumps.includes(ob.id))
+    .filter((ob) => ob.active !== false && selectedBumps.includes(ob.id))
     .reduce((s, ob) => s + ob.price, 0);
 
   const shippingTotal = (() => {
@@ -343,7 +357,7 @@ export default function CheckoutPage() {
     } catch (_) {}
   };
 
-  const activeOrderbumps = (config?.orderbumps ?? []).filter((ob) => ob.active);
+  const activeOrderbumps = (config?.orderbumps ?? []).filter((ob) => ob.active !== false);
   const qrDisplaySrc = pixResult ? pixQrDisplaySrc(pixResult) : "";
 
   // ─────────────────────── EMPTY CART ───────────────────────────────────────

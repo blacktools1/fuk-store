@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData, writeStoreData } from "@/lib/store-data";
 import type { UtmifyAccount } from "@/lib/admin-types";
+import { filterShippingForCheckout } from "@/lib/checkout-public";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     utmifyIsTest: c.utmifyIsTest ?? false,
     orderbumps: c.orderbumps ?? [],
     orderbumpStyle: c.orderbumpStyle ?? "style1",
-    shippingOptions: (c.shippingOptions ?? []).filter((s) => s.active),
+    shippingOptions: filterShippingForCheckout(c.shippingOptions),
   });
 }
 
