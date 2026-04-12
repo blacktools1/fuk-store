@@ -387,7 +387,13 @@ export default function AdminPage() {
           )}
 
           {/* ── Checkout PIX ── */}
-          {section === "checkout" && (
+          {section === "checkout" && !data && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", color: "var(--adm-text-faint)", fontSize: "0.9rem", gap: 10 }}>
+              <span className="co2-loader" style={{ width: 18, height: 18, borderWidth: 2, borderColor: "var(--adm-border)", borderTopColor: "var(--adm-accent)" }} />
+              Carregando configurações…
+            </div>
+          )}
+          {section === "checkout" && data && (
             <CheckoutSection storeData={data} onSaveConfig={save} />
           )}
         </div>
@@ -742,12 +748,13 @@ function CheckoutSection({
     : apiKey.trim().length > 0;
 
   const handleSave = async () => {
+    if (!storeData) return; // guarda: nunca salva com dados ainda não carregados
     setSaving(true);
     setSaveStatus("idle");
     try {
       await onSaveConfig({
         checkoutConfig: {
-          ...storeData?.checkoutConfig,
+          ...storeData.checkoutConfig,
           pixProvider,
           paradiseApiKey: apiKey.trim(),
           oramaApiKey: oramaApiKey.trim(),
@@ -1678,8 +1685,9 @@ function OrderBumpsSection({
   const setField = (id: string, patch: Partial<OB>) => update(list.map((o) => o.id === id ? { ...o, ...patch } : o));
 
   const handleSave = async () => {
+    if (!storeData) return;
     setSaving(true);
-    await onSaveConfig({ checkoutConfig: { ...storeData?.checkoutConfig, orderbumps: list } });
+    await onSaveConfig({ checkoutConfig: { ...storeData.checkoutConfig, orderbumps: list } });
     setSaving(false);
     setDirty(false);
   };
