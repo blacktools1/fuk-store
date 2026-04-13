@@ -98,7 +98,7 @@ export default function MasterLoginPage() {
           <form onSubmit={handleRegister} className="master-login-form">
             {regDone ? (
               <div className="ml-success-msg">
-                ✅ Conta criada! Redirecionando para o login...
+                Conta criada. Redirecionando para o login…
               </div>
             ) : (
               <>

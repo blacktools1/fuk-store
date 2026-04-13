@@ -46,7 +46,7 @@ export default function AdminLoginPage() {
 
         {error && (
           <div className="admin-alert admin-alert-error">
-            <span>⚠️</span> {error}
+            {error}
           </div>
         )}
 
@@ -95,12 +95,13 @@ export default function AdminLoginPage() {
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  fontSize: "1rem",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
                   color: "var(--adm-text-muted)",
                 }}
                 aria-label="Mostrar/esconder senha"
               >
-                {showPassword ? "🙈" : "👁️"}
+                {showPassword ? "Ocultar" : "Mostrar"}
               </button>
             </div>
           </div>
@@ -117,7 +118,7 @@ export default function AdminLoginPage() {
         </form>
 
         <p style={{ textAlign: "center", fontSize: "0.78rem", color: "var(--adm-text-faint)", marginTop: "20px" }}>
-          🔒 Acesso restrito a administradores
+          Acesso restrito a administradores
         </p>
       </div>
     </div>

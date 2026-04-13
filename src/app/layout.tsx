@@ -66,13 +66,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const marqueeAbove = store.marqueePosition === "above-nav";
 
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href={googleFontsUrl} />
       </head>
-      <body style={{
+      <body
+        suppressHydrationWarning
+        style={{
         '--font-body':        `'${fontFamily}'`,
         '--font-weight-base': fontWeight,
         '--accent':           store.primaryColor || "#8b5cf6",

@@ -99,7 +99,7 @@ export function SalesSection() {
     summary.ordersWithBreakdown < summary.orderCount;
 
   return (
-    <div className="admin-card">
+    <div className="admin-card" id="admin-section-sales-lista">
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
         <div>
           <h2 className="admin-card-title" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>

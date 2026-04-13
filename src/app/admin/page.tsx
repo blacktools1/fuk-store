@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -23,6 +23,7 @@ import { formatPrice } from "@/lib/products";
 import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 import { SalesSection } from "./SalesSection";
 import type { SalesRevenueSummary } from "@/lib/sales-log";
+import { AdminIcon, type AdminIconName } from "./AdminIcons";
 
 /** Exibe credencial mascarada (somente leitura no painel). */
 function maskPixCredential(value: string): string {
@@ -49,7 +50,79 @@ function useAdminToast() {
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
-type Section = "dashboard" | "products" | "banners" | "settings" | "pixels" | "checkout" | "sales";
+type Section =
+  | "dashboard"
+  | "products"
+  | "banners"
+  | "settings"
+  | "pixels"
+  | "tracking"
+  | "checkout"
+  | "sales";
+
+type NavSubItem = { id: string; label: string };
+
+/** Subitens da sidebar: ids devem existir na página (scroll suave). */
+const ADMIN_NAV_SUBMENU: Partial<Record<Section, NavSubItem[]>> = {
+  settings: [
+    { id: "admin-section-settings-identidade", label: "Identidade" },
+    { id: "admin-section-settings-navbar", label: "Navbar" },
+    { id: "admin-section-settings-faixa", label: "Faixa de destaque" },
+    { id: "admin-section-settings-hero", label: "Hero" },
+    { id: "admin-section-settings-cores", label: "Cores" },
+    { id: "admin-section-settings-tipografia", label: "Tipografia" },
+    { id: "admin-section-settings-cards", label: "Cards de produto" },
+  ],
+  banners: [
+    { id: "admin-section-banners-topo", label: "Banner do topo" },
+    { id: "admin-section-banners-carrossel", label: "Carrossel" },
+  ],
+  products: [
+    { id: "admin-section-products-catalogo", label: "Catálogo" },
+    { id: "admin-section-products-bumps", label: "Order bumps" },
+  ],
+  checkout: [
+    { id: "admin-section-checkout-provedor", label: "Provedor PIX" },
+    { id: "admin-section-checkout-webhooks", label: "Webhooks HTTP" },
+    { id: "admin-section-checkout-orderbump", label: "Estilo order bumps" },
+    { id: "admin-section-checkout-frete", label: "Frete" },
+  ],
+  sales: [{ id: "admin-section-sales-lista", label: "Lista de vendas" }],
+  pixels: [
+    { id: "admin-section-pixels-add", label: "Adicionar pixel" },
+    { id: "admin-section-pixels-lista", label: "Pixels configurados" },
+  ],
+  tracking: [{ id: "admin-section-tracking-utmify", label: "UTMify" }],
+};
+
+const ADMIN_NAV_GROUPS: {
+  title: string;
+  items: { key: Section; label: string; icon: AdminIconName }[];
+}[] = [
+  { title: "Visão geral", items: [{ key: "dashboard", label: "Dashboard", icon: "layout" }] },
+  {
+    title: "Loja",
+    items: [
+      { key: "settings", label: "Aparência", icon: "palette" },
+      { key: "banners", label: "Banners", icon: "image" },
+      { key: "products", label: "Produtos", icon: "package" },
+    ],
+  },
+  {
+    title: "Pagamentos",
+    items: [
+      { key: "checkout", label: "Checkout PIX", icon: "creditCard" },
+      { key: "sales", label: "Vendas", icon: "receipt" },
+    ],
+  },
+  {
+    title: "Marketing",
+    items: [
+      { key: "pixels", label: "Pixels", icon: "activity" },
+      { key: "tracking", label: "Trackeamento", icon: "tracking" },
+    ],
+  },
+];
 // ─────────────────────────────────────────────────────────────
 // Main Admin Page
 // ─────────────────────────────────────────────────────────────
@@ -74,7 +147,69 @@ export default function AdminPage() {
     }
   }, []);
 
-  const navigate = (s: Section) => { setSection(s); setSidebarOpen(false); };
+  const pendingScrollIdRef = useRef<string | null>(null);
+  const [scrollSeq, setScrollSeq] = useState(0);
+  const [navSubHighlight, setNavSubHighlight] = useState<{ section: Section; id: string } | null>(null);
+  /** Secção com submenu expandido; `null` = lista fechada. Ao escolher um subitem, fecha. */
+  const [navExpandedSection, setNavExpandedSection] = useState<Section | null>(null);
+
+  const navigate = (s: Section) => {
+    setNavSubHighlight(null);
+    pendingScrollIdRef.current = null;
+    setSidebarOpen(false);
+
+    if (section === s) {
+      if (ADMIN_NAV_SUBMENU[s]) {
+        setNavExpandedSection((prev) => (prev === s ? null : s));
+      }
+      return;
+    }
+
+    setSection(s);
+    setNavExpandedSection(ADMIN_NAV_SUBMENU[s] ? s : null);
+  };
+
+  const navigateToAnchor = (s: Section, anchorId: string) => {
+    setNavSubHighlight({ section: s, id: anchorId });
+    setSection(s);
+    setSidebarOpen(false);
+    setNavExpandedSection(null);
+    pendingScrollIdRef.current = anchorId;
+    setScrollSeq((n) => n + 1);
+  };
+
+  useEffect(() => {
+    const id = pendingScrollIdRef.current;
+    if (!id) return;
+    let cancelled = false;
+    let timeoutId: number | undefined;
+
+    const tryScroll = (): boolean => {
+      if (cancelled) return true;
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        pendingScrollIdRef.current = null;
+        return true;
+      }
+      return false;
+    };
+
+    const rafId = requestAnimationFrame(() => {
+      if (tryScroll()) return;
+      timeoutId = window.setTimeout(() => {
+        if (cancelled) return;
+        tryScroll();
+        if (pendingScrollIdRef.current === id) pendingScrollIdRef.current = null;
+      }, 200);
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    };
+  }, [scrollSeq, section, data]);
 
   // Product modal state
   const [productModal, setProductModal] = useState<{ open: boolean; product: AdminProduct | null }>({
@@ -181,8 +316,8 @@ export default function AdminPage() {
     return (
       <div className="admin-body" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
         <div style={{ textAlign: "center", color: "var(--adm-text-muted)" }}>
-          <p style={{ fontSize: "1.5rem", marginBottom: "8px" }}>⏳</p>
-          Carregando painel...
+          <div className="admin-loading-spinner" />
+          <p style={{ fontSize: "0.88rem", margin: 0 }}>Carregando painel…</p>
         </div>
       </div>
     );
@@ -206,7 +341,8 @@ export default function AdminPage() {
       <div className="admin-toast-container">
         {toasts.map((t) => (
           <div key={t.id} className={`admin-toast ${t.type === "error" ? "error" : ""}`}>
-            {t.type === "success" ? "✅" : "❌"} {t.msg}
+            <span className="admin-toast-label">{t.type === "success" ? "Sucesso" : "Erro"}</span>
+            <span>{t.msg}</span>
           </div>
         ))}
       </div>
@@ -229,40 +365,80 @@ export default function AdminPage() {
         </div>
 
         <nav className="admin-nav">
+          {ADMIN_NAV_GROUPS.map((group) => (
+            <div key={group.title} className="admin-nav-group">
+              <p className="admin-nav-group-title">{group.title}</p>
+              <ul className="admin-nav-list">
+                {group.items.map((item) => {
+                  const subs = ADMIN_NAV_SUBMENU[item.key];
+                  const isActive = section === item.key;
+                  const submenuOpen = Boolean(
+                    subs?.length && isActive && navExpandedSection === item.key
+                  );
+                  return (
+                    <li key={item.key} className={subs ? "admin-nav-item--expandable" : undefined}>
+                      <button
+                        type="button"
+                        id={`nav-${item.key}`}
+                        className={`admin-nav-link${subs ? " admin-nav-link--parent" : ""} ${isActive ? "active" : ""}`}
+                        onClick={() => navigate(item.key)}
+                        aria-expanded={subs ? submenuOpen : undefined}
+                      >
+                        <span className="admin-nav-icon-wrap">
+                          <AdminIcon name={item.icon} className="admin-nav-icon" />
+                        </span>
+                        <span className="admin-nav-link-text">{item.label}</span>
+                        {subs && (
+                          <span
+                            className={`admin-nav-chevron${submenuOpen ? " admin-nav-chevron--open" : ""}`}
+                            aria-hidden
+                          />
+                        )}
+                      </button>
+                      {submenuOpen && subs && (
+                        <ul className="admin-nav-submenu" role="list">
+                          {subs.map((sub) => {
+                            const subActive = navSubHighlight?.section === item.key && navSubHighlight.id === sub.id;
+                            return (
+                              <li key={sub.id}>
+                                <button
+                                  type="button"
+                                  className={`admin-nav-sublink${subActive ? " active" : ""}`}
+                                  onClick={() => navigateToAnchor(item.key, sub.id)}
+                                >
+                                  {sub.label}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
           <div className="admin-nav-section">
-            {([
-              { key: "dashboard", icon: "📊", label: "Dashboard" },
-              { key: "settings",  icon: "🎨", label: "Aparência" },
-              { key: "banners",   icon: "🖼️", label: "Banners" },
-              { key: "products",  icon: "📦", label: "Produtos" },
-              { key: "checkout",  icon: "💳", label: "Checkout PIX" },
-              { key: "sales",     icon: "📋", label: "Vendas" },
-              { key: "pixels",    icon: "📡", label: "Pixels" },
-            ] as { key: Section; icon: string; label: string }[]).map((item) => (
-              <button
-                key={item.key}
-                id={`nav-${item.key}`}
-                className={`admin-nav-link ${section === item.key ? "active" : ""}`}
-                onClick={() => navigate(item.key)}
-              >
-                <span className="admin-nav-icon">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="admin-nav-section">
-            <p className="admin-nav-section-title">Externo</p>
-            <a href="/" target="_blank" className="admin-nav-link">
-              <span className="admin-nav-icon">🌐</span>
-              Ver Loja
-            </a>
+            <p className="admin-nav-section-title">Links</p>
+            <ul className="admin-nav-list">
+              <li>
+                <a href="/" target="_blank" rel="noopener noreferrer" className="admin-nav-link admin-nav-link--ghost">
+                  <span className="admin-nav-icon-wrap">
+                    <AdminIcon name="externalLink" className="admin-nav-icon" />
+                  </span>
+                  Ver loja
+                </a>
+              </li>
+            </ul>
           </div>
         </nav>
 
         <div className="admin-sidebar-footer">
-          <button className="admin-nav-link" onClick={logout} id="logout-btn" style={{ color: "#fca5a5" }}>
-            <span className="admin-nav-icon">🚪</span>
+          <button type="button" className="admin-nav-link admin-nav-link--danger" onClick={logout} id="logout-btn">
+            <span className="admin-nav-icon-wrap">
+              <AdminIcon name="logOut" className="admin-nav-icon" />
+            </span>
             Sair
           </button>
         </div>
@@ -281,12 +457,18 @@ export default function AdminPage() {
               {section === "banners"   && "Banners"}
               {section === "settings"  && "Aparência da Loja"}
               {section === "pixels"    && "Pixels de Rastreamento"}
+              {section === "tracking"  && "Trackeamento"}
               {section === "checkout"  && "Checkout PIX"}
               {section === "sales"     && "Vendas"}
             </h1>
           </div>
           <div className="admin-topbar-actions">
-            <a href="/" target="_blank" className="admin-store-link">🌐 Ver Loja</a>
+            <a href="/" target="_blank" rel="noopener noreferrer" className="admin-store-link">
+              <span className="admin-store-link-ic" aria-hidden>
+                <AdminIcon name="externalLink" size={14} />
+              </span>
+              Ver loja
+            </a>
           </div>
         </div>
 
@@ -300,7 +482,7 @@ export default function AdminPage() {
               gap: 10, fontSize: "0.8rem", color: "#b45309", flexWrap: "wrap",
             }}>
               <span>
-                🛠 <strong>Modo dev</strong> — editando loja:{" "}
+                <strong>Modo dev</strong> — editando loja:{" "}
                 <code style={{ background: "rgba(0,0,0,.06)", padding: "1px 5px", borderRadius: 4 }}>{devTenant}</code>
               </span>
               <a
@@ -403,6 +585,16 @@ export default function AdminPage() {
               onSave={(pixels) => save({ pixels })}
               saving={saving}
             />
+          )}
+
+          {section === "tracking" && !data && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", color: "var(--adm-text-faint)", fontSize: "0.9rem", gap: 10 }}>
+              <span className="co2-loader" style={{ width: 18, height: 18, borderWidth: 2, borderColor: "var(--adm-border)", borderTopColor: "var(--adm-accent)" }} />
+              Carregando configurações…
+            </div>
+          )}
+          {section === "tracking" && data && (
+            <TrackingSection storeData={data} onSaveConfig={save} saving={saving} />
           )}
 
           {/* ── Vendas (log leve, JSON por tenant) ── */}
@@ -519,86 +711,136 @@ function DashboardSection({
 
   return (
     <>
-      <div className="admin-rev-block">
-        <div className="admin-rev-head">
-          <div>
-            <h3 className="admin-rev-title">Faturamento de hoje</h3>
-            <p className="admin-rev-subtitle">
-              Valores em <strong>pedidos pagos</strong> (PIX confirmado), fuso America/São_Paulo
-              {revData?.dateKey ? (
-                <> · data <code className="admin-rev-datecode">{revData.dateKey}</code></>
-              ) : null}
-            </p>
-          </div>
-          <button type="button" className="admin-btn-secondary admin-rev-link-btn" onClick={onOpenSales}>
-            Abrir Vendas
-          </button>
-        </div>
+      <div className="admin-rev-block" id="admin-section-dashboard-faturamento">
+        <div className="admin-rev-block__body">
+          <header className="admin-rev-head">
+            <div className="admin-rev-head__text">
+              <div className="admin-rev-head__title-row">
+                <h3 className="admin-rev-title">Faturamento de hoje</h3>
+                <span className="admin-rev-badge-today" title="Janela em America/São Paulo">
+                  Hoje
+                </span>
+              </div>
+              <p className="admin-rev-subtitle">
+                Apenas pedidos <strong>pagos</strong> (PIX confirmado).
+                {revData?.dateKey ? (
+                  <span className="admin-rev-datecode-wrap">
+                    {" "}
+                    <code className="admin-rev-datecode">{revData.dateKey}</code>
+                  </span>
+                ) : null}
+              </p>
+            </div>
+            <div className="admin-rev-head__actions">
+              <button type="button" className="admin-btn-secondary admin-rev-cta" onClick={onOpenSales}>
+                <AdminIcon name="receipt" size={16} />
+                Abrir vendas
+              </button>
+            </div>
+          </header>
 
-        {revLoading ? (
-          <p style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>Carregando faturamento…</p>
-        ) : paid ? (
-          <div className="admin-rev-grid">
-            <div className="admin-stat-card admin-rev-card--hero">
-              <span className="admin-stat-icon" aria-hidden>💰</span>
-              <div className="admin-rev-value-xl">{formatPrice(paid.revenueTotal)}</div>
-              <div className="admin-stat-label">Total faturado hoje</div>
-              <div className="admin-rev-foot">{paid.orderCount} pedido(ns) pago(s)</div>
-            </div>
-            <div className="admin-stat-card">
-              <span className="admin-stat-icon" aria-hidden>🛒</span>
-              <div className="admin-stat-value" style={{ fontSize: "1.05rem" }}>
-                {paid.revenueMerchandise != null ? formatPrice(paid.revenueMerchandise) : "—"}
+          {revLoading ? (
+            <div className="admin-rev-loading" aria-busy="true" aria-label="Carregando faturamento">
+              <div className="admin-rev-skeleton admin-rev-skeleton--hero" />
+              <div className="admin-rev-skeleton-row">
+                <div className="admin-rev-skeleton admin-rev-skeleton--tile" />
+                <div className="admin-rev-skeleton admin-rev-skeleton--tile" />
+                <div className="admin-rev-skeleton admin-rev-skeleton--tile" />
               </div>
-              <div className="admin-stat-label">Produtos + ofertas</div>
-              {paid.ordersWithBreakdown < paid.orderCount && paid.orderCount > 0 && (
-                <div className="admin-rev-foot">Parcial: pedidos antigos sem detalhe</div>
-              )}
             </div>
-            <div className="admin-stat-card">
-              <span className="admin-stat-icon" aria-hidden>🚚</span>
-              <div className="admin-stat-value" style={{ fontSize: "1.05rem" }}>
-                {paid.revenueShipping != null ? formatPrice(paid.revenueShipping) : "—"}
-              </div>
-              <div className="admin-stat-label">Frete cobrado</div>
-              {fretePct != null && (
-                <div className="admin-rev-foot">{fretePct}% do faturamento de hoje</div>
-              )}
-              {paid.revenueShipping === 0 && paid.ordersWithBreakdown > 0 && (
-                <div className="admin-rev-foot">Frete grátis / zerado nos pedidos com detalhe</div>
-              )}
-            </div>
-            {revData && (
-              <div className="admin-stat-card">
-                <span className="admin-stat-icon" aria-hidden>⏳</span>
-                <div className="admin-stat-value" style={{ fontSize: "1.05rem" }}>
-                  {formatPrice(revData.pendingToday.amountTotal)}
+          ) : paid ? (
+            <>
+              <div className="admin-rev-hero">
+                <div className="admin-rev-hero__inner">
+                  <div className="admin-rev-hero__main">
+                    <span className="admin-rev-hero__label">Total faturado</span>
+                    <span className="admin-rev-hero__value">{formatPrice(paid.revenueTotal)}</span>
+                    <span className="admin-rev-hero__hint">Valores líquidos acumulados no dia</span>
+                  </div>
+                  <aside className="admin-rev-hero__aside" aria-label="Pedidos pagos hoje">
+                    <span className="admin-rev-hero__aside-label">Pedidos pagos</span>
+                    <span className="admin-rev-hero__aside-value">{paid.orderCount}</span>
+                  </aside>
                 </div>
-                <div className="admin-stat-label">PIX aguardando (hoje)</div>
-                <div className="admin-rev-foot">{revData.pendingToday.orderCount} pedido(ns)</div>
               </div>
-            )}
-          </div>
-        ) : (
-          <p style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)" }}>
-            Não foi possível carregar o faturamento.
-          </p>
-        )}
+
+              <p className="admin-rev-breakdown-label">Composição do faturamento</p>
+              <ul className="admin-rev-metrics admin-rev-metrics--strip">
+                <li className="admin-rev-metric">
+                  <span className="admin-rev-metric__icon" aria-hidden>
+                    <AdminIcon name="package" />
+                  </span>
+                  <div className="admin-rev-metric__body">
+                    <span className="admin-rev-metric__value">
+                      {paid.revenueMerchandise != null ? formatPrice(paid.revenueMerchandise) : "—"}
+                    </span>
+                    <span className="admin-rev-metric__label">Produtos + ofertas</span>
+                    {paid.ordersWithBreakdown < paid.orderCount && paid.orderCount > 0 && (
+                      <span className="admin-rev-metric__hint">Parcial: pedidos antigos sem detalhe</span>
+                    )}
+                  </div>
+                </li>
+                <li className="admin-rev-metric">
+                  <span className="admin-rev-metric__icon" aria-hidden>
+                    <AdminIcon name="truck" />
+                  </span>
+                  <div className="admin-rev-metric__body">
+                    <span className="admin-rev-metric__value">
+                      {paid.revenueShipping != null ? formatPrice(paid.revenueShipping) : "—"}
+                    </span>
+                    <span className="admin-rev-metric__label">Frete cobrado</span>
+                    {fretePct != null && (
+                      <span className="admin-rev-metric__hint">{fretePct}% do total do dia</span>
+                    )}
+                    {paid.revenueShipping === 0 && paid.ordersWithBreakdown > 0 && (
+                      <span className="admin-rev-metric__hint">Frete grátis ou zerado nos pedidos com detalhe</span>
+                    )}
+                  </div>
+                </li>
+                {revData && (
+                  <li className="admin-rev-metric admin-rev-metric--pending">
+                    <span className="admin-rev-metric__icon" aria-hidden>
+                      <AdminIcon name="clock" />
+                    </span>
+                    <div className="admin-rev-metric__body">
+                      <span className="admin-rev-metric__value">
+                        {formatPrice(revData.pendingToday.amountTotal)}
+                      </span>
+                      <span className="admin-rev-metric__label">PIX aguardando (hoje)</span>
+                      <span className="admin-rev-metric__hint">
+                        {revData.pendingToday.orderCount} pedido
+                        {revData.pendingToday.orderCount === 1 ? "" : "s"} em aberto
+                      </span>
+                    </div>
+                  </li>
+                )}
+              </ul>
+            </>
+          ) : (
+            <p className="admin-rev-empty">Não foi possível carregar o faturamento.</p>
+          )}
+        </div>
       </div>
 
-      <div className="admin-stats-grid">
+      <div className="admin-stats-grid" id="admin-section-dashboard-loja">
         <div className="admin-stat-card">
-          <span className="admin-stat-icon">📦</span>
+          <span className="admin-stat-icon-svg">
+            <AdminIcon name="package" />
+          </span>
           <div className="admin-stat-value">{totalProducts}</div>
           <div className="admin-stat-label">Produtos Cadastrados</div>
         </div>
         <div className="admin-stat-card">
-          <span className="admin-stat-icon">✅</span>
+          <span className="admin-stat-icon-svg">
+            <AdminIcon name="sparkles" />
+          </span>
           <div className="admin-stat-value">{activeProducts}</div>
           <div className="admin-stat-label">Produtos Ativos</div>
         </div>
         <div className="admin-stat-card">
-          <span className="admin-stat-icon">🖼️</span>
+          <span className="admin-stat-icon-svg">
+            <AdminIcon name="image" />
+          </span>
           <div className="admin-stat-value">{totalBanners}</div>
           <div className="admin-stat-label">Banners Cadastrados</div>
           <div style={{ fontSize: "0.68rem", color: "var(--adm-text-faint)", marginTop: 6, lineHeight: 1.35 }}>
@@ -606,7 +848,9 @@ function DashboardSection({
           </div>
         </div>
         <div className="admin-stat-card">
-          <span className="admin-stat-icon">⚡</span>
+          <span className="admin-stat-icon-svg">
+            <AdminIcon name="activity" />
+          </span>
           <div className="admin-stat-value">{activeBanners}</div>
           <div className="admin-stat-label">Banners Ativos</div>
           <div style={{ fontSize: "0.68rem", color: "var(--adm-text-faint)", marginTop: 6, lineHeight: 1.35 }}>
@@ -615,9 +859,11 @@ function DashboardSection({
         </div>
       </div>
 
-      <div className="admin-stats-grid">
+      <div className="admin-stats-grid" id="admin-section-dashboard-integracoes">
         <div className="admin-stat-card">
-          <span className="admin-stat-icon" aria-hidden>PIX</span>
+          <span className="admin-stat-icon-svg" aria-hidden>
+            <AdminIcon name="creditCard" />
+          </span>
           <div className="admin-stat-value" style={{ fontSize: "1.05rem", lineHeight: 1.3 }}>
             {pixProviderLabel}
           </div>
@@ -627,19 +873,25 @@ function DashboardSection({
           </div>
         </div>
         <div className="admin-stat-card">
-          <span className="admin-stat-icon" aria-hidden>◎</span>
+          <span className="admin-stat-icon-svg" aria-hidden>
+            <AdminIcon name="activity" />
+          </span>
           <div className="admin-stat-value">
             {pixelsActive}/{pixelList.length}
           </div>
           <div className="admin-stat-label">Pixels ativos / total</div>
         </div>
         <div className="admin-stat-card">
-          <span className="admin-stat-icon" aria-hidden>U</span>
+          <span className="admin-stat-icon-svg" aria-hidden>
+            <AdminIcon name="receipt" />
+          </span>
           <div className="admin-stat-value">{utmifyCount}</div>
           <div className="admin-stat-label">Contas UTMify</div>
         </div>
         <div className="admin-stat-card">
-          <span className="admin-stat-icon" aria-hidden>↗</span>
+          <span className="admin-stat-icon-svg" aria-hidden>
+            <AdminIcon name="externalLink" />
+          </span>
           <div className="admin-stat-value" style={{ fontSize: "0.95rem" }}>
             {webhooksPending}+{webhooksApproved}
           </div>
@@ -647,7 +899,7 @@ function DashboardSection({
         </div>
       </div>
 
-      <div className="admin-card" style={{ marginBottom: 28 }}>
+      <div className="admin-card" style={{ marginBottom: 28 }} id="admin-section-dashboard-resumo">
         <h2 className="admin-card-title">Resumo operacional</h2>
         <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.88rem", color: "var(--adm-text-muted)", lineHeight: 1.75 }}>
           <li>
@@ -670,7 +922,9 @@ function DashboardSection({
               ? "nenhum pixel cadastrado."
               : `${pixelList.length} pixel(is) cadastrado(s), ${pixelsActive} ativo(s).`}
             {" "}
-            {utmifyCount > 0 ? `UTMify com ${utmifyCount} dashboard(s) vinculado(s).` : "UTMify não configurado."}
+            {utmifyCount > 0
+              ? `UTMify: ${utmifyCount} dashboard(s) (Marketing → Trackeamento).`
+              : "UTMify não configurado — use Marketing → Trackeamento."}
           </li>
           <li>
             <strong style={{ color: "var(--adm-text)" }}>Webhooks próprios:</strong>{" "}
@@ -682,8 +936,8 @@ function DashboardSection({
       </div>
 
       {/* ── Configurações Rápidas ── */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">⚙️ Configurações Rápidas</h2>
+      <div className="admin-card" id="admin-section-dashboard-rapidas">
+        <h2 className="admin-card-title">Configurações rápidas</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
           {/* Desconto PIX */}
@@ -739,25 +993,291 @@ function DashboardSection({
         </div>
       </div>
 
-      <div className="admin-card">
-        <h2 className="admin-card-title">📋 Início Rápido</h2>
+      <div className="admin-card" id="admin-section-dashboard-inicio">
+        <h2 className="admin-card-title">Início rápido</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.9rem", color: "var(--adm-text-muted)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "1.2rem" }}>📦</span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+            <span className="admin-quick-ic" aria-hidden><AdminIcon name="package" /></span>
             <span>Gerencie seus produtos em <strong style={{ color: "var(--adm-text)" }}>Produtos</strong> — ative, pause, edite preços e estoque</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "1.2rem" }}>🖼️</span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+            <span className="admin-quick-ic" aria-hidden><AdminIcon name="image" /></span>
             <span>Controle banners em <strong style={{ color: "var(--adm-text)" }}>Banners</strong> — ligue/desligue sem excluir</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "1.2rem" }}>💳</span>
-            <span>Configure o PIX em <strong style={{ color: "var(--adm-text)" }}>Checkout PIX</strong> — API Paradise, UTMify, Order Bumps</span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+            <span className="admin-quick-ic" aria-hidden><AdminIcon name="creditCard" /></span>
+            <span>Configure o PIX em <strong style={{ color: "var(--adm-text)" }}>Checkout PIX</strong> — API Paradise, Order Bumps e frete</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "1.2rem" }}>📡</span>
-            <span>Instale pixels de rastreamento em <strong style={{ color: "var(--adm-text)" }}>Pixels</strong> — Facebook e TikTok</span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+            <span className="admin-quick-ic" aria-hidden><AdminIcon name="tracking" /></span>
+            <span>UTMify e outras ferramentas de atribuição em <strong style={{ color: "var(--adm-text)" }}>Trackeamento</strong></span>
           </div>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+            <span className="admin-quick-ic" aria-hidden><AdminIcon name="activity" /></span>
+            <span>Instale pixels de anúncios em <strong style={{ color: "var(--adm-text)" }}>Pixels</strong> — Facebook e TikTok</span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Trackeamento — UTMify e outras integrações de atribuição
+// ─────────────────────────────────────────────────────────────
+function TrackingSection({
+  storeData,
+  onSaveConfig,
+  saving,
+}: {
+  storeData: StoreData;
+  onSaveConfig: (patch: Partial<StoreData>) => Promise<void>;
+  saving: boolean;
+}) {
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [dirty, setDirty] = useState(false);
+  const [utmifyAccounts, setUtmifyAccounts] = useState<import("@/lib/admin-types").UtmifyAccount[]>(
+    () => storeData.checkoutConfig?.utmifyAccounts ?? []
+  );
+  const [isTest, setIsTest] = useState(storeData.checkoutConfig?.utmifyIsTest ?? false);
+  const [newUtmLabel, setNewUtmLabel] = useState("");
+  const [newUtmToken, setNewUtmToken] = useState("");
+
+  useEffect(() => {
+    if (!dirty) {
+      setUtmifyAccounts(storeData.checkoutConfig?.utmifyAccounts ?? []);
+      setIsTest(storeData.checkoutConfig?.utmifyIsTest ?? false);
+    }
+  }, [storeData, dirty]);
+
+  const markDirty = () => {
+    setDirty(true);
+    setSaveStatus("idle");
+  };
+
+  const addUtmifyAccount = () => {
+    const token = newUtmToken.trim();
+    if (!token) return;
+    const label = newUtmLabel.trim() || `Dashboard ${utmifyAccounts.length + 1}`;
+    setUtmifyAccounts((prev) => [...prev, { id: Date.now().toString(), label, token }]);
+    setNewUtmLabel("");
+    setNewUtmToken("");
+    markDirty();
+  };
+
+  const removeUtmifyAccount = (id: string) => {
+    setUtmifyAccounts((prev) => prev.filter((a) => a.id !== id));
+    markDirty();
+  };
+
+  const handleSave = async () => {
+    setSaveStatus("idle");
+    try {
+      await onSaveConfig({
+        checkoutConfig: {
+          ...checkoutConfigWithoutShipping(storeData.checkoutConfig),
+          utmifyAccounts,
+          utmifyIsTest: isTest,
+        },
+      });
+      setSaveStatus("saved");
+      setDirty(false);
+      setTimeout(() => setSaveStatus("idle"), 2800);
+    } catch {
+      setSaveStatus("error");
+    }
+  };
+
+  return (
+    <>
+      <div className="admin-card" style={{ marginBottom: 20 }}>
+        <p style={{ fontSize: "0.88rem", color: "var(--adm-text-muted)", margin: 0, lineHeight: 1.55 }}>
+          Configure ferramentas de <strong style={{ color: "var(--adm-text)" }}>atribuição e trackeamento</strong> de vendas.
+          A UTMify está disponível abaixo; outras integrações podem ser adicionadas nesta área.
+        </p>
+      </div>
+
+      <div className="admin-card" id="admin-section-tracking-utmify">
+        <h2 className="admin-card-title">UTMify</h2>
+        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
+          Adicione quantos dashboards UTMify quiser. O evento de compra será enviado para <strong>todos</strong> simultaneamente.
+        </p>
+
+        {utmifyAccounts.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            {utmifyAccounts.map((acc) => (
+              <div
+                key={acc.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  background: "rgba(16,185,129,.05)",
+                  border: "1px solid rgba(16,185,129,.15)",
+                  borderRadius: 8,
+                }}
+              >
+                <span className="admin-quick-ic" aria-hidden>
+                  <AdminIcon name="activity" />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--adm-text)" }}>{acc.label}</div>
+                  <div
+                    style={{
+                      fontSize: "0.72rem",
+                      color: "var(--adm-text-faint)",
+                      marginTop: 1,
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    {"••••••••" + acc.token.slice(-6)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeUtmifyAccount(acc.id)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--adm-text-faint)",
+                    fontSize: "1rem",
+                    padding: "4px 6px",
+                    borderRadius: 4,
+                    lineHeight: 1,
+                  }}
+                  title="Remover conta"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {utmifyAccounts.length === 0 && (
+          <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16 }}>
+            Nenhum dashboard cadastrado.
+          </p>
+        )}
+
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 8,
+            border: "1px dashed var(--adm-border)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <p
+            style={{
+              fontSize: "0.78rem",
+              fontWeight: 600,
+              color: "var(--adm-text-faint)",
+              margin: 0,
+              textTransform: "uppercase",
+              letterSpacing: ".05em",
+            }}
+          >
+            + Adicionar dashboard
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10 }}>
+            <div>
+              <label className="admin-form-label">Nome (identificação)</label>
+              <input
+                className="admin-form-input"
+                type="text"
+                placeholder="ex: Dashboard Principal"
+                value={newUtmLabel}
+                onChange={(e) => setNewUtmLabel(e.target.value)}
+                style={{ marginBottom: 0 }}
+              />
+            </div>
+            <div>
+              <label className="admin-form-label">Token da API UTMify</label>
+              <input
+                className="admin-form-input"
+                type="password"
+                placeholder="Cole o token aqui"
+                value={newUtmToken}
+                onChange={(e) => setNewUtmToken(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addUtmifyAccount()}
+                style={{ marginBottom: 0 }}
+              />
+            </div>
+          </div>
+          <div>
+            <button
+              type="button"
+              className="admin-btn-primary"
+              onClick={addUtmifyAccount}
+              disabled={!newUtmToken.trim()}
+              style={{ padding: "7px 20px", fontSize: "0.85rem" }}
+            >
+              + Adicionar
+            </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: 16,
+            paddingTop: 16,
+            borderTop: "1px solid var(--adm-border)",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Modo teste</div>
+            <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>
+              Ative apenas para testes — não contamina relatórios reais
+            </div>
+          </div>
+          <label className="admin-toggle">
+            <input
+              type="checkbox"
+              checked={isTest}
+              onChange={(e) => {
+                setIsTest(e.target.checked);
+                markDirty();
+              }}
+            />
+            <span className="admin-toggle-slider" />
+          </label>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 12,
+            marginTop: 20,
+            paddingTop: 16,
+            borderTop: "1px solid var(--adm-border)",
+            flexWrap: "wrap",
+          }}
+        >
+          {saveStatus === "saved" && (
+            <span style={{ fontSize: "0.82rem", color: "#10b981", fontWeight: 600 }}>Salvo</span>
+          )}
+          {saveStatus === "error" && (
+            <span style={{ fontSize: "0.82rem", color: "#ef4444", fontWeight: 600 }}>Erro ao salvar</span>
+          )}
+          <button
+            type="button"
+            className="admin-btn-primary"
+            onClick={() => void handleSave()}
+            disabled={saving || !dirty}
+            style={{ minWidth: 160 }}
+          >
+            {saving ? "Salvando…" : "Salvar"}
+          </button>
         </div>
       </div>
     </>
@@ -786,7 +1306,6 @@ function CheckoutSection({
   const [providerQuery, setProviderQuery] = useState("");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
-  const [isTest, setIsTest]               = useState(storeData?.checkoutConfig?.utmifyIsTest ?? false);
   const [pixProvider, setPixProvider]     = useState<string>(storeData?.checkoutConfig?.pixProvider ?? "paradise");
   const [orderbumpStyle, setOrderbumpStyle] = useState<"style1" | "style2">(storeData?.checkoutConfig?.orderbumpStyle ?? "style1");
 
@@ -806,33 +1325,12 @@ function CheckoutSection({
     freeShippingEligible: false,
   });
 
-  // UTMify — múltiplas contas
-  const [utmifyAccounts, setUtmifyAccounts] = useState<import("@/lib/admin-types").UtmifyAccount[]>(
-    storeData?.checkoutConfig?.utmifyAccounts ?? []
-  );
-  const [newUtmLabel, setNewUtmLabel] = useState("");
-  const [newUtmToken, setNewUtmToken] = useState("");
-
   const [salePendingWebhooks, setSalePendingWebhooks] = useState<string[]>(
     () => storeData?.checkoutConfig?.salePendingWebhooks ?? []
   );
   const [saleApprovedWebhooks, setSaleApprovedWebhooks] = useState<string[]>(
     () => storeData?.checkoutConfig?.saleApprovedWebhooks ?? []
   );
-
-  const addUtmifyAccount = () => {
-    const token = newUtmToken.trim();
-    if (!token) return;
-    const label = newUtmLabel.trim() || `Dashboard ${utmifyAccounts.length + 1}`;
-    setUtmifyAccounts((prev) => [...prev, { id: Date.now().toString(), label, token }]);
-    setNewUtmLabel("");
-    setNewUtmToken("");
-    markDirty();
-  };
-  const removeUtmifyAccount = (id: string) => {
-    setUtmifyAccounts((prev) => prev.filter((a) => a.id !== id));
-    markDirty();
-  };
 
   const filteredPixProviders = useMemo(() => {
     const q = providerQuery.trim().toLowerCase();
@@ -927,8 +1425,6 @@ function CheckoutSection({
           oramaWebhookSecret: oramaWebhookSecret.trim(),
           redirectUrl: redirectUrl.trim(),
           redirectEnabled: redirectOn,
-          utmifyAccounts,
-          utmifyIsTest: isTest,
           orderbumpStyle,
           salePendingWebhooks: salePendingWebhooks.map((u) => u.trim()).filter(Boolean),
           saleApprovedWebhooks: saleApprovedWebhooks.map((u) => u.trim()).filter(Boolean),
@@ -1010,7 +1506,7 @@ function CheckoutSection({
                   <img src={s.logoUrl} alt={s.name} style={{ width: 42, height: 32, objectFit: "contain", borderRadius: 6, border: "1px solid var(--adm-border)", background: "rgba(255,255,255,0.06)", padding: 3 }} />
                 ) : (
                   <div style={{ width: 42, height: 32, borderRadius: 6, border: "1.5px dashed var(--adm-border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "var(--adm-text-faint)", background: "var(--adm-bg)" }}>
-                    📷
+                    Img
                   </div>
                 )}
               </label>
@@ -1201,7 +1697,7 @@ function CheckoutSection({
       )}
 
       {/* Hub Provedores PIX — sidebar + painel (referência layout) */}
-      <div className="admin-pix-hub-wrap admin-card" style={{ padding: "20px 22px" }}>
+      <div className="admin-pix-hub-wrap admin-card" style={{ padding: "20px 22px" }} id="admin-section-checkout-provedor">
         <header className="admin-pix-hub-header">
           <div>
             <h2 className="admin-pix-hub-title">Provedores PIX</h2>
@@ -1487,121 +1983,15 @@ function CheckoutSection({
                 <span className="admin-pix-save-msg admin-pix-save-msg--err">Erro ao salvar</span>
               )}
               <p className="admin-pix-main-footer-hint">
-                Salva credenciais do provedor, redirecionamento pós-pagamento, UTMify e order bumps — o mesmo conteúdo do botão &quot;Salvar checkout&quot; no final desta aba.
+                Salva credenciais do provedor e redirecionamento pós-pagamento — o mesmo conteúdo do botão &quot;Salvar checkout&quot; no final desta aba.
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* UTMify — múltiplos dashboards */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">📊 UTMify</h2>
-        <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
-          Adicione quantos dashboards UTMify quiser. O evento de compra será enviado para <strong>todos</strong> simultaneamente.
-        </p>
-
-        {/* Lista de contas cadastradas */}
-        {utmifyAccounts.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-            {utmifyAccounts.map((acc) => (
-              <div key={acc.id} style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "10px 12px",
-                background: "rgba(16,185,129,.05)",
-                border: "1px solid rgba(16,185,129,.15)",
-                borderRadius: 8,
-              }}>
-                <span style={{ fontSize: "1rem" }}>📈</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--adm-text)" }}>{acc.label}</div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--adm-text-faint)", marginTop: 1, fontFamily: "monospace" }}>
-                    {"••••••••" + acc.token.slice(-6)}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeUtmifyAccount(acc.id)}
-                  style={{
-                    background: "transparent", border: "none", cursor: "pointer",
-                    color: "var(--adm-text-faint)", fontSize: "1rem", padding: "4px 6px",
-                    borderRadius: 4, lineHeight: 1,
-                  }}
-                  title="Remover conta"
-                >✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {utmifyAccounts.length === 0 && (
-          <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16 }}>
-            Nenhum dashboard cadastrado.
-          </p>
-        )}
-
-        {/* Formulário para adicionar nova conta */}
-        <div style={{
-          padding: 14, borderRadius: 8,
-          border: "1px dashed var(--adm-border)",
-          display: "flex", flexDirection: "column", gap: 10,
-        }}>
-          <p style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--adm-text-faint)", margin: 0, textTransform: "uppercase", letterSpacing: ".05em" }}>
-            + Adicionar dashboard
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10 }}>
-            <div>
-              <label className="admin-form-label">Nome (identificação)</label>
-              <input
-                className="admin-form-input"
-                type="text"
-                placeholder="ex: Dashboard Principal"
-                value={newUtmLabel}
-                onChange={(e) => setNewUtmLabel(e.target.value)}
-                style={{ marginBottom: 0 }}
-              />
-            </div>
-            <div>
-              <label className="admin-form-label">Token da API UTMify</label>
-              <input
-                className="admin-form-input"
-                type="password"
-                placeholder="Cole o token aqui"
-                value={newUtmToken}
-                onChange={(e) => setNewUtmToken(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addUtmifyAccount()}
-                style={{ marginBottom: 0 }}
-              />
-            </div>
-          </div>
-          <div>
-            <button
-              type="button"
-              className="admin-btn-primary"
-              onClick={addUtmifyAccount}
-              disabled={!newUtmToken.trim()}
-              style={{ padding: "7px 20px", fontSize: "0.85rem" }}
-            >
-              + Adicionar
-            </button>
-          </div>
-        </div>
-
-        {/* Modo Teste */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--adm-border)" }}>
-          <div>
-            <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--adm-text)" }}>Modo Teste</div>
-            <div style={{ fontSize: "0.73rem", color: "var(--adm-text-faint)", marginTop: 2 }}>Ative apenas para testes — não contamina relatórios reais</div>
-          </div>
-          <label className="admin-toggle">
-            <input type="checkbox" checked={isTest} onChange={(e) => { setIsTest(e.target.checked); markDirty(); }} />
-            <span className="admin-toggle-slider" />
-          </label>
-        </div>
-      </div>
-
       {/* Webhooks HTTP (loja) */}
-      <div className="admin-card">
+      <div className="admin-card" id="admin-section-checkout-webhooks">
         <h2 className="admin-card-title">Webhooks HTTP</h2>
         <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
           Cadastre uma ou mais URLs (https) que recebem <code style={{ fontSize: "0.78em" }}>POST</code> com JSON quando uma venda entra em
@@ -1713,8 +2103,8 @@ function CheckoutSection({
       </div>
 
       {/* Estilo dos Order Bumps */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">🎨 Estilo dos Order Bumps</h2>
+      <div className="admin-card" id="admin-section-checkout-orderbump">
+        <h2 className="admin-card-title">Estilo dos Order Bumps</h2>
         <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
           Escolha como os order bumps aparecem para o cliente no checkout. Gerencie os order bumps na aba <strong>Produtos</strong>.
         </p>
@@ -1756,8 +2146,8 @@ function CheckoutSection({
       </div>
 
       {/* Opções de Frete */}
-      <div className="admin-card">
-        <h2 className="admin-card-title">🚚 Opções de Frete</h2>
+      <div className="admin-card" id="admin-section-checkout-frete">
+        <h2 className="admin-card-title">Opções de Frete</h2>
         <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 16, lineHeight: 1.6 }}>
           Exibidas no checkout. O preço da opção escolhida é somado ao total do pedido.
           Clique em <strong>Editar</strong> para alterar um frete existente.
@@ -1794,7 +2184,7 @@ function CheckoutSection({
               fontSize: "0.78rem", fontWeight: 600, color: "var(--adm-text-muted)",
             }}>
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleShipLogoUpload} disabled={shipLogoUploading} />
-              {shipLogoUploading ? "Enviando…" : "📷 Logo (opcional)"}
+              {shipLogoUploading ? "Enviando…" : "Logo (opcional)"}
             </label>
             {newShip.logoUrl && (
               <>
@@ -1923,8 +2313,8 @@ function OrderBumpsSection({
   };
 
   return (
-    <div className="admin-card" style={{ marginTop: 24 }}>
-      <h2 className="admin-card-title">🛒 Order Bumps</h2>
+    <div className="admin-card" style={{ marginTop: 24 }} id="admin-section-products-bumps">
+      <h2 className="admin-card-title">Order Bumps</h2>
       <p style={{ fontSize: "0.82rem", color: "var(--adm-text-faint)", marginBottom: 20, lineHeight: 1.6 }}>
         Selecione um produto cadastrado, defina o desconto e ele aparece no checkout antes do pagamento.
         O estilo de exibição é configurado em <strong>Checkout PIX</strong>.
@@ -2145,7 +2535,7 @@ function OrderBumpsSection({
       {dirty && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
           <button className="admin-btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Salvando…" : "💾 Salvar Order Bumps"}
+            {saving ? "Salvando…" : "Salvar Order Bumps"}
           </button>
         </div>
       )}
@@ -2202,7 +2592,7 @@ function ProductsSection({
 
   return (
     <>
-      <div className="admin-section-header">
+      <div className="admin-section-header" id="admin-section-products-catalogo">
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <h2 className="admin-section-title">Produtos ({products.length})</h2>
           <input
@@ -2216,7 +2606,7 @@ function ProductsSection({
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="admin-btn admin-btn-secondary" onClick={() => setShowBulk(true)}>
-            📋 Importar em Massa
+            Importar em massa
           </button>
           <button className="admin-btn admin-btn-primary" onClick={onAdd} id="add-product-btn">
             + Novo Produto
@@ -2226,7 +2616,7 @@ function ProductsSection({
 
       {isSearching && (
         <p style={{ fontSize: "0.8rem", color: "var(--adm-text-muted)", marginBottom: 12 }}>
-          ℹ️ Limpe a busca para reordenar produtos arrastando.
+          Limpe a busca para reordenar produtos arrastando.
         </p>
       )}
 
@@ -2314,10 +2704,10 @@ function ProductsSection({
                   <td>
                     <div style={{ display: "flex", gap: "6px" }}>
                       <button className="admin-btn admin-btn-secondary admin-btn-sm" onClick={() => onEdit(p)}>
-                        ✏️ Editar
+                        Editar
                       </button>
                       <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => onDelete(p.id)}>
-                        🗑️
+                        Excluir
                       </button>
                     </div>
                   </td>
@@ -2399,7 +2789,7 @@ function BannerEditor({
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--adm-border)"; e.currentTarget.style.color = "var(--adm-text-muted)"; }}
           >
             <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleUpload} disabled={uploading} />
-            {uploading ? "⏳ Enviando..." : "📁 Enviar arquivo"}
+            {uploading ? "Enviando…" : "Enviar arquivo"}
           </label>
           <span style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)" }}>ou</span>
           <input
@@ -2410,7 +2800,7 @@ function BannerEditor({
             style={{ marginBottom: 0, flex: 1 }}
           />
         </div>
-        {uploadError && <p style={{ fontSize: "0.78rem", color: "#fca5a5", marginBottom: 6 }}>⚠️ {uploadError}</p>}
+        {uploadError && <p style={{ fontSize: "0.78rem", color: "#fca5a5", marginBottom: 6 }}>{uploadError}</p>}
         {config.image && (
           <div style={{ marginTop: 8, position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid var(--adm-border)" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2434,8 +2824,8 @@ function BannerEditor({
         <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
           {([
             { value: "horizontal", label: "⬛ Horizontal", sub: "21:7" },
-            { value: "square",     label: "🟥 Quadrado",   sub: "1:1"  },
-            { value: "vertical",   label: "📱 Vertical",   sub: "3:4"  },
+            { value: "square",     label: "Quadrado",   sub: "1:1"  },
+            { value: "vertical",   label: "Vertical",   sub: "3:4"  },
           ] as const).map((opt) => (
             <button key={opt.value} type="button" onClick={() => set({ orientation: opt.value })} style={{
               flex: 1, padding: "9px 6px", borderRadius: 8,
@@ -2538,14 +2928,14 @@ function BannersSection({
   return (
     <>
       {/* ── Banner do Topo ── */}
-      <div className="admin-card" style={{ marginBottom: 28 }}>
-        <h2 className="admin-card-title">🖼️ Banner do Topo da Loja</h2>
+      <div className="admin-card" style={{ marginBottom: 28 }} id="admin-section-banners-topo">
+        <h2 className="admin-card-title">Banner do topo da loja</h2>
         <p style={{ fontSize: "0.83rem", color: "var(--adm-text-muted)", marginBottom: 20 }}>
           Configure um banner para desktop e, opcionalmente, um diferente para mobile. Se não houver banner mobile, o banner desktop será exibido em todos os dispositivos.
         </p>
 
         <BannerEditor
-          label="📱 Banner Mobile (Principal)"
+          label="Banner mobile (principal)"
           hint="Exibido em todos os dispositivos por padrão. Recomendado: quadrado ou vertical."
           config={mobile}
           onChange={setMobile}
@@ -2578,7 +2968,7 @@ function BannersSection({
 
         {separateDesktopBanner && (
           <BannerEditor
-            label="🖥️ Banner Desktop (Opcional)"
+            label="Banner desktop (opcional)"
             hint="Exibido apenas em telas ≥ 768px quando configurado. Recomendado: horizontal."
             config={desktop}
             onChange={setDesktop}
@@ -2590,12 +2980,12 @@ function BannersSection({
           style={{ marginTop: 8 }}
           onClick={() => onSaveTopBanners(separateDesktopBanner ? desktop : {}, mobile)}
         >
-          💾 Salvar Banners do Topo
+          Salvar banners do topo
         </button>
       </div>
 
       {/* ── Banners Carrossel ── */}
-      <div className="admin-section-header">
+      <div className="admin-section-header" id="admin-section-banners-carrossel">
         <h2 className="admin-section-title">Banners Carrossel ({banners.length})</h2>
         <button className="admin-btn admin-btn-primary" onClick={onAdd} id="add-banner-btn">
           + Novo Banner
@@ -2604,7 +2994,7 @@ function BannersSection({
 
       {banners.length === 0 ? (
         <div className="admin-empty">
-          <span className="admin-empty-icon">🖼️</span>
+          <span className="admin-empty-icon admin-empty-icon--muted" aria-hidden>—</span>
           <p className="admin-empty-title">Nenhum banner cadastrado</p>
           <p style={{ fontSize: "0.85rem" }}>Crie banners para destacar promoções e novidades na loja.</p>
         </div>
@@ -2615,7 +3005,7 @@ function BannersSection({
               {b.image ? (
                 <img src={b.image} alt={b.title} className="admin-banner-img" />
               ) : (
-                <div className="admin-banner-img-placeholder">🖼️</div>
+                <div className="admin-banner-img-placeholder">Preview</div>
               )}
               <div className="admin-banner-body">
                 <p className="admin-banner-title">{b.title || "(sem título)"}</p>
@@ -2636,8 +3026,8 @@ function BannersSection({
                       />
                       <span className="admin-toggle-slider" />
                     </label>
-                    <button className="admin-btn admin-btn-secondary admin-btn-sm" onClick={() => onEdit(b)}>✏️</button>
-                    <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => onDelete(b.id)}>🗑️</button>
+                    <button className="admin-btn admin-btn-secondary admin-btn-sm" onClick={() => onEdit(b)}>Editar</button>
+                    <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => onDelete(b.id)}>Excluir</button>
                   </div>
                 </div>
               </div>
@@ -2652,14 +3042,13 @@ function BannersSection({
 // ─────────────────────────────────────────────────────────────
 // SettingsGroup — card de seção com step indicator
 // ─────────────────────────────────────────────────────────────
-function SettingsGroup({ step, icon, title, children }: {
-  step: number; icon: string; title: string; children: ReactNode;
+function SettingsGroup({ step, title, children, id }: {
+  step: number; title: string; children: ReactNode; id?: string;
 }) {
   return (
-    <div className="settings-group">
+    <div className="settings-group" id={id}>
       <div className="settings-group-header">
         <span className="settings-group-step">{step}</span>
-        <span className="settings-group-icon">{icon}</span>
         <span className="settings-group-title">{title}</span>
       </div>
       <div className="settings-group-body">
@@ -2722,7 +3111,7 @@ function SettingsSection({
   const [showHero, setShowHero] = useState(data.showHero ?? true);
   const [heroPosition, setHeroPosition] = useState<"before-banner" | "after-banner">(data.heroPosition ?? "after-banner");
   const [heroAlign, setHeroAlign] = useState<"left" | "center">(data.heroAlign ?? "center");
-  const [heroTag, setHeroTag] = useState(data.heroTag ?? "✨ Nova coleção disponível");
+  const [heroTag, setHeroTag] = useState(data.heroTag ?? "Nova coleção disponível");
   const [heroTitle, setHeroTitle] = useState(
     data.heroTitle ?? "Descubra os Melhores\nProdutos do Mercado"
   );
@@ -2782,7 +3171,7 @@ function SettingsSection({
   return (
     <>
       {/* ── 1. Identidade ── */}
-      <SettingsGroup step={1} icon="🏪" title="Identidade da Loja">
+      <SettingsGroup step={1} title="Identidade da Loja" id="admin-section-settings-identidade">
         <div className="admin-form-grid">
           <div className="admin-form-field span-2">
             <label className="admin-form-label">Nome da Loja</label>
@@ -2793,7 +3182,7 @@ function SettingsSection({
             <input className="admin-form-input" value={tagline} onChange={(e) => setTagline(e.target.value)} />
           </div>
           <div className="admin-form-field">
-            <label className="admin-form-label">Emoji Substituto (ex: 🛍️)</label>
+            <label className="admin-form-label">Símbolo ou emoji no logo (texto)</label>
             <input className="admin-form-input" value={logo} onChange={(e) => setLogo(e.target.value)} />
           </div>
           <div className="admin-form-field span-2">
@@ -2803,12 +3192,12 @@ function SettingsSection({
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--adm-accent)"; e.currentTarget.style.color = "var(--adm-accent-bright)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--adm-border)"; e.currentTarget.style.color = "var(--adm-text-muted)"; }}>
                 <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoUpload} disabled={uploading} />
-                {uploading ? "⏳ Enviando..." : "📁 Upload"}
+                {uploading ? "Enviando…" : "Upload"}
               </label>
               <span style={{ fontSize: "0.8rem", color: "var(--adm-text-faint)" }}>ou</span>
               <input className="admin-form-input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="/uploads/logo.png ou https://..." style={{ marginBottom: 0, flex: 1 }} />
             </div>
-            {uploadError && <p style={{ fontSize: "0.8rem", color: "#fca5a5", marginBottom: "6px" }}>⚠️ {uploadError}</p>}
+            {uploadError && <p style={{ fontSize: "0.8rem", color: "#fca5a5", marginBottom: "6px" }}>{uploadError}</p>}
             {logoUrl && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2821,7 +3210,7 @@ function SettingsSection({
       </SettingsGroup>
 
       {/* ── 2. Navbar ── */}
-      <SettingsGroup step={2} icon="🔝" title="Navbar">
+      <SettingsGroup step={2} title="Navbar" id="admin-section-settings-navbar">
         <div className="admin-form-grid">
           <div className="admin-form-field span-2">
             <label className="admin-form-label">Exibição da Logo</label>
@@ -2864,19 +3253,19 @@ function SettingsSection({
       </SettingsGroup>
 
       {/* ── 3. Faixa de Destaque ── */}
-      <SettingsGroup step={3} icon="✨" title="Faixa de Destaque">
+      <SettingsGroup step={3} title="Faixa de Destaque" id="admin-section-settings-faixa">
         <div className="admin-form-grid">
           <div className="admin-form-field">
             <label className="admin-form-label">Texto 1 (obrigatório)</label>
-            <input className="admin-form-input" value={marqueeText1} onChange={(e) => setMarqueeText1(e.target.value)} placeholder="ex: 🚀 Frete Grátis" />
+            <input className="admin-form-input" value={marqueeText1} onChange={(e) => setMarqueeText1(e.target.value)} placeholder="ex: Frete grátis acima de R$ 199" />
           </div>
           <div className="admin-form-field">
             <label className="admin-form-label">Texto 2 (opcional)</label>
-            <input className="admin-form-input" value={marqueeText2} onChange={(e) => setMarqueeText2(e.target.value)} placeholder="ex: 🔒 Compra Segura" />
+            <input className="admin-form-input" value={marqueeText2} onChange={(e) => setMarqueeText2(e.target.value)} placeholder="ex: Compra segura" />
           </div>
           <div className="admin-form-field span-2">
             <label className="admin-form-label">Texto 3 (opcional)</label>
-            <input className="admin-form-input" value={marqueeText3} onChange={(e) => setMarqueeText3(e.target.value)} placeholder="ex: 🎁 Até 12x sem juros" />
+            <input className="admin-form-input" value={marqueeText3} onChange={(e) => setMarqueeText3(e.target.value)} placeholder="ex: Até 12x sem juros" />
           </div>
           <div className="admin-form-field span-2">
             <label className="admin-form-label">Posição da Faixa</label>
@@ -2895,7 +3284,7 @@ function SettingsSection({
       </SettingsGroup>
 
       {/* ── 4. Hero ── */}
-      <SettingsGroup step={4} icon="🎭" title="Seção de Boas-vindas (Hero)">
+      <SettingsGroup step={4} title="Seção de Boas-vindas (Hero)" id="admin-section-settings-hero">
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
           <label className="admin-toggle">
             <input type="checkbox" checked={showHero} onChange={(e) => setShowHero(e.target.checked)} />
@@ -2950,7 +3339,7 @@ function SettingsSection({
 
             <div className="admin-form-field span-2">
               <label className="admin-form-label">Etiqueta (badge) — opcional</label>
-              <input className="admin-form-input" value={heroTag} onChange={(e) => setHeroTag(e.target.value)} placeholder="ex: ✨ Nova coleção disponível" />
+              <input className="admin-form-input" value={heroTag} onChange={(e) => setHeroTag(e.target.value)} placeholder="ex: Nova coleção disponível" />
               <p style={{ fontSize: "0.74rem", color: "var(--adm-text-faint)", marginTop: 6 }}>Deixe em branco para ocultar a etiqueta.</p>
             </div>
             <div className="admin-form-field span-2">
@@ -2979,7 +3368,7 @@ function SettingsSection({
       </SettingsGroup>
 
       {/* ── 5. Cores ── */}
-      <SettingsGroup step={5} icon="🎨" title="Cores e Aparência">
+      <SettingsGroup step={5} title="Cores e Aparência" id="admin-section-settings-cores">
         <div className="admin-form-grid">
           <ColorField label="Cor Principal (Botões e Hover)" value={primaryColor}   onChange={setPrimaryColor} />
           <ColorField label="Cor Secundária (Degradês)"      value={secondaryColor} onChange={setSecondaryColor} />
@@ -2998,7 +3387,7 @@ function SettingsSection({
       </SettingsGroup>
 
       {/* ── 6. Tipografia ── */}
-      <SettingsGroup step={6} icon="🔤" title="Tipografia">
+      <SettingsGroup step={6} title="Tipografia" id="admin-section-settings-tipografia">
         <div className="admin-form-grid">
           <div className="admin-form-field span-2">
             <label className="admin-form-label">Fonte Principal</label>
@@ -3046,21 +3435,21 @@ function SettingsSection({
       </SettingsGroup>
 
       {/* ── 7. Cards ── */}
-      <SettingsGroup step={7} icon="🃏" title="Design dos Cards de Produto">
+      <SettingsGroup step={7} title="Design dos Cards de Produto" id="admin-section-settings-cards">
         {/* Card style */}
         <div style={{ marginBottom: 20 }}>
           <label className="admin-form-label" style={{ marginBottom: 10, display: "block" }}>Estilo do Card</label>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
             {([
-              { value: "default",   label: "Padrão",     sub: "Borda + sombra suave",       icon: "🟦" },
-              { value: "minimal",   label: "Minimal",    sub: "Sem borda, sombra leve",     icon: "⬜" },
-              { value: "clean",     label: "Clean",      sub: "Sem moldura, só conteúdo",   icon: "✦" },
-              { value: "bold",      label: "Bold",       sub: "Tipografia forte, barra accent", icon: "▰" },
-              { value: "neon",      label: "Neon",       sub: "Borda brilhante no hover",   icon: "◈" },
-              { value: "cinematic", label: "Cinemático", sub: "Texto sobre imagem",         icon: "🎬" },
+              { value: "default",   label: "Padrão",     sub: "Borda + sombra suave",       icon: "A" },
+              { value: "minimal",   label: "Minimal",    sub: "Sem borda, sombra leve",     icon: "B" },
+              { value: "clean",     label: "Clean",      sub: "Sem moldura, só conteúdo",   icon: "C" },
+              { value: "bold",      label: "Bold",       sub: "Tipografia forte, barra accent", icon: "D" },
+              { value: "neon",      label: "Neon",       sub: "Borda brilhante no hover",   icon: "E" },
+              { value: "cinematic", label: "Cinemático", sub: "Texto sobre imagem",         icon: "F" },
             ] as const).map((opt) => (
               <button key={opt.value} type="button" onClick={() => setCardStyle(opt.value)} style={{ padding: "12px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center", border: cardStyle === opt.value ? "2px solid var(--adm-accent)" : "1.5px solid var(--adm-border)", background: cardStyle === opt.value ? "var(--adm-accent-dim)" : "var(--adm-bg-elevated)", color: cardStyle === opt.value ? "var(--adm-accent-bright)" : "var(--adm-text-muted)", transition: "all 0.18s ease" }}>
-                <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>{opt.icon}</div>
+                <div style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.05em", color: "var(--adm-text-faint)", marginBottom: 4 }}>{opt.icon}</div>
                 <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>{opt.label}</div>
                 <div style={{ fontSize: "0.69rem", opacity: 0.65, marginTop: 3 }}>{opt.sub}</div>
               </button>
@@ -3112,7 +3501,7 @@ function SettingsSection({
             showHero, heroPosition, heroAlign, heroTag, heroTitle, heroSubtitle, productTitleAlign,
           })}
         >
-          {saving ? "⏳ Salvando..." : "💾 Salvar todas as configurações"}
+          {saving ? "Salvando…" : "Salvar todas as configurações"}
         </button>
       </div>
     </>
@@ -3209,7 +3598,7 @@ function BulkImportModal({
     <div className="admin-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="admin-modal" style={{ maxWidth: 640 }}>
         <div className="admin-modal-header">
-          <h2 className="admin-modal-title">📋 Importar Produtos em Massa</h2>
+          <h2 className="admin-modal-title">Importar produtos em massa</h2>
           <button className="admin-modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -3234,7 +3623,7 @@ function BulkImportModal({
 
         {error && (
           <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, padding: "8px 12px", fontSize: "0.82rem", color: "#fcd34d", marginBottom: 12 }}>
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -3261,11 +3650,11 @@ function BulkImportModal({
           <button className="admin-btn admin-btn-secondary" onClick={onClose}>Cancelar</button>
           {preview.length === 0 ? (
             <button className="admin-btn admin-btn-primary" onClick={handlePreview} disabled={!text.trim()}>
-              👁 Pré-visualizar
+              Pré-visualizar
             </button>
           ) : (
             <button className="admin-btn admin-btn-primary" onClick={handleImport}>
-              ✅ Importar {preview.length} produtos
+              Importar {preview.length} produtos
             </button>
           )}
         </div>
@@ -3458,7 +3847,7 @@ function ProductModal({
                 fontSize: "0.875rem", fontWeight: 600,
                 opacity: uploading ? 0.7 : 1,
               }}>
-                {uploading ? "Enviando..." : "📤 Upload de Imagens"}
+                {uploading ? "Enviando…" : "Upload de imagens"}
                 <input
                   type="file"
                   accept="image/*"
@@ -3535,7 +3924,7 @@ function ProductModal({
 
           <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
             <button type="button" className="admin-btn admin-btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="admin-btn admin-btn-primary">💾 Salvar</button>
+            <button type="submit" className="admin-btn admin-btn-primary">Salvar</button>
           </div>
         </form>
       </div>
@@ -3606,7 +3995,7 @@ function BannerModal({
 
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
             <button type="button" className="admin-btn admin-btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="admin-btn admin-btn-primary">💾 Salvar</button>
+            <button type="submit" className="admin-btn admin-btn-primary">Salvar</button>
           </div>
         </form>
       </div>
@@ -3685,7 +4074,7 @@ function PixelsSection({
 
   return (
     <div>
-      <div className="settings-group" style={{ marginBottom: 24 }}>
+      <div className="settings-group" style={{ marginBottom: 24 }} id="admin-section-pixels-add">
         <div className="settings-group-header">
           <span className="settings-group-icon">➕</span>
           <span className="settings-group-title">Adicionar Pixel</span>
@@ -3728,9 +4117,8 @@ function PixelsSection({
         </div>
       </div>
 
-      <div className="settings-group">
+      <div className="settings-group" id="admin-section-pixels-lista">
         <div className="settings-group-header">
-          <span className="settings-group-icon">📡</span>
           <span className="settings-group-title">Pixels configurados</span>
         </div>
         <div className="settings-group-body">
@@ -3829,7 +4217,6 @@ function PixelsSection({
 
       <div className="settings-group" style={{ marginTop: 24 }}>
         <div className="settings-group-header">
-          <span className="settings-group-icon">⚡</span>
           <span className="settings-group-title">Eventos no navegador (automáticos)</span>
         </div>
         <div className="settings-group-body">
@@ -3861,7 +4248,7 @@ function PixelsSection({
             onClick={() => { onSave(list); setDirty(false); }}
             disabled={saving}
           >
-            {saving ? "Salvando..." : "💾 Salvar Pixels"}
+            {saving ? "Salvando…" : "Salvar pixels"}
           </button>
         </div>
       )}
