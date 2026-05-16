@@ -198,9 +198,11 @@ export function writeStoreData(data: StoreData, tenant: string = "localhost"): v
 const EXCLUDED_TENANTS = new Set(["localhost", "127.0.0.1"]);
 
 /** Migrates pre-existing tenant directories by adding .registered marker.
- *  Runs once on first call after deploy — skips excluded and already-marked tenants. */
+ *  Runs exactly once — guarded by .migration-done flag in TENANTS_ROOT. */
 function migrateExistingTenants(): void {
   if (!fs.existsSync(TENANTS_ROOT)) return;
+  const migrationFlag = path.join(TENANTS_ROOT, ".migration-done");
+  if (fs.existsSync(migrationFlag)) return;
   const dirs = fs
     .readdirSync(TENANTS_ROOT, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !EXCLUDED_TENANTS.has(d.name));
@@ -212,6 +214,7 @@ function migrateExistingTenants(): void {
       fs.writeFileSync(registeredPath, "");
     }
   }
+  fs.writeFileSync(migrationFlag, new Date().toISOString());
 }
 
 /** List all officially registered tenant domain names */
