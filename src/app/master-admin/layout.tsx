@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "../globals.css";
+import "./master-admin.css";
 
 export const metadata: Metadata = {
   title: "Painel Master — Gerenciador de Lojas",

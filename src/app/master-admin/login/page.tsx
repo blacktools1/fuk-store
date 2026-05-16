@@ -55,7 +55,9 @@ export default function MasterLoginPage() {
   return (
     <div className="master-login-wrap">
       <div className="master-login-box">
-        <div className="master-login-icon">⚡</div>
+        <div className="master-login-logo" aria-hidden>
+          E
+        </div>
         <h1 className="master-login-title">EcomFreedom</h1>
         <p className="master-login-sub">Gerencie suas lojas em um só lugar</p>
 
@@ -118,7 +120,6 @@ export default function MasterLoginPage() {
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
                   required
-                  style={{ marginTop: 10 }}
                 />
                 <input
                   type="password"
@@ -127,10 +128,9 @@ export default function MasterLoginPage() {
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
                   required
-                  style={{ marginTop: 10 }}
                 />
-                <button type="submit" className="master-btn-primary" style={{ marginTop: 16 }}>
-                  Criar Conta
+                <button type="submit" className="master-btn-primary">
+                  Criar conta
                 </button>
                 <Link href="/master-home" className="ml-back-link">← Voltar para o início</Link>
               </>
@@ -138,53 +138,6 @@ export default function MasterLoginPage() {
           </form>
         )}
       </div>
-
-      <style>{`
-        .ml-tabs {
-          display: flex;
-          background: rgba(255,255,255,.06);
-          border-radius: 10px;
-          padding: 4px;
-          margin-bottom: 22px;
-          gap: 4px;
-        }
-        .ml-tab {
-          flex: 1;
-          padding: 9px 12px;
-          border: none;
-          background: transparent;
-          color: #a1a1aa;
-          font-size: 0.85rem;
-          font-weight: 600;
-          border-radius: 7px;
-          cursor: pointer;
-          transition: background .15s, color .15s;
-        }
-        .ml-tab.active {
-          background: rgba(255,255,255,.12);
-          color: #fff;
-        }
-        .ml-back-link {
-          display: block;
-          text-align: center;
-          margin-top: 14px;
-          font-size: 0.78rem;
-          color: #71717a;
-          text-decoration: none;
-          transition: color .15s;
-        }
-        .ml-back-link:hover { color: #a1a1aa; }
-        .ml-success-msg {
-          background: rgba(34,197,94,.12);
-          border: 1px solid rgba(34,197,94,.3);
-          color: #4ade80;
-          padding: 14px 18px;
-          border-radius: 10px;
-          font-size: 0.88rem;
-          text-align: center;
-          font-weight: 600;
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
 
 /* ─── Admin CSS Variables ─────────────────────────────────── */
 :root {
@@ -27,11 +27,14 @@
   --adm-radius: 10px;
   --adm-transition: 0.15s ease;
   --adm-btn-radius: 8px;
+  --adm-transition-spring: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --adm-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --adm-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
 }
 
 /* ─── Admin Base ──────────────────────────────────────────── */
 .admin-body {
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--adm-bg);
   color: var(--adm-text);
   min-height: 100vh;
@@ -47,7 +50,9 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background-image: radial-gradient(ellipse at 50% -20%, rgba(99, 102, 241, 0.08) 0%, transparent 55%);
+  background-image:
+    radial-gradient(ellipse 70% 50% at 30% -10%, rgba(99, 102, 241, 0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 75% 110%, rgba(99, 102, 241, 0.08) 0%, transparent 50%);
 }
 
 .admin-login-card {
@@ -57,7 +62,8 @@
   padding: 40px 36px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+  animation: adminScaleIn 0.45s var(--adm-ease-out-expo) both;
 }
 
 .admin-login-logo {
@@ -206,16 +212,21 @@
   color: #fafafa;
   background: var(--adm-accent);
   border-color: var(--adm-accent);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .admin-btn-primary:hover:not(:disabled) {
   background: #7c82f6;
   border-color: #7c82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
 }
 
 .admin-btn-primary:active:not(:disabled) {
   background: #4f46e5;
   border-color: #4f46e5;
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .admin-btn-primary:focus-visible {
@@ -350,6 +361,9 @@
 .admin-sidebar {
   width: var(--adm-sidebar-w);
   background: var(--adm-bg-sidebar);
+  background-image: var(--adm-noise);
+  background-size: 256px 256px;
+  background-repeat: repeat;
   border-right: 1px solid var(--adm-border);
   display: flex;
   flex-direction: column;
@@ -549,6 +563,18 @@
   background: var(--adm-accent-dim);
   color: var(--adm-accent-bright);
   font-weight: 600;
+  position: relative;
+}
+.admin-nav-link.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: var(--adm-accent);
+  border-radius: 0 3px 3px 0;
 }
 
 .admin-nav-icon-wrap {
@@ -647,6 +673,11 @@
   border-radius: var(--adm-radius);
   margin-bottom: 16px;
   overflow: hidden;
+  animation: adminFadeIn 0.35s var(--adm-ease-out-expo) both;
+  transition: border-color 0.2s ease;
+}
+.settings-group:hover {
+  border-color: var(--adm-border-hover);
 }
 
 .settings-group-header {
@@ -662,9 +693,9 @@
   width: 26px;
   height: 26px;
   border-radius: 6px;
-  background: var(--adm-bg);
-  border: 1px solid var(--adm-border);
-  color: var(--adm-text-muted);
+  background: var(--adm-accent-dim);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--adm-accent-bright);
   font-size: 0.7rem;
   font-weight: 700;
   display: flex;
@@ -741,11 +772,34 @@
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius);
   padding: 20px;
-  transition: border-color var(--adm-transition);
+  transition: border-color var(--adm-transition), transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  animation: adminFadeIn 0.4s var(--adm-ease-out-expo) both;
+}
+.admin-stat-card:nth-child(1) { animation-delay: 0s; }
+.admin-stat-card:nth-child(2) { animation-delay: 0.06s; }
+.admin-stat-card:nth-child(3) { animation-delay: 0.06s; }
+.admin-stat-card:nth-child(4) { animation-delay: 0.12s; }
+.admin-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--adm-accent), var(--adm-accent-bright));
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .admin-stat-card:hover {
   border-color: var(--adm-border-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+.admin-stat-card:hover::before {
+  opacity: 1;
 }
 
 .admin-stat-icon {
@@ -835,8 +889,17 @@
   border-bottom: none;
 }
 
-.admin-table tr:hover td {
-  background: rgba(139, 92, 246, 0.04);
+.admin-table tbody tr {
+  transition: background 0.15s ease;
+}
+.admin-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+.admin-table tbody tr:hover td {
+  background: rgba(99, 102, 241, 0.06);
+}
+.admin-table tbody tr:nth-child(even):hover td {
+  background: rgba(99, 102, 241, 0.06);
 }
 
 .admin-table-img {
@@ -965,7 +1028,8 @@
   max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.65);
+  animation: adminScaleIn 0.3s var(--adm-ease-out-expo) both;
 }
 
 .admin-modal-header {
@@ -1078,9 +1142,24 @@
   padding: 11px 16px;
   font-size: 0.82rem;
   font-weight: 500;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-  animation: slideInRight 0.25s ease;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  animation: adminSlideDown 0.35s var(--adm-transition-spring);
   max-width: 320px;
+  overflow: hidden;
+  position: relative;
+}
+.admin-toast::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--adm-success);
+  animation: toastProgress 3s linear forwards;
+}
+.admin-toast.error::after {
+  background: var(--adm-danger);
 }
 
 .admin-toast-label {
@@ -1110,6 +1189,26 @@
 @keyframes slideInRight {
   from { transform: translateX(120%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes adminFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes adminSlideDown {
+  from { opacity: 0; transform: translateY(-16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes adminScaleIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes toastProgress {
+  from { width: 100%; }
+  to   { width: 0%; }
 }
 
 /* ─── Divider ─────────────────────────────────────────────── */
@@ -2066,10 +2165,13 @@
   margin-bottom: 28px;
   border-radius: 16px;
   border: 1px solid var(--adm-border);
-  border-left: 3px solid var(--adm-accent);
+  border-left: 3px solid transparent;
+  border-image: linear-gradient(180deg, var(--adm-accent), var(--adm-accent-bright)) 1;
+  border-image-slice: 0 0 0 3;
   background: var(--adm-bg-card);
   box-shadow: 0 4px 32px rgba(0, 0, 0, 0.22);
   overflow: hidden;
+  animation: adminFadeIn 0.5s var(--adm-ease-out-expo) both;
 }
 
 .admin-rev-block__body {
