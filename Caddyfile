@@ -1,0 +1,33 @@
+# ─── Global options ────────────────────────────────────────────────────────────
+{
+  # E-mail para notificações Let's Encrypt
+  email seu@email.com
+
+  on_demand_tls {
+    # Caddy chama esse endpoint antes de emitir cert para qualquer domínio novo.
+    # Substitua APP_INTERNAL_PORT pelo número da porta interna do Next.js (ex: 3000).
+    ask http://localhost:APP_INTERNAL_PORT/api/caddy-ask
+
+    # Limites de segurança: máx 5 certs a cada 2 minutos
+    interval 2m
+    burst    5
+  }
+}
+
+# ─── Redireciona HTTP → HTTPS ──────────────────────────────────────────────────
+http:// {
+  redir https://{host}{uri} permanent
+}
+
+# ─── Domínio master + todas as lojas (on-demand TLS) ─────────────────────────
+# Substitua SEU_MASTER_DOMAIN pelo domínio master real (ex: ecomfreedom.online)
+SEU_MASTER_DOMAIN, :443 {
+  tls {
+    on_demand
+  }
+
+  reverse_proxy localhost:APP_INTERNAL_PORT {
+    header_up X-Forwarded-Host {host}
+    header_up X-Real-IP {remote_host}
+  }
+}
