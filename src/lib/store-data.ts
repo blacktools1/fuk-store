@@ -195,12 +195,35 @@ export function writeStoreData(data: StoreData, tenant: string = "localhost"): v
   }
 }
 
-/** List all registered tenant domain names */
+const EXCLUDED_TENANTS = new Set(["localhost", "127.0.0.1"]);
+
+/** Migrates pre-existing tenant directories by adding .registered marker.
+ *  Runs once on first call after deploy — skips excluded and already-marked tenants. */
+function migrateExistingTenants(): void {
+  if (!fs.existsSync(TENANTS_ROOT)) return;
+  const dirs = fs
+    .readdirSync(TENANTS_ROOT, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !EXCLUDED_TENANTS.has(d.name));
+  for (const dir of dirs) {
+    const tenantPath = path.join(TENANTS_ROOT, dir.name);
+    const dataFilePath = path.join(tenantPath, "store-data.json");
+    const registeredPath = path.join(tenantPath, ".registered");
+    if (fs.existsSync(dataFilePath) && !fs.existsSync(registeredPath)) {
+      fs.writeFileSync(registeredPath, "");
+    }
+  }
+}
+
+/** List all officially registered tenant domain names */
 export function listTenants(): string[] {
   if (!fs.existsSync(TENANTS_ROOT)) return [];
+  migrateExistingTenants();
   return fs
     .readdirSync(TENANTS_ROOT, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter((d) => d.isDirectory() && !EXCLUDED_TENANTS.has(d.name))
+    .filter((d) =>
+      fs.existsSync(path.join(TENANTS_ROOT, d.name, ".registered"))
+    )
     .map((d) => d.name);
 }
 
@@ -214,6 +237,7 @@ export function createTenant(domain: string, storeName?: string): StoreData {
     banners: [],
   };
   writeStoreData(data, domain);
+  fs.writeFileSync(path.join(TENANTS_ROOT, domain, ".registered"), "");
   return data;
 }
 
