@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-import { listTenants, createTenant, readStoreData, tenantDir } from "@/lib/store-data";
-import { cfAddHostname } from "@/lib/cloudflare";
-import fs from "fs";
-import path from "path";
+import { listTenants, createTenant, readStoreData } from "@/lib/store-data";
 
 const MASTER_SECRET = new TextEncoder().encode(
   process.env.MASTER_JWT_SECRET || "master-secret-change-this-in-production"
@@ -68,14 +65,6 @@ export async function POST(req: NextRequest) {
     }
 
     const store = createTenant(normalized, storeName);
-
-    // Register custom hostname on Cloudflare for SaaS (fire-and-forget, non-blocking)
-    cfAddHostname(normalized).then((cfId) => {
-      if (cfId) {
-        fs.writeFileSync(path.join(tenantDir(normalized), ".cf-hostname-id"), cfId);
-      }
-    }).catch((err) => console.error("[CF] addHostname error:", err));
-
     return NextResponse.json({ domain: normalized, storeName: store.storeName }, { status: 201 });
   } catch {
     return NextResponse.json({ message: "Erro ao criar loja" }, { status: 500 });
