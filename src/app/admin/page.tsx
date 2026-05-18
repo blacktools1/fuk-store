@@ -3945,8 +3945,30 @@ function BannerModal({
   onClose: () => void;
 }) {
   const [form, setForm] = useState({ ...banner });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const set = (field: keyof Banner, value: unknown) =>
     setForm((f) => ({ ...f, [field]: value }));
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Erro no upload");
+      set("image", json.url);
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : "Erro no upload");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -3973,8 +3995,15 @@ function BannerModal({
             <input className="admin-form-input" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} />
           </div>
           <div className="admin-form-field">
-            <label className="admin-form-label">URL da Imagem</label>
-            <input className="admin-form-input" value={form.image} onChange={(e) => set("image", e.target.value)} placeholder="https://... ou /banners/banner.jpg" />
+            <label className="admin-form-label">Imagem do Banner</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <label className="admin-btn admin-btn-secondary" style={{ cursor: uploading ? "not-allowed" : "pointer", opacity: uploading ? 0.6 : 1, fontSize: "0.8rem" }}>
+                {uploading ? "Enviando..." : "📁 Fazer Upload"}
+                <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploading} onChange={handleUpload} />
+              </label>
+            </div>
+            {uploadError && <p style={{ color: "var(--adm-danger)", fontSize: "0.8rem", marginBottom: 6 }}>{uploadError}</p>}
+            <input className="admin-form-input" value={form.image} onChange={(e) => set("image", e.target.value)} placeholder="https://... ou faça upload acima" />
             {form.image && (
               <img src={form.image} alt="preview" style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginTop: 8, border: "1px solid var(--adm-border)" }} />
             )}
@@ -3995,7 +4024,7 @@ function BannerModal({
 
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
             <button type="button" className="admin-btn admin-btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="admin-btn admin-btn-primary">Salvar</button>
+            <button type="submit" className="admin-btn admin-btn-primary" disabled={uploading}>Salvar</button>
           </div>
         </form>
       </div>
