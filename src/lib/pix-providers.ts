@@ -17,7 +17,14 @@ export type PixProviderCatalogEntry = {
 
 /** Ordem alfabética por nome (fácil de escanear com muitos itens). */
 export const PIX_PROVIDER_CATALOG: PixProviderCatalogEntry[] = [
-  { id: "asaas", name: "Asaas", description: "Cobranças e gateway completo.", available: false, authType: "—", apiHost: "—" },
+  {
+    id: "asaas",
+    name: "Asaas",
+    description: "Cobrança PIX dinâmica (API v3).",
+    available: true,
+    authType: "access_token (header)",
+    apiHost: "api.asaas.com / api-sandbox.asaas.com",
+  },
   { id: "mercadopago", name: "Mercado Pago", description: "PIX e outros métodos.", available: false, authType: "—", apiHost: "—" },
   { id: "orama", name: "OramaPay", description: "PIX API REST.", available: true, authType: "Basic Auth", apiHost: "api.oramapay.com" },
   { id: "pagseguro", name: "PagSeguro", description: "PIX PagBank.", available: false, authType: "—", apiHost: "—" },

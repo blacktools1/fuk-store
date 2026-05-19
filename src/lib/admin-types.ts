@@ -66,7 +66,7 @@ export interface ShippingOption {
  * Provedores de pagamento PIX disponíveis.
  * Adicionar novos valores aqui conforme cada integração for implementada.
  */
-export type PixProvider = "paradise" | "orama";
+export type PixProvider = "paradise" | "orama" | "asaas";
 
 /** Uma conta UTMify (dashboard) com label para identificação */
 export interface UtmifyAccount {
@@ -82,6 +82,10 @@ export interface CheckoutConfig {
   oramaPublicKey?: string;              // public key da conta OramaPay
   /** Secret para validar assinatura HMAC dos webhooks Orama (header x-webhook-signature) */
   oramaWebhookSecret?: string;
+  /** Chave de API Asaas (`access_token` no header das requisições v3) */
+  asaasApiKey?: string;
+  /** Usa hosts `api-sandbox.asaas.com` em vez da produção */
+  asaasSandbox?: boolean;
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;

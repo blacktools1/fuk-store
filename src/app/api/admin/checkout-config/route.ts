@@ -28,7 +28,9 @@ export async function GET(req: NextRequest) {
   const hasInternalCheckout =
     provider === "orama"
       ? !!(c.oramaApiKey?.trim() && c.oramaPublicKey?.trim())
-      : !!(c.paradiseApiKey?.trim());
+      : provider === "asaas"
+        ? !!(c.asaasApiKey?.trim())
+        : !!(c.paradiseApiKey?.trim());
 
   return NextResponse.json({
     hasInternalCheckout,

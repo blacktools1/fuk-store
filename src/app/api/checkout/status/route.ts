@@ -3,6 +3,7 @@ import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData } from "@/lib/store-data";
 import { checkParadiseStatus } from "@/lib/paradise";
 import { checkOramaStatus } from "@/lib/orama";
+import { checkAsaasPaymentStatus } from "@/lib/asaas";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
 import { markSalePaid } from "@/lib/sales-log";
@@ -33,6 +34,18 @@ export async function POST(req: NextRequest) {
       result = await checkOramaStatus({
         apiKey:    config.oramaApiKey,
         publicKey: config.oramaPublicKey,
+        transactionId: String(transactionId),
+      });
+    } else if (provider === "asaas") {
+      if (!config?.asaasApiKey?.trim()) {
+        return NextResponse.json(
+          { error: "Checkout Asaas não configurado" },
+          { status: 400 }
+        );
+      }
+      result = await checkAsaasPaymentStatus({
+        accessToken: config.asaasApiKey,
+        sandbox: config.asaasSandbox === true,
         transactionId: String(transactionId),
       });
     } else {

@@ -24,6 +24,8 @@ export async function GET(req: NextRequest) {
     hasInternalCheckout = !!(c?.paradiseApiKey?.trim());
   } else if (provider === "orama") {
     hasInternalCheckout = !!(c?.oramaApiKey?.trim() && c?.oramaPublicKey?.trim());
+  } else if (provider === "asaas") {
+    hasInternalCheckout = !!(c?.asaasApiKey?.trim());
   }
 
   return NextResponse.json(

@@ -687,7 +687,9 @@ function DashboardSection({
   const hasInternalCheckout =
     providerId === "orama"
       ? !!(cc?.oramaApiKey?.trim() && cc?.oramaPublicKey?.trim())
-      : !!(cc?.paradiseApiKey?.trim());
+      : providerId === "asaas"
+        ? !!(cc?.asaasApiKey?.trim())
+        : !!(cc?.paradiseApiKey?.trim());
   const pixelList = storeData?.pixels ?? [];
   const pixelsActive = pixelList.filter((p) => p.active).length;
   const utmifyCount = (cc?.utmifyAccounts ?? []).length;
@@ -1303,6 +1305,10 @@ function CheckoutSection({
   const [oramaWebhookSecret, setOramaWebhookSecret] = useState(
     storeData?.checkoutConfig?.oramaWebhookSecret ?? ""
   );
+  const [asaasApiKey, setAsaasApiKey] = useState(storeData?.checkoutConfig?.asaasApiKey ?? "");
+  const [asaasSandbox, setAsaasSandbox] = useState(
+    storeData?.checkoutConfig?.asaasSandbox === true
+  );
   const [providerQuery, setProviderQuery] = useState("");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
@@ -1401,14 +1407,18 @@ function CheckoutSection({
   const isProviderConfigured = (id: string) => {
     if (id === "paradise") return apiKey.trim().length > 0;
     if (id === "orama") return !!(oramaApiKey.trim() && oramaPublicKey.trim());
+    if (id === "asaas") return asaasApiKey.trim().length > 0;
     return false;
   };
 
   const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
 
-  const hasKey = pixProvider === "orama"
-    ? oramaApiKey.trim().length > 0 && oramaPublicKey.trim().length > 0
-    : apiKey.trim().length > 0;
+  const hasKey =
+    pixProvider === "orama"
+      ? oramaApiKey.trim().length > 0 && oramaPublicKey.trim().length > 0
+      : pixProvider === "asaas"
+        ? asaasApiKey.trim().length > 0
+        : apiKey.trim().length > 0;
 
   const handleSave = async () => {
     if (!storeData) return; // guarda: nunca salva com dados ainda não carregados
@@ -1423,6 +1433,8 @@ function CheckoutSection({
           oramaApiKey: oramaApiKey.trim(),
           oramaPublicKey: oramaPublicKey.trim(),
           oramaWebhookSecret: oramaWebhookSecret.trim(),
+          asaasApiKey: asaasApiKey.trim(),
+          asaasSandbox,
           redirectUrl: redirectUrl.trim(),
           redirectEnabled: redirectOn,
           orderbumpStyle,
@@ -1797,8 +1809,8 @@ function CheckoutSection({
               <div className="admin-pix-webhook-strip-text">
                 <div className="admin-pix-webhook-strip-title">URL de webhook / postback desta loja</div>
                 <p className="admin-pix-webhook-strip-hint">
-                  É sempre a mesma para Paradise, OramaPay e outros: cadastre-a no painel do provedor como URL de notificação.
-                  O checkout também confirma pagamento por polling se você não configurar webhook no gateway.
+                  É sempre a mesma para Paradise, OramaPay, Asaas e outros: onde o gateway permitir, cadastre no painel ou use notificações de cobrança.
+                  O checkout confirma pagamento por polling; webhooks opcionais do Asaas vão ao mesmo caminho público quando você configurá-los.
                 </p>
               </div>
               <div className="admin-pix-webhook-strip-row">
@@ -1886,7 +1898,53 @@ function CheckoutSection({
                 </div>
               )}
 
-              {pixProvider !== "paradise" && pixProvider !== "orama" && (
+              {pixProvider === "asaas" && (
+                <div className="admin-pix-cred-grid admin-pix-cred-grid--orama">
+                  <div className="admin-pix-field">
+                    <label className="admin-form-label">API Key — access_token</label>
+                    <input
+                      className="admin-form-input"
+                      type="password"
+                      placeholder="cole a chave exibida no painel Integrações da Asaas"
+                      value={asaasApiKey}
+                      onChange={(e) => {
+                        setAsaasApiKey(e.target.value);
+                        markDirty();
+                      }}
+                      autoComplete="off"
+                    />
+                    <p className="admin-pix-field-hint">
+                      Enviado no header <code>access_token</code> conforme{" "}
+                      <a href="https://docs.asaas.com/reference/authentication" target="_blank" rel="noopener noreferrer">
+                        Autenticação Asaas
+                      </a>
+                      . Em subcontas, use o formato com prefixo <code>$</code> quando aplicável.
+                    </p>
+                  </div>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.84rem", color: "var(--adm-text-muted)", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={asaasSandbox}
+                      onChange={(e) => {
+                        setAsaasSandbox(e.target.checked);
+                        markDirty();
+                      }}
+                    />
+                    Usar Sandbox (Ambiente homologação — <code>api-sandbox.asaas.com</code>)
+                  </label>
+                  <div className="admin-pix-field admin-pix-field--full">
+                    <p className="admin-pix-field-hint">
+                      Fluxo PIX: cliente + cobrança <code>billingType PIX</code> via API v3 — ver{" "}
+                      <a href="https://docs.asaas.com/docs/pix" target="_blank" rel="noopener noreferrer">
+                        documentação Pix Asaas
+                      </a>
+                      . Cadastre uma chave Pix na conta para o QR dinâmico estável em produção.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {pixProvider !== "paradise" && pixProvider !== "orama" && pixProvider !== "asaas" && (
                 <p style={{ fontSize: "0.85rem", color: "var(--adm-text-muted)" }}>
                   Este provedor ainda não possui campos de credencial nesta versão.
                 </p>
@@ -1895,7 +1953,8 @@ function CheckoutSection({
 
             {(pixProvider === "paradise" && apiKey.trim()) ||
             (pixProvider === "orama" &&
-              (oramaApiKey.trim() || oramaPublicKey.trim() || oramaWebhookSecret.trim())) ? (
+              (oramaApiKey.trim() || oramaPublicKey.trim() || oramaWebhookSecret.trim())) ||
+            (pixProvider === "asaas" && asaasApiKey.trim()) ? (
               <section className="admin-pix-card admin-pix-card--readonly">
                 <h3 className="admin-pix-card-title">Credenciais salvas no sistema</h3>
                 <p className="admin-pix-card-lead">Pré-visualização mascarada — valores reais ficam apenas no servidor.</p>
@@ -1922,6 +1981,18 @@ function CheckoutSection({
                       <code className="admin-pix-readonly-value">
                         {oramaWebhookSecret.trim() ? maskPixCredential(oramaWebhookSecret) : "—"}
                       </code>
+                    </div>
+                  </div>
+                )}
+                {pixProvider === "asaas" && (
+                  <div className="admin-pix-cred-grid admin-pix-cred-grid--single">
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">API Key</span>
+                      <code className="admin-pix-readonly-value">{maskPixCredential(asaasApiKey)}</code>
+                    </div>
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">Sandbox</span>
+                      <code className="admin-pix-readonly-value">{asaasSandbox ? "sim" : "produção"}</code>
                     </div>
                   </div>
                 )}

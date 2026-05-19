@@ -3,6 +3,7 @@ import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData } from "@/lib/store-data";
 import { createParadisePayment } from "@/lib/paradise";
 import { createOramaPayment } from "@/lib/orama";
+import { createAsaasCheckoutPix } from "@/lib/asaas";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
@@ -171,6 +172,31 @@ export async function POST(req: NextRequest) {
         items,
         externalRef: reference,
         webhookUrl,
+      });
+
+    } else if (provider === "asaas") {
+      if (!config?.asaasApiKey?.trim()) {
+        return NextResponse.json(
+          {
+            error:
+              "Chave da API Asaas não configurada. Acesse o painel admin → Checkout PIX.",
+          },
+          { status: 400 }
+        );
+      }
+
+      result = await createAsaasCheckoutPix({
+        accessToken: config.asaasApiKey,
+        sandbox: config.asaasSandbox === true,
+        amountInCents: Math.round(total * 100),
+        description,
+        externalReference: reference,
+        customer: {
+          name: customer.name.trim(),
+          email: customer.email.trim().toLowerCase(),
+          phone,
+          document: cpf,
+        },
       });
 
     } else {
