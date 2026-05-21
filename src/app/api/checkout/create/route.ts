@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             error:
-              "Chave de API Skale Pay não configurada. Admin → Checkout PIX → cole a Chave de API do painel Skale.",
+              "Credenciais Skale Pay incompletas. Admin → Checkout PIX → Chave de API + ID do usuário (painel Skale).",
           },
           { status: 400 }
         );

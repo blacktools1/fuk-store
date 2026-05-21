@@ -90,7 +90,7 @@ export interface CheckoutConfig {
   skalepayApiKey?: string;
   /** @deprecated use skalepayApiKey — mantido para lojas já salvas */
   skalepaySecretKey?: string;
-  /** ID do usuário / conta (referência no painel; não entra no Basic Auth) */
+  /** ID do usuário / conta — senha do Basic Auth (ChaveDeAPI:ID) */
   skalepayUserId?: string;
   redirectUrl?: string;
   redirectEnabled?: boolean;

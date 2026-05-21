@@ -2,10 +2,10 @@
  * Cliente TypeScript para a Skale Pay API (PIX).
  *
  * Painel Skale (Credenciais de API):
- * - Chave de API — autenticação das requisições
- * - ID do usuário — identificador da conta (referência; não entra no Basic Auth)
+ * - Chave de API — usuário do Basic Auth
+ * - ID do usuário — senha do Basic Auth (o ":x" da doc é placeholder, não a letra "x")
  *
- * @see https://skalepay.readme.io/reference/introducao — Basic base64("{CHAVE_DE_API}:x")
+ * @see https://skalepay.readme.io/reference/introducao
  */
 
 import QRCode from "qrcode";
@@ -15,21 +15,14 @@ import type { CheckoutConfig } from "./admin-types";
 const SKALE_BASE = "https://api.conta.skalepay.com.br/v1";
 
 export type SkaleCredentials = {
-  /** Chave de API do painel Skale */
   apiKey?: string;
-  /** ID do usuário (conta) — salvo para referência; auth usa só apiKey:x */
   userId?: string;
 };
 
 function normCredential(value?: string): string {
-  return (value ?? "")
-    .trim()
-    .replace(/^\uFEFF/, "")
-    .replace(/^["']|["']$/g, "")
-    .replace(/\s+/g, "");
+  return (value ?? "").trim().replace(/^\uFEFF/, "").replace(/^["']|["']$/g, "");
 }
 
-/** Lê credenciais salvas no checkout (compatível com campo legado skalepaySecretKey). */
 export function skaleCredentialsFromConfig(cc?: CheckoutConfig | null): SkaleCredentials {
   return {
     apiKey: cc?.skalepayApiKey ?? cc?.skalepaySecretKey,
@@ -37,31 +30,89 @@ export function skaleCredentialsFromConfig(cc?: CheckoutConfig | null): SkaleCre
   };
 }
 
-/**
- * Autenticação oficial Skale Pay: Basic Auth com usuário = Chave de API e senha = "x".
- */
+/** Modos de Basic Auth a tentar (ordem). */
+function authModes(creds: SkaleCredentials): { username: string; password: string; mode: string }[] {
+  const apiKey = normCredential(creds.apiKey);
+  const userId = normCredential(creds.userId);
+  const modes: { username: string; password: string; mode: string }[] = [];
+
+  if (apiKey && userId) {
+    modes.push({ username: apiKey, password: userId, mode: "apiKey:userId" });
+  }
+  if (apiKey) {
+    modes.push({ username: apiKey, password: "x", mode: "apiKey:x" });
+  }
+  if (userId && apiKey) {
+    modes.push({ username: userId, password: apiKey, mode: "userId:apiKey" });
+  }
+
+  return modes;
+}
+
 export function resolveSkaleAuth(creds: SkaleCredentials): {
   username: string;
   password: string;
   mode: string;
 } {
-  const apiKey = normCredential(creds.apiKey);
-  if (!apiKey) {
+  const modes = authModes(creds);
+  if (modes.length === 0) {
     throw new Error(
-      "Chave de API Skale Pay não configurada. Copie em Configurações → Credenciais de API no painel Skale."
+      "Credenciais Skale Pay incompletas. Informe Chave de API e ID do usuário do painel Skale."
     );
   }
-  return { username: apiKey, password: "x", mode: "apiKey:x" };
+  return modes[0];
 }
 
 export function hasSkaleCredentials(creds: SkaleCredentials): boolean {
-  return normCredential(creds.apiKey).length > 0;
+  return !!(normCredential(creds.apiKey) && normCredential(creds.userId));
 }
 
-function basicAuth(creds: SkaleCredentials): string {
-  const { username, password } = resolveSkaleAuth(creds);
-  const encoded = Buffer.from(`${username}:${password}`).toString("base64");
-  return `Basic ${encoded}`;
+function encodeBasic(username: string, password: string): string {
+  return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+}
+
+async function skaleFetch(
+  path: string,
+  creds: SkaleCredentials,
+  init: RequestInit
+): Promise<{ res: Response; data: Record<string, unknown>; mode: string }> {
+  const modes = authModes(creds);
+  if (modes.length === 0) {
+    throw new Error("Credenciais Skale Pay incompletas.");
+  }
+
+  let lastRes: Response | null = null;
+  let lastData: Record<string, unknown> = {};
+  let lastMode = modes[0].mode;
+
+  for (const auth of modes) {
+    lastMode = auth.mode;
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", encodeBasic(auth.username, auth.password));
+    if (!headers.has("Accept")) headers.set("Accept", "application/json");
+
+    const res = await fetch(`${SKALE_BASE}${path}`, { ...init, headers });
+    const data = await parseJsonSafely(res);
+    lastRes = res;
+    lastData = data;
+
+    if (res.ok) {
+      return { res, data, mode: auth.mode };
+    }
+
+    const msg = formatSkaleError(data, "").toLowerCase();
+    const isAuthError =
+      res.status === 401 ||
+      res.status === 403 ||
+      msg.includes("token") ||
+      msg.includes("rl-");
+
+    if (!isAuthError) {
+      return { res, data, mode: auth.mode };
+    }
+  }
+
+  return { res: lastRes!, data: lastData, mode: lastMode };
 }
 
 async function qrDataUrlFromPixPayload(emv: string): Promise<string> {
@@ -119,7 +170,6 @@ export async function createSkalePayment(params: {
   webhookUrl: string;
   metadata?: string;
 }): Promise<SkaleCreateResult> {
-  const auth = resolveSkaleAuth(params.credentials);
   const docDigits = params.customer.document.replace(/\D/g, "");
   const docType = docDigits.length === 14 ? "cnpj" : "cpf";
 
@@ -146,33 +196,20 @@ export async function createSkalePayment(params: {
     postbackUrl: params.webhookUrl,
   };
 
-  const userId = normCredential(params.credentials.userId);
-  const meta: Record<string, unknown> = { ref: params.externalRef };
-  if (userId) meta.skaleUserId = userId;
   if (params.metadata?.trim()) {
-    try {
-      Object.assign(meta, JSON.parse(params.metadata) as Record<string, unknown>);
-    } catch {
-      meta.note = params.metadata.trim().slice(0, 200);
-    }
+    body.metadata = params.metadata.trim().slice(0, 500);
   }
-  body.metadata = JSON.stringify(meta).slice(0, 500);
 
-  const res = await fetch(`${SKALE_BASE}/transactions`, {
+  const { res, data, mode } = await skaleFetch("/transactions", params.credentials, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: basicAuth(params.credentials),
-      Accept: "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
-  const data = await parseJsonSafely(res);
   if (!res.ok) {
     const hint =
       res.status === 401 || res.status === 403
-        ? ` Auth: ${auth.mode} (Chave de API + senha "x", conforme documentação Skale). Cole só a Chave de API — não use o ID do usuário na autenticação.`
+        ? ` Último modo testado: ${mode}. Use Chave de API como usuário e ID do usuário como senha do Basic Auth (ambos do painel Skale).`
         : "";
     throw new Error(formatSkaleError(data, `Skale Pay: HTTP ${res.status}`) + hint);
   }
@@ -215,14 +252,10 @@ export async function checkSkaleStatus(params: {
   transactionId: string;
 }): Promise<SkaleStatusResult> {
   const id = encodeURIComponent(params.transactionId);
-  const res = await fetch(`${SKALE_BASE}/transactions/${id}`, {
-    headers: {
-      Authorization: basicAuth(params.credentials),
-      Accept: "application/json",
-    },
+  const { res, data } = await skaleFetch(`/transactions/${id}`, params.credentials, {
+    method: "GET",
   });
 
-  const data = await parseJsonSafely(res);
   if (!res.ok) {
     throw new Error(formatSkaleError(data, `Skale Pay status: HTTP ${res.status}`));
   }
