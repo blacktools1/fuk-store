@@ -4,7 +4,7 @@ import { readStoreData } from "@/lib/store-data";
 import { checkParadiseStatus } from "@/lib/paradise";
 import { checkOramaStatus } from "@/lib/orama";
 import { checkAsaasPaymentStatus } from "@/lib/asaas";
-import { checkSkaleStatus } from "@/lib/skalepay";
+import { checkSkaleStatus, hasSkaleCredentials } from "@/lib/skalepay";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
 import { markSalePaid } from "@/lib/sales-log";
@@ -50,15 +50,20 @@ export async function POST(req: NextRequest) {
         transactionId: String(transactionId),
       });
     } else if (provider === "skalepay") {
-      if (!config?.skalepaySecretKey?.trim() || !config?.skalepayUserToken?.trim()) {
+      const skaleCreds = {
+        secretKey: config?.skalepaySecretKey,
+        userId: config?.skalepayUserId,
+        userToken: config?.skalepayUserToken,
+        publicKey: config?.skalepayPublicKey,
+      };
+      if (!hasSkaleCredentials(skaleCreds)) {
         return NextResponse.json(
-          { error: "Checkout Skale Pay não configurado (Secret Key + Token de usuário)" },
+          { error: "Checkout Skale Pay não configurado (ID + Token ou Chave secreta)" },
           { status: 400 }
         );
       }
       result = await checkSkaleStatus({
-        secretKey: config.skalepaySecretKey,
-        userToken: config.skalepayUserToken,
+        credentials: skaleCreds,
         transactionId: String(transactionId),
       });
     } else {

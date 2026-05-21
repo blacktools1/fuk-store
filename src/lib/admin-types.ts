@@ -86,10 +86,14 @@ export interface CheckoutConfig {
   asaasApiKey?: string;
   /** Usa hosts `api-sandbox.asaas.com` em vez da produção */
   asaasSandbox?: boolean;
-  /** Chave secreta Skale Pay (usuário do Basic Auth) */
+  /** Chave secreta Skale Pay (Credenciais de API) */
   skalepaySecretKey?: string;
-  /** Token de usuário exibido junto à chave no painel Skale (senha do Basic Auth) */
+  /** ID do usuário exibido ao criar credenciais no painel Skale */
+  skalepayUserId?: string;
+  /** Token de usuário exibido ao criar credenciais no painel Skale */
   skalepayUserToken?: string;
+  /** Chave pública da empresa (opcional — modo secretKey:publicKey) */
+  skalepayPublicKey?: string;
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;
