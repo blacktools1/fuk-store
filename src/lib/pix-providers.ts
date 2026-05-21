@@ -34,7 +34,7 @@ export const PIX_PROVIDER_CATALOG: PixProviderCatalogEntry[] = [
     name: "Skale Pay",
     description: "PIX via API REST (transações).",
     available: true,
-    authType: "Basic Auth (ID + Token)",
+    authType: "Chave de API (:x)",
     apiHost: "api.conta.skalepay.com.br",
   },
 ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));

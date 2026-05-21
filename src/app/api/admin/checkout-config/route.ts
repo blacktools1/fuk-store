@@ -3,7 +3,7 @@ import { getTenantFromRequest } from "@/lib/tenant";
 import { readStoreData, writeStoreData } from "@/lib/store-data";
 import type { UtmifyAccount } from "@/lib/admin-types";
 import { filterShippingForCheckout } from "@/lib/checkout-public";
-import { hasSkaleCredentials } from "@/lib/skalepay";
+import { hasSkaleCredentials, skaleCredentialsFromConfig } from "@/lib/skalepay";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +32,7 @@ export async function GET(req: NextRequest) {
       : provider === "asaas"
         ? !!(c.asaasApiKey?.trim())
         : provider === "skalepay"
-          ? hasSkaleCredentials({
-              secretKey: c.skalepaySecretKey,
-              userId: c.skalepayUserId,
-              userToken: c.skalepayUserToken,
-              publicKey: c.skalepayPublicKey,
-            })
+          ? hasSkaleCredentials(skaleCredentialsFromConfig(c))
           : !!(c.paradiseApiKey?.trim());
 
   return NextResponse.json({

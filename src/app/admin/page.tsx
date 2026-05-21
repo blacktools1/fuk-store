@@ -701,10 +701,7 @@ function DashboardSection({
       : providerId === "asaas"
         ? !!(cc?.asaasApiKey?.trim())
         : providerId === "skalepay"
-          ? !!(
-              (cc?.skalepayUserId?.trim() && cc?.skalepayUserToken?.trim()) ||
-              cc?.skalepaySecretKey?.trim()
-            )
+          ? !!(cc?.skalepayApiKey?.trim() || cc?.skalepaySecretKey?.trim())
           : !!(cc?.paradiseApiKey?.trim());
   const pixelList = storeData?.pixels ?? [];
   const pixelsActive = pixelList.filter((p) => p.active).length;
@@ -1331,17 +1328,13 @@ function CheckoutSection({
   const [asaasSandbox, setAsaasSandbox] = useState(
     storeData?.checkoutConfig?.asaasSandbox === true
   );
-  const [skalepaySecretKey, setSkalepaySecretKey] = useState(
-    storeData?.checkoutConfig?.skalepaySecretKey ?? ""
+  const [skalepayApiKey, setSkalepayApiKey] = useState(
+    storeData?.checkoutConfig?.skalepayApiKey ??
+      storeData?.checkoutConfig?.skalepaySecretKey ??
+      ""
   );
   const [skalepayUserId, setSkalepayUserId] = useState(
     storeData?.checkoutConfig?.skalepayUserId ?? ""
-  );
-  const [skalepayUserToken, setSkalepayUserToken] = useState(
-    storeData?.checkoutConfig?.skalepayUserToken ?? ""
-  );
-  const [skalepayPublicKey, setSkalepayPublicKey] = useState(
-    storeData?.checkoutConfig?.skalepayPublicKey ?? ""
   );
   const [providerQuery, setProviderQuery] = useState("");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
@@ -1477,11 +1470,7 @@ function CheckoutSection({
     if (id === "paradise") return apiKey.trim().length > 0;
     if (id === "orama") return !!(oramaApiKey.trim() && oramaPublicKey.trim());
     if (id === "asaas") return asaasApiKey.trim().length > 0;
-    if (id === "skalepay") {
-      return !!(
-        (skalepayUserId.trim() && skalepayUserToken.trim()) || skalepaySecretKey.trim()
-      );
-    }
+    if (id === "skalepay") return skalepayApiKey.trim().length > 0;
     return false;
   };
 
@@ -1528,8 +1517,7 @@ function CheckoutSection({
       : pixProvider === "asaas"
         ? asaasApiKey.trim().length > 0
         : pixProvider === "skalepay"
-          ? (skalepayUserId.trim().length > 0 && skalepayUserToken.trim().length > 0) ||
-            skalepaySecretKey.trim().length > 0
+          ? skalepayApiKey.trim().length > 0
           : apiKey.trim().length > 0;
 
   const handleSave = async () => {
@@ -1547,10 +1535,9 @@ function CheckoutSection({
           oramaWebhookSecret: oramaWebhookSecret.trim(),
           asaasApiKey: asaasApiKey.trim(),
           asaasSandbox,
-          skalepaySecretKey: skalepaySecretKey.trim(),
+          skalepayApiKey: skalepayApiKey.trim(),
+          skalepaySecretKey: skalepayApiKey.trim(),
           skalepayUserId: skalepayUserId.trim(),
-          skalepayUserToken: skalepayUserToken.trim(),
-          skalepayPublicKey: skalepayPublicKey.trim(),
           redirectUrl: redirectUrl.trim(),
           redirectEnabled: redirectOn,
           orderbumpStyle,
@@ -2076,14 +2063,39 @@ function CheckoutSection({
               )}
 
               {pixProvider === "skalepay" && (
-                <div className="admin-pix-cred-grid admin-pix-cred-grid--orama">
-                  <div className="admin-pix-field">
-                    <label className="admin-form-label">ID do usuário</label>
+                <div className="admin-pix-cred-grid admin-pix-cred-grid--single">
+                  <div className="admin-pix-field admin-pix-field--full">
+                    <label className="admin-form-label">Chave de API</label>
+                    <input
+                      className="admin-form-input"
+                      type="password"
+                      placeholder="Cole a chave exibida em Credenciais de API"
+                      value={skalepayApiKey}
+                      onChange={(e) => {
+                        setSkalepayApiKey(e.target.value);
+                        markDirty();
+                      }}
+                      autoComplete="off"
+                    />
+                    <p className="admin-pix-field-hint">
+                      É o único valor usado na autenticação: <code>Basic base64(ChaveDeAPI:x)</code> conforme a{" "}
+                      <a
+                        href="https://skalepay.readme.io/reference/introducao"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        documentação Skale Pay
+                      </a>
+                      .
+                    </p>
+                  </div>
+                  <div className="admin-pix-field admin-pix-field--full">
+                    <label className="admin-form-label">ID do usuário (opcional)</label>
                     <input
                       className="admin-form-input"
                       type="text"
                       inputMode="numeric"
-                      placeholder="ex.: 12345 — valor numérico do painel"
+                      placeholder="Identificador da conta — só referência"
                       value={skalepayUserId}
                       onChange={(e) => {
                         setSkalepayUserId(e.target.value);
@@ -2092,71 +2104,8 @@ function CheckoutSection({
                       autoComplete="off"
                     />
                     <p className="admin-pix-field-hint">
-                      <strong>Recomendado.</strong> Basic Auth: <code>ID:Token</code> (usuário = ID, senha = Token).
-                    </p>
-                  </div>
-                  <div className="admin-pix-field">
-                    <label className="admin-form-label">Token de usuário</label>
-                    <input
-                      className="admin-form-input"
-                      type="password"
-                      placeholder="Token gerado ao criar credenciais"
-                      value={skalepayUserToken}
-                      onChange={(e) => {
-                        setSkalepayUserToken(e.target.value);
-                        markDirty();
-                      }}
-                      autoComplete="off"
-                    />
-                    <p className="admin-pix-field-hint">
-                      Não confunda com a chave secreta — é o token longo exibido no painel.
-                    </p>
-                  </div>
-                  <div className="admin-pix-field">
-                    <label className="admin-form-label">Chave secreta (opcional)</label>
-                    <input
-                      className="admin-form-input"
-                      type="password"
-                      placeholder="Só se o painel exigir em vez de ID+Token"
-                      value={skalepaySecretKey}
-                      onChange={(e) => {
-                        setSkalepaySecretKey(e.target.value);
-                        markDirty();
-                      }}
-                      autoComplete="off"
-                    />
-                    <p className="admin-pix-field-hint">
-                      Usada se não houver ID+Token: <code>Secret:x</code> ou <code>Secret:Token</code>.
-                    </p>
-                  </div>
-                  <div className="admin-pix-field">
-                    <label className="admin-form-label">Chave pública (opcional)</label>
-                    <input
-                      className="admin-form-input"
-                      type="password"
-                      placeholder="Chave pública da empresa"
-                      value={skalepayPublicKey}
-                      onChange={(e) => {
-                        setSkalepayPublicKey(e.target.value);
-                        markDirty();
-                      }}
-                      autoComplete="off"
-                    />
-                    <p className="admin-pix-field-hint">
-                      Alternativa: <code>Secret:PublicKey</code> (como OramaPay).
-                    </p>
-                  </div>
-                  <div className="admin-pix-field admin-pix-field--full">
-                    <p className="admin-pix-field-hint">
-                      Preencha <strong>ID do usuário + Token</strong> exatamente como no painel Skale (Configurações →
-                      Credenciais de API). Postback: URL de webhook desta loja.{" "}
-                      <a
-                        href="https://skalepay.readme.io/reference/introducao"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Documentação
-                      </a>
+                      O painel mostra este ID para identificar sua conta. <strong>Não</strong> entra no login da API —
+                      não cole no lugar da Chave de API.
                     </p>
                   </div>
                 </div>
@@ -2176,11 +2125,7 @@ function CheckoutSection({
             (pixProvider === "orama" &&
               (oramaApiKey.trim() || oramaPublicKey.trim() || oramaWebhookSecret.trim())) ||
             (pixProvider === "asaas" && asaasApiKey.trim()) ||
-            (pixProvider === "skalepay" &&
-              (skalepayUserId.trim() ||
-                skalepayUserToken.trim() ||
-                skalepaySecretKey.trim() ||
-                skalepayPublicKey.trim())) ? (
+            (pixProvider === "skalepay" && skalepayApiKey.trim()) ? (
               <section className="admin-pix-card admin-pix-card--readonly">
                 <h3 className="admin-pix-card-title">Credenciais salvas no sistema</h3>
                 <p className="admin-pix-card-lead">Pré-visualização mascarada — valores reais ficam apenas no servidor.</p>
@@ -2223,21 +2168,15 @@ function CheckoutSection({
                   </div>
                 )}
                 {pixProvider === "skalepay" && (
-                  <div className="admin-pix-cred-grid">
+                  <div className="admin-pix-cred-grid admin-pix-cred-grid--single">
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">Chave de API</span>
+                      <code className="admin-pix-readonly-value">{maskPixCredential(skalepayApiKey)}</code>
+                    </div>
                     <div className="admin-pix-field admin-pix-field--readonly">
                       <span className="admin-pix-readonly-label">ID do usuário</span>
                       <code className="admin-pix-readonly-value">
-                        {skalepayUserId.trim() ? maskPixCredential(skalepayUserId) : "—"}
-                      </code>
-                    </div>
-                    <div className="admin-pix-field admin-pix-field--readonly">
-                      <span className="admin-pix-readonly-label">Token de usuário</span>
-                      <code className="admin-pix-readonly-value">{maskPixCredential(skalepayUserToken)}</code>
-                    </div>
-                    <div className="admin-pix-field admin-pix-field--readonly">
-                      <span className="admin-pix-readonly-label">Chave secreta</span>
-                      <code className="admin-pix-readonly-value">
-                        {skalepaySecretKey.trim() ? maskPixCredential(skalepaySecretKey) : "—"}
+                        {skalepayUserId.trim() ? skalepayUserId.trim() : "—"}
                       </code>
                     </div>
                   </div>

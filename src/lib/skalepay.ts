@@ -1,66 +1,61 @@
 /**
  * Cliente TypeScript para a Skale Pay API (PIX).
- * @see https://skalepay.readme.io/reference/introducao
- * @see https://skalepay.readme.io/reference/criar-transacao
+ *
+ * Painel Skale (Credenciais de API):
+ * - Chave de API — autenticação das requisições
+ * - ID do usuário — identificador da conta (referência; não entra no Basic Auth)
+ *
+ * @see https://skalepay.readme.io/reference/introducao — Basic base64("{CHAVE_DE_API}:x")
  */
 
 import QRCode from "qrcode";
 import { getPixQrImgSrc } from "./pix-qr";
+import type { CheckoutConfig } from "./admin-types";
 
 const SKALE_BASE = "https://api.conta.skalepay.com.br/v1";
 
 export type SkaleCredentials = {
-  secretKey?: string;
+  /** Chave de API do painel Skale */
+  apiKey?: string;
+  /** ID do usuário (conta) — salvo para referência; auth usa só apiKey:x */
   userId?: string;
-  userToken?: string;
-  publicKey?: string;
 };
 
 function normCredential(value?: string): string {
   return (value ?? "")
     .trim()
     .replace(/^\uFEFF/, "")
-    .replace(/^["']|["']$/g, "");
+    .replace(/^["']|["']$/g, "")
+    .replace(/\s+/g, "");
+}
+
+/** Lê credenciais salvas no checkout (compatível com campo legado skalepaySecretKey). */
+export function skaleCredentialsFromConfig(cc?: CheckoutConfig | null): SkaleCredentials {
+  return {
+    apiKey: cc?.skalepayApiKey ?? cc?.skalepaySecretKey,
+    userId: cc?.skalepayUserId,
+  };
 }
 
 /**
- * Resolve Basic Auth conforme o que o painel Skale exibe ao criar credenciais.
- * Ordem: ID+Token (mais comum no painel) → Secret+Public → Secret+Token → Secret:x (doc).
+ * Autenticação oficial Skale Pay: Basic Auth com usuário = Chave de API e senha = "x".
  */
 export function resolveSkaleAuth(creds: SkaleCredentials): {
   username: string;
   password: string;
   mode: string;
 } {
-  const secret = normCredential(creds.secretKey);
-  const userId = normCredential(creds.userId);
-  const token = normCredential(creds.userToken);
-  const publicKey = normCredential(creds.publicKey);
-
-  if (userId && token) {
-    return { username: userId, password: token, mode: "userId:userToken" };
+  const apiKey = normCredential(creds.apiKey);
+  if (!apiKey) {
+    throw new Error(
+      "Chave de API Skale Pay não configurada. Copie em Configurações → Credenciais de API no painel Skale."
+    );
   }
-  if (secret && publicKey) {
-    return { username: secret, password: publicKey, mode: "secretKey:publicKey" };
-  }
-  if (secret && token) {
-    return { username: secret, password: token, mode: "secretKey:userToken" };
-  }
-  if (secret) {
-    return { username: secret, password: "x", mode: "secretKey:x" };
-  }
-
-  throw new Error(
-    "Credenciais Skale Pay incompletas: informe ID do usuário + Token, ou Chave secreta (+ Token ou Chave pública)."
-  );
+  return { username: apiKey, password: "x", mode: "apiKey:x" };
 }
 
 export function hasSkaleCredentials(creds: SkaleCredentials): boolean {
-  const secret = normCredential(creds.secretKey);
-  const userId = normCredential(creds.userId);
-  const token = normCredential(creds.userToken);
-  const publicKey = normCredential(creds.publicKey);
-  return !!(userId && token) || !!(secret && (token || publicKey)) || !!secret;
+  return normCredential(creds.apiKey).length > 0;
 }
 
 function basicAuth(creds: SkaleCredentials): string {
@@ -151,9 +146,17 @@ export async function createSkalePayment(params: {
     postbackUrl: params.webhookUrl,
   };
 
+  const userId = normCredential(params.credentials.userId);
+  const meta: Record<string, unknown> = { ref: params.externalRef };
+  if (userId) meta.skaleUserId = userId;
   if (params.metadata?.trim()) {
-    body.metadata = params.metadata.trim().slice(0, 500);
+    try {
+      Object.assign(meta, JSON.parse(params.metadata) as Record<string, unknown>);
+    } catch {
+      meta.note = params.metadata.trim().slice(0, 200);
+    }
   }
+  body.metadata = JSON.stringify(meta).slice(0, 500);
 
   const res = await fetch(`${SKALE_BASE}/transactions`, {
     method: "POST",
@@ -169,7 +172,7 @@ export async function createSkalePayment(params: {
   if (!res.ok) {
     const hint =
       res.status === 401 || res.status === 403
-        ? ` Modo de auth usado: ${auth.mode}. Confira no painel Skale: ID do usuário no 1º campo do Basic, Token no 2º; ou Chave secreta conforme a documentação.`
+        ? ` Auth: ${auth.mode} (Chave de API + senha "x", conforme documentação Skale). Cole só a Chave de API — não use o ID do usuário na autenticação.`
         : "";
     throw new Error(formatSkaleError(data, `Skale Pay: HTTP ${res.status}`) + hint);
   }

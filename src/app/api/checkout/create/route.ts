@@ -4,7 +4,11 @@ import { readStoreData } from "@/lib/store-data";
 import { createParadisePayment } from "@/lib/paradise";
 import { createOramaPayment } from "@/lib/orama";
 import { createAsaasCheckoutPix } from "@/lib/asaas";
-import { createSkalePayment, hasSkaleCredentials } from "@/lib/skalepay";
+import {
+  createSkalePayment,
+  hasSkaleCredentials,
+  skaleCredentialsFromConfig,
+} from "@/lib/skalepay";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
@@ -201,17 +205,12 @@ export async function POST(req: NextRequest) {
       });
 
     } else if (provider === "skalepay") {
-      const skaleCreds = {
-        secretKey: config?.skalepaySecretKey,
-        userId: config?.skalepayUserId,
-        userToken: config?.skalepayUserToken,
-        publicKey: config?.skalepayPublicKey,
-      };
+      const skaleCreds = skaleCredentialsFromConfig(config);
       if (!hasSkaleCredentials(skaleCreds)) {
         return NextResponse.json(
           {
             error:
-              "Credenciais Skale Pay incompletas. Informe ID do usuário + Token (recomendado) ou Chave secreta no admin → Checkout PIX.",
+              "Chave de API Skale Pay não configurada. Admin → Checkout PIX → cole a Chave de API do painel Skale.",
           },
           { status: 400 }
         );
