@@ -32,10 +32,10 @@ export const PIX_PROVIDER_CATALOG: PixProviderCatalogEntry[] = [
   {
     id: "skalepay",
     name: "Skale Pay",
-    description: "PIX via API REST (transações).",
+    description: "PIX via SkalePayments API.",
     available: true,
-    authType: "Chave de API + ID usuário",
-    apiHost: "api.conta.skalepay.com.br",
+    authType: "X-API-Key",
+    apiHost: "api.skalepayments.com.br",
   },
 ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 

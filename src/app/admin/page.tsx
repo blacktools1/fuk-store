@@ -2105,11 +2105,11 @@ function CheckoutSection({
               {pixProvider === "skalepay" && (
                 <div className="admin-pix-cred-grid admin-pix-cred-grid--orama">
                   <div className="admin-pix-field admin-pix-field--full">
-                    <label className="admin-form-label">Chave de API</label>
+                    <label className="admin-form-label">Chave de API (X-API-Key)</label>
                     <input
                       className="admin-form-input"
                       type="password"
-                      placeholder="Cole a Chave de API do painel Skale"
+                      placeholder="sk_sua_chave_aqui"
                       value={skalepayApiKey}
                       onChange={(e) => {
                         setSkalepayApiKey(e.target.value);
@@ -2119,24 +2119,9 @@ function CheckoutSection({
                       autoComplete="off"
                     />
                     <p className="admin-pix-field-hint">
-                      Autenticação oficial: <code>Basic base64(ChaveDeAPI:x)</code> — senha fixa{" "}
-                      <code>x</code>. Não use o ID do usuário no Basic Auth.
+                      API <code>api.skalepayments.com.br</code> — header <code>X-API-Key</code>. PIX entre R$ 5,00 e
+                      R$ 600,00 por transação.
                     </p>
-                  </div>
-                  <div className="admin-pix-field">
-                    <label className="admin-form-label">ID do usuário (opcional)</label>
-                    <input
-                      className="admin-form-input"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="Só referência — não vai na API"
-                      value={skalepayUserId}
-                      onChange={(e) => {
-                        setSkalepayUserId(e.target.value);
-                        markDirty();
-                      }}
-                      autoComplete="off"
-                    />
                   </div>
                   <div className="admin-pix-field admin-pix-field--full" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
                     <button
@@ -2221,12 +2206,6 @@ function CheckoutSection({
                     <div className="admin-pix-field admin-pix-field--readonly">
                       <span className="admin-pix-readonly-label">Chave de API</span>
                       <code className="admin-pix-readonly-value">{maskPixCredential(skalepayApiKey)}</code>
-                    </div>
-                    <div className="admin-pix-field admin-pix-field--readonly">
-                      <span className="admin-pix-readonly-label">ID do usuário</span>
-                      <code className="admin-pix-readonly-value">
-                        {skalepayUserId.trim() ? skalepayUserId.trim() : "—"}
-                      </code>
                     </div>
                   </div>
                 )}

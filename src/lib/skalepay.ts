@@ -1,21 +1,20 @@
 /**
- * Cliente TypeScript para a Skale Pay API (PIX).
- *
- * Autenticação (documentação oficial):
- *   Authorization: Basic base64("{CHAVE_DE_API}:x")
- * @see https://skalepay.readme.io/reference/introducao
+ * Cliente SkalePayments API (PIX).
+ * @see https://api.skalepayments.com.br — autenticação via header X-API-Key
  */
 
 import QRCode from "qrcode";
 import { getPixQrImgSrc } from "./pix-qr";
 import type { CheckoutConfig } from "./admin-types";
 
-const SKALE_BASE = "https://api.conta.skalepay.com.br/v1";
+const SKALE_BASE = "https://api.skalepayments.com.br";
+
+/** Limites do gateway (centavos) */
+export const SKALE_MIN_AMOUNT_CENTS = 500;
+export const SKALE_MAX_AMOUNT_CENTS = 60_000;
 
 export type SkaleCredentials = {
   apiKey?: string;
-  /** Referência da conta — não entra no Basic Auth */
-  userId?: string;
 };
 
 function normCredential(value?: string): string {
@@ -25,7 +24,6 @@ function normCredential(value?: string): string {
 export function skaleCredentialsFromConfig(cc?: CheckoutConfig | null): SkaleCredentials {
   return {
     apiKey: cc?.skalepayApiKey ?? cc?.skalepaySecretKey,
-    userId: cc?.skalepayUserId,
   };
 }
 
@@ -33,19 +31,14 @@ export function hasSkaleCredentials(creds: SkaleCredentials): boolean {
   return !!normCredential(creds.apiKey);
 }
 
-function encodeBasic(username: string, password: string): string {
-  return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
-}
-
-/** Auth oficial: chave de API + senha fixa "x" (não use ID do usuário). */
-export function skaleAuthHeader(creds: SkaleCredentials): string {
+function apiKeyOrThrow(creds: SkaleCredentials): string {
   const apiKey = normCredential(creds.apiKey);
   if (!apiKey) {
     throw new Error(
-      "Credenciais Skale Pay incompletas. Informe a Chave de API do painel Skale (Configurações → Credenciais de API)."
+      "Credenciais SkalePayments incompletas. Informe a Chave de API (formato sk_…) no admin."
     );
   }
-  return encodeBasic(apiKey, "x");
+  return apiKey;
 }
 
 async function skaleFetch(
@@ -54,7 +47,7 @@ async function skaleFetch(
   init: RequestInit
 ): Promise<{ res: Response; data: Record<string, unknown> }> {
   const headers = new Headers(init.headers);
-  headers.set("Authorization", skaleAuthHeader(creds));
+  headers.set("X-API-Key", apiKeyOrThrow(creds));
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
 
   const res = await fetch(`${SKALE_BASE}${path}`, { ...init, headers });
@@ -69,7 +62,7 @@ export type SkaleAuthTestResult = {
   hint?: string;
 };
 
-/** Testa credenciais com GET /balance/available (sem criar cobrança). */
+/** Testa credenciais com GET /company (sem criar cobrança). */
 export async function testSkaleCredentials(creds: SkaleCredentials): Promise<SkaleAuthTestResult> {
   const apiKey = normCredential(creds.apiKey);
   if (!apiKey) {
@@ -77,26 +70,51 @@ export async function testSkaleCredentials(creds: SkaleCredentials): Promise<Ska
       ok: false,
       httpStatus: 0,
       message: "Chave de API não informada.",
-      hint: "Cole a Chave de API em Admin → Checkout PIX → Skale Pay.",
+      hint: "Cole a chave sk_… em Admin → Checkout PIX → Skale Pay.",
     };
   }
 
-  const { res, data } = await skaleFetch("/balance/available", creds, { method: "GET" });
+  const { res, data } = await skaleFetch("/company", creds, { method: "GET" });
   const msg = formatSkaleError(data, `HTTP ${res.status}`);
 
   if (res.ok) {
-    return { ok: true, httpStatus: res.status, message: "Credenciais válidas — conexão com a Skale Pay OK." };
+    const blocked = data.blocked === true;
+    const pixOk =
+      (data.permissions as Record<string, unknown> | undefined)?.isPixAvailable !== false;
+    if (blocked) {
+      return {
+        ok: false,
+        httpStatus: res.status,
+        message: "Conta bloqueada ou cadastro rejeitado no SkalePayments.",
+        hint: "Conclua o KYC no painel Skale antes de gerar PIX.",
+      };
+    }
+    if (!pixOk) {
+      return {
+        ok: false,
+        httpStatus: res.status,
+        message: "Conta conectada, mas PIX não está habilitado.",
+        hint: "Ative PIX nas permissões da conta no painel Skale.",
+      };
+    }
+    const name =
+      (data.user as Record<string, unknown> | undefined)?.name ??
+      data.legalName ??
+      data.userId;
+    return {
+      ok: true,
+      httpStatus: res.status,
+      message: `Credenciais válidas${name ? ` — ${String(name)}` : ""}.`,
+    };
   }
 
-  const lower = msg.toLowerCase();
-  let hint: string | undefined;
-  if (lower.includes("rl-4") || lower.includes("rl-2") || lower.includes("token")) {
-    hint =
-      "Use somente a Chave de API no Basic Auth (formato ChaveDeAPI:x). Não use o ID do usuário na autenticação. " +
-      "Se a chave estiver correta, gere uma nova em Configurações → Credenciais de API no painel Skale e confira se a conta está aprovada (KYC).";
-  }
-
-  return { ok: false, httpStatus: res.status, message: msg, hint };
+  return {
+    ok: false,
+    httpStatus: res.status,
+    message: msg,
+    hint:
+      "Use o header X-API-Key com a chave sk_… do painel SkalePayments. Gere uma chave nova se necessário.",
+  };
 }
 
 async function qrDataUrlFromPixPayload(emv: string): Promise<string> {
@@ -117,6 +135,9 @@ async function parseJsonSafely(res: Response): Promise<Record<string, unknown>> 
 }
 
 function formatSkaleError(data: Record<string, unknown>, fallback: string): string {
+  if (data.success === false && typeof data.message === "string") {
+    return data.message;
+  }
   const msg = data.message ?? data.error ?? data.errors;
   if (typeof msg === "string" && msg.trim()) return msg;
   if (Array.isArray(msg) && msg.length > 0) {
@@ -125,6 +146,17 @@ function formatSkaleError(data: Record<string, unknown>, fallback: string): stri
     if (d) return String(d);
   }
   return fallback;
+}
+
+function parseAmountCents(data: Record<string, unknown>): number {
+  if (typeof data.amount === "number") return data.amount;
+  const tx = data.transaction as Record<string, unknown> | undefined;
+  if (tx && typeof tx.amount === "string") {
+    const reais = parseFloat(tx.amount.replace(",", "."));
+    if (!Number.isNaN(reais)) return Math.round(reais * 100);
+  }
+  if (tx && typeof tx.amount === "number") return tx.amount;
+  return 0;
 }
 
 export interface SkaleCreateResult {
@@ -149,13 +181,29 @@ export async function createSkalePayment(params: {
     phone: string;
     document: string;
   };
-  items: { name: string; unitPrice: number; quantity: number }[];
+  items: { name: string; unitPrice: number; quantity: number; externalRef?: string }[];
   externalRef: string;
   webhookUrl: string;
-  metadata?: string;
+  metadata?: Record<string, unknown>;
 }): Promise<SkaleCreateResult> {
+  if (params.amountInCents < SKALE_MIN_AMOUNT_CENTS) {
+    throw new Error(
+      `Valor mínimo SkalePayments: R$ ${(SKALE_MIN_AMOUNT_CENTS / 100).toFixed(2).replace(".", ",")}.`
+    );
+  }
+  if (params.amountInCents > SKALE_MAX_AMOUNT_CENTS) {
+    throw new Error(
+      `Valor máximo SkalePayments por PIX: R$ ${(SKALE_MAX_AMOUNT_CENTS / 100).toFixed(2).replace(".", ",")}.`
+    );
+  }
+
   const docDigits = params.customer.document.replace(/\D/g, "");
   const docType = docDigits.length === 14 ? "cnpj" : "cpf";
+
+  const metadata: Record<string, unknown> = {
+    ref: params.externalRef,
+    ...(params.metadata ?? {}),
+  };
 
   const body: Record<string, unknown> = {
     amount: params.amountInCents,
@@ -168,21 +216,18 @@ export async function createSkalePayment(params: {
         number: docDigits,
         type: docType,
       },
-      externalRef: params.externalRef,
     },
-    items: params.items.map((i) => ({
+    items: params.items.map((i, idx) => ({
       title: i.name,
       unitPrice: i.unitPrice,
       quantity: i.quantity,
       tangible: false,
+      ...(i.externalRef || idx === 0 ? { externalRef: i.externalRef ?? params.externalRef } : {}),
     })),
     pix: { expiresInDays: 2 },
     postbackUrl: params.webhookUrl,
+    metadata,
   };
-
-  if (params.metadata?.trim()) {
-    body.metadata = params.metadata.trim().slice(0, 500);
-  }
 
   const { res, data } = await skaleFetch("/transactions", params.credentials, {
     method: "POST",
@@ -190,26 +235,29 @@ export async function createSkalePayment(params: {
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
+  if (!res.ok || data.success === false) {
     const hint =
       res.status === 401 || res.status === 403
-        ? " Verifique a Chave de API no admin (auth: ChaveDeAPI:x — não use o ID do usuário). Gere uma chave nova no painel Skale se necessário."
+        ? " Verifique a Chave de API (header X-API-Key, formato sk_…)."
         : "";
-    throw new Error(formatSkaleError(data, `Skale Pay: HTTP ${res.status}`) + hint);
+    throw new Error(formatSkaleError(data, `SkalePayments: HTTP ${res.status}`) + hint);
   }
 
   const id = String(data.id ?? "").trim();
   if (!id) {
-    throw new Error("Skale Pay: resposta sem ID. " + JSON.stringify(data));
+    throw new Error("SkalePayments: resposta sem ID. " + JSON.stringify(data));
   }
 
   const pixObj = data.pix as Record<string, unknown> | undefined;
   const copyPaste = String(pixObj?.qrcode ?? "").trim();
+  const qrcodeImage = String(pixObj?.qrcodeImage ?? "").trim();
 
   const qrRaw = (() => {
-    const raw = copyPaste;
-    if (raw.startsWith("data:image/") || raw.startsWith("iVBOR") || raw.startsWith("/9j/")) {
-      return raw;
+    if (qrcodeImage.startsWith("data:image/") || qrcodeImage.startsWith("iVBOR") || qrcodeImage.startsWith("/9j/")) {
+      return qrcodeImage;
+    }
+    if (copyPaste.startsWith("data:image/") || copyPaste.startsWith("iVBOR") || copyPaste.startsWith("/9j/")) {
+      return copyPaste;
     }
     return "";
   })();
@@ -219,7 +267,7 @@ export async function createSkalePayment(params: {
     try {
       qrImageSrc = await qrDataUrlFromPixPayload(copyPaste);
     } catch (e) {
-      console.error("[skalepay] Falha ao gerar QR a partir do payload PIX:", e);
+      console.error("[skalepay] Falha ao gerar QR EMV:", e);
     }
   }
 
@@ -240,13 +288,13 @@ export async function checkSkaleStatus(params: {
     method: "GET",
   });
 
-  if (!res.ok) {
-    throw new Error(formatSkaleError(data, `Skale Pay status: HTTP ${res.status}`));
+  if (!res.ok || data.success === false) {
+    throw new Error(formatSkaleError(data, `SkalePayments status: HTTP ${res.status}`));
   }
 
-  const status = String(data.status ?? "pending").toLowerCase();
-  const paid = status === "paid" || status === "approved";
-  const amountInCents = typeof data.amount === "number" ? data.amount : 0;
+  const status = String(data.status ?? "waiting_payment").toLowerCase();
+  const paid = status === "paid";
+  const amountInCents = parseAmountCents(data);
 
   return { status, paid, amountInCents };
 }

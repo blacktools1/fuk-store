@@ -250,6 +250,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      const skaleMetadata: Record<string, unknown> = { pedido: reference };
+      if (Object.keys(utmFlat).length > 0) skaleMetadata.utms = utmFlat;
+
       result = await createSkalePayment({
         credentials: skaleCreds,
         amountInCents: Math.round(total * 100),
@@ -262,10 +265,7 @@ export async function POST(req: NextRequest) {
         items,
         externalRef: reference,
         webhookUrl,
-        metadata:
-          Object.keys(utmFlat).length > 0
-            ? JSON.stringify({ ref: reference, utms: utmFlat })
-            : reference,
+        metadata: skaleMetadata,
       });
 
     } else {
