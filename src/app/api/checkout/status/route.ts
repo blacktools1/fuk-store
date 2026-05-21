@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   try {
     const tenant = getTenantFromRequest(req);
     const store = readStoreData(tenant);
-    const config = store.checkoutConfig;
+    const config = store.checkoutConfig ?? {};
 
     const provider = (config?.pixProvider || "paradise").toLowerCase();
 
