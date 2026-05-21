@@ -701,10 +701,7 @@ function DashboardSection({
       : providerId === "asaas"
         ? !!(cc?.asaasApiKey?.trim())
         : providerId === "skalepay"
-          ? !!(
-              (cc?.skalepayApiKey?.trim() || cc?.skalepaySecretKey?.trim()) &&
-              cc?.skalepayUserId?.trim()
-            )
+          ? !!(cc?.skalepayApiKey?.trim() || cc?.skalepaySecretKey?.trim())
           : !!(cc?.paradiseApiKey?.trim());
   const pixelList = storeData?.pixels ?? [];
   const pixelsActive = pixelList.filter((p) => p.active).length;
@@ -1339,6 +1336,12 @@ function CheckoutSection({
   const [skalepayUserId, setSkalepayUserId] = useState(
     storeData?.checkoutConfig?.skalepayUserId ?? ""
   );
+  const [skaleTestLoading, setSkaleTestLoading] = useState(false);
+  const [skaleTestResult, setSkaleTestResult] = useState<{
+    ok: boolean;
+    message: string;
+    hint?: string;
+  } | null>(null);
   const [providerQuery, setProviderQuery] = useState("");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
@@ -1474,12 +1477,44 @@ function CheckoutSection({
     if (id === "orama") return !!(oramaApiKey.trim() && oramaPublicKey.trim());
     if (id === "asaas") return asaasApiKey.trim().length > 0;
     if (id === "skalepay") {
-      return skalepayApiKey.trim().length > 0 && skalepayUserId.trim().length > 0;
+      return skalepayApiKey.trim().length > 0;
     }
     return false;
   };
 
   const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
+
+  const handleSkaleTest = async () => {
+    if (!skalepayApiKey.trim()) return;
+    setSkaleTestLoading(true);
+    setSkaleTestResult(null);
+    try {
+      if (isDirty) {
+        await onSaveConfig({
+          checkoutConfig: {
+            ...checkoutConfigWithoutShipping(storeData?.checkoutConfig),
+            pixProvider,
+            skalepayApiKey: skalepayApiKey.trim(),
+            skalepaySecretKey: skalepayApiKey.trim(),
+            skalepayUserId: skalepayUserId.trim(),
+          },
+        });
+        setIsDirty(false);
+        setSaveStatus("saved");
+      }
+      const res = await fetch("/api/admin/skalepay-test", { method: "POST", credentials: "include" });
+      const data = (await res.json()) as { ok?: boolean; message?: string; hint?: string };
+      setSkaleTestResult({
+        ok: !!data.ok,
+        message: data.message ?? (res.ok ? "OK" : "Falha no teste"),
+        hint: data.hint,
+      });
+    } catch {
+      setSkaleTestResult({ ok: false, message: "Erro de rede ao testar credenciais." });
+    } finally {
+      setSkaleTestLoading(false);
+    }
+  };
 
   const patchCheckoutVisual = (patch: Partial<CheckoutVisualValues>) => {
     if (patch.topImage !== undefined) setCheckoutTopImage(patch.topImage);
@@ -1522,7 +1557,7 @@ function CheckoutSection({
       : pixProvider === "asaas"
         ? asaasApiKey.trim().length > 0
         : pixProvider === "skalepay"
-          ? skalepayApiKey.trim().length > 0 && skalepayUserId.trim().length > 0
+          ? skalepayApiKey.trim().length > 0
           : apiKey.trim().length > 0;
 
   const handleSave = async () => {
@@ -2069,28 +2104,32 @@ function CheckoutSection({
 
               {pixProvider === "skalepay" && (
                 <div className="admin-pix-cred-grid admin-pix-cred-grid--orama">
-                  <div className="admin-pix-field">
+                  <div className="admin-pix-field admin-pix-field--full">
                     <label className="admin-form-label">Chave de API</label>
                     <input
                       className="admin-form-input"
                       type="password"
-                      placeholder="Chave de API — Credenciais de API"
+                      placeholder="Cole a Chave de API do painel Skale"
                       value={skalepayApiKey}
                       onChange={(e) => {
                         setSkalepayApiKey(e.target.value);
+                        setSkaleTestResult(null);
                         markDirty();
                       }}
                       autoComplete="off"
                     />
-                    <p className="admin-pix-field-hint">Usuário do Basic Auth</p>
+                    <p className="admin-pix-field-hint">
+                      Autenticação oficial: <code>Basic base64(ChaveDeAPI:x)</code> — senha fixa{" "}
+                      <code>x</code>. Não use o ID do usuário no Basic Auth.
+                    </p>
                   </div>
                   <div className="admin-pix-field">
-                    <label className="admin-form-label">ID do usuário</label>
+                    <label className="admin-form-label">ID do usuário (opcional)</label>
                     <input
                       className="admin-form-input"
                       type="text"
                       inputMode="numeric"
-                      placeholder="ID da conta no painel Skale"
+                      placeholder="Só referência — não vai na API"
                       value={skalepayUserId}
                       onChange={(e) => {
                         setSkalepayUserId(e.target.value);
@@ -2098,14 +2137,25 @@ function CheckoutSection({
                       }}
                       autoComplete="off"
                     />
-                    <p className="admin-pix-field-hint">Senha do Basic Auth</p>
                   </div>
-                  <div className="admin-pix-field admin-pix-field--full">
-                    <p className="admin-pix-field-hint">
-                      Autenticação: <code>base64(ChaveDeAPI:IDdoUsuario)</code>. Os dois valores vêm do painel Skale
-                      (Configurações → Credenciais de API). O <code>:x</code> da documentação é placeholder — use o ID
-                      real. Se falhar, o sistema tenta modos alternativos automaticamente.
-                    </p>
+                  <div className="admin-pix-field admin-pix-field--full" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="admin-btn-secondary"
+                      disabled={!skalepayApiKey.trim() || skaleTestLoading}
+                      onClick={() => void handleSkaleTest()}
+                    >
+                      {skaleTestLoading ? "Testando…" : "Testar credenciais Skale"}
+                    </button>
+                    {skaleTestResult && (
+                      <p
+                        className="admin-pix-field-hint"
+                        style={{ margin: 0, color: skaleTestResult.ok ? "var(--adm-success, #22c55e)" : "#f87171" }}
+                      >
+                        {skaleTestResult.message}
+                        {skaleTestResult.hint ? ` — ${skaleTestResult.hint}` : ""}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -2124,7 +2174,7 @@ function CheckoutSection({
             (pixProvider === "orama" &&
               (oramaApiKey.trim() || oramaPublicKey.trim() || oramaWebhookSecret.trim())) ||
             (pixProvider === "asaas" && asaasApiKey.trim()) ||
-            (pixProvider === "skalepay" && skalepayApiKey.trim() && skalepayUserId.trim()) ? (
+            (pixProvider === "skalepay" && skalepayApiKey.trim()) ? (
               <section className="admin-pix-card admin-pix-card--readonly">
                 <h3 className="admin-pix-card-title">Credenciais salvas no sistema</h3>
                 <p className="admin-pix-card-lead">Pré-visualização mascarada — valores reais ficam apenas no servidor.</p>

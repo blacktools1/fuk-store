@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       const skaleCreds = skaleCredentialsFromConfig(config);
       if (!hasSkaleCredentials(skaleCreds)) {
         return NextResponse.json(
-          { error: "Checkout Skale Pay não configurado (Chave de API + ID do usuário)" },
+          { error: "Checkout Skale Pay não configurado (Chave de API)" },
           { status: 400 }
         );
       }
