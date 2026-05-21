@@ -14,6 +14,26 @@ import type { Orderbump, ShippingOption } from "@/lib/admin-types";
 import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 import { computeCheckoutTotals } from "@/lib/checkout-totals";
 
+function CheckoutPromoImage({
+  url,
+  square,
+  alt,
+}: {
+  url?: string | null;
+  square?: boolean;
+  alt: string;
+}) {
+  const src = typeof url === "string" ? url.trim() : "";
+  if (!src) return null;
+  return (
+    <figure
+      className={`co2-promo${square ? " co2-promo--square" : " co2-promo--banner"}`}
+    >
+      <img src={src} alt={alt} loading="lazy" decoding="async" />
+    </figure>
+  );
+}
+
 interface CheckoutConfig {
   orderbumps?: Orderbump[];
   orderbumpStyle?: "style1" | "style2";
@@ -25,6 +45,12 @@ interface CheckoutConfig {
   pixDiscountEnabled?: boolean;
   pixDiscount?: number;
   freeShippingMin?: number;
+  checkoutTopImage?: string;
+  checkoutTopImageSquare?: boolean;
+  checkoutMidImage?: string;
+  checkoutMidImageSquare?: boolean;
+  checkoutFooterImage?: string;
+  checkoutFooterImageSquare?: boolean;
 }
 
 interface CustomerForm {
@@ -117,6 +143,12 @@ export default function CheckoutPage() {
           pixDiscountEnabled: cfg.pixDiscountEnabled !== false,
           pixDiscount: typeof cfg.pixDiscount === "number" ? cfg.pixDiscount : 5,
           freeShippingMin: typeof cfg.freeShippingMin === "number" ? cfg.freeShippingMin : 199,
+          checkoutTopImage: typeof cfg.checkoutTopImage === "string" ? cfg.checkoutTopImage : "",
+          checkoutTopImageSquare: cfg.checkoutTopImageSquare === true,
+          checkoutMidImage: typeof cfg.checkoutMidImage === "string" ? cfg.checkoutMidImage : "",
+          checkoutMidImageSquare: cfg.checkoutMidImageSquare === true,
+          checkoutFooterImage: typeof cfg.checkoutFooterImage === "string" ? cfg.checkoutFooterImage : "",
+          checkoutFooterImageSquare: cfg.checkoutFooterImageSquare === true,
         });
         const firstShip = shipping.find((s) => s.active !== false);
         if (firstShip) setSelectedShipping(firstShip.id);
@@ -378,12 +410,23 @@ export default function CheckoutPage() {
       <div className="co2-page">
         <div className="co2-header">PAGAMENTO 100% SEGURO</div>
         <div className="co2-body">
+          <CheckoutPromoImage
+            url={config?.checkoutTopImage}
+            square={config?.checkoutTopImageSquare}
+            alt="Destaque da loja"
+          />
           <div className="co2-card" style={{ textAlign: "center", padding: "48px 24px" }}>
             <p style={{ fontSize: "3rem", marginBottom: 16 }}>🛒</p>
             <h1 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#111827", marginBottom: 8 }}>Carrinho vazio</h1>
             <p style={{ color: "#6b7280", marginBottom: 24 }}>Adicione produtos antes de finalizar.</p>
             <Link href="/" className="co2-pay-btn" style={{ display: "inline-flex", textDecoration: "none" }}>← Voltar à Loja</Link>
           </div>
+          <CheckoutPromoImage
+            url={config?.checkoutFooterImage}
+            square={config?.checkoutFooterImageSquare}
+            alt="Rodapé promocional"
+          />
+          <p className="co2-footer">© Ambiente seguro 🔒</p>
         </div>
       </div>
     );
@@ -395,12 +438,23 @@ export default function CheckoutPage() {
       <div className="co2-page">
         <div className="co2-header">PAGAMENTO 100% SEGURO</div>
         <div className="co2-body">
+          <CheckoutPromoImage
+            url={config?.checkoutTopImage}
+            square={config?.checkoutTopImageSquare}
+            alt="Destaque da loja"
+          />
           <div className="co2-card" style={{ textAlign: "center", padding: "48px 24px" }}>
             <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#dcfce7", color: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", margin: "0 auto 16px" }}>✓</div>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#111827", marginBottom: 8 }}>Pagamento Confirmado!</h1>
             <p style={{ color: "#4b5563", lineHeight: 1.6 }}>Seu pedido foi recebido. Você receberá a confirmação por e-mail.</p>
             <Link href="/" className="co2-pay-btn" style={{ display: "inline-flex", marginTop: 24, textDecoration: "none" }}>Voltar à Loja</Link>
           </div>
+          <CheckoutPromoImage
+            url={config?.checkoutFooterImage}
+            square={config?.checkoutFooterImageSquare}
+            alt="Rodapé promocional"
+          />
+          <p className="co2-footer">© Ambiente seguro 🔒</p>
         </div>
       </div>
     );
@@ -412,6 +466,11 @@ export default function CheckoutPage() {
       <div className="co2-header">PAGAMENTO 100% SEGURO</div>
 
       <main className="co2-body">
+        <CheckoutPromoImage
+          url={config?.checkoutTopImage}
+          square={config?.checkoutTopImageSquare}
+          alt="Destaque da loja"
+        />
         {stage === "form" && (
           <Link href="/carrinho" className="co2-back-cart">
             ← Voltar ao carrinho
@@ -555,6 +614,14 @@ export default function CheckoutPage() {
             </div>
           )}
         </div>
+
+        {stage === "form" && (
+          <CheckoutPromoImage
+            url={config?.checkoutMidImage}
+            square={config?.checkoutMidImageSquare}
+            alt="Destaque da loja"
+          />
+        )}
 
         {/* Order Bumps */}
         {activeOrderbumps.length > 0 && config?.orderbumpStyle === "style2" ? (
@@ -730,6 +797,11 @@ export default function CheckoutPage() {
           </div>
         </div>
 
+        <CheckoutPromoImage
+          url={config?.checkoutFooterImage}
+          square={config?.checkoutFooterImageSquare}
+          alt="Rodapé promocional"
+        />
         <p className="co2-footer">© Ambiente seguro 🔒</p>
       </main>
 

@@ -29,6 +29,14 @@ export const PIX_PROVIDER_CATALOG: PixProviderCatalogEntry[] = [
   { id: "orama", name: "OramaPay", description: "PIX API REST.", available: true, authType: "Basic Auth", apiHost: "api.oramapay.com" },
   { id: "pagseguro", name: "PagSeguro", description: "PIX PagBank.", available: false, authType: "—", apiHost: "—" },
   { id: "paradise", name: "Paradise Pags", description: "PIX com confirmação imediata.", available: true, authType: "X-API-Key", apiHost: "multi.paradisepags.com" },
+  {
+    id: "skalepay",
+    name: "Skale Pay",
+    description: "PIX via API REST (transações).",
+    available: true,
+    authType: "Basic Auth",
+    apiHost: "api.conta.skalepay.com.br",
+  },
 ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
 export function getPixProviderEntry(id: string): PixProviderCatalogEntry | undefined {

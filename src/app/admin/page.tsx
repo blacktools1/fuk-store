@@ -689,7 +689,9 @@ function DashboardSection({
       ? !!(cc?.oramaApiKey?.trim() && cc?.oramaPublicKey?.trim())
       : providerId === "asaas"
         ? !!(cc?.asaasApiKey?.trim())
-        : !!(cc?.paradiseApiKey?.trim());
+        : providerId === "skalepay"
+          ? !!(cc?.skalepaySecretKey?.trim())
+          : !!(cc?.paradiseApiKey?.trim());
   const pixelList = storeData?.pixels ?? [];
   const pixelsActive = pixelList.filter((p) => p.active).length;
   const utmifyCount = (cc?.utmifyAccounts ?? []).length;
@@ -1309,6 +1311,9 @@ function CheckoutSection({
   const [asaasSandbox, setAsaasSandbox] = useState(
     storeData?.checkoutConfig?.asaasSandbox === true
   );
+  const [skalepaySecretKey, setSkalepaySecretKey] = useState(
+    storeData?.checkoutConfig?.skalepaySecretKey ?? ""
+  );
   const [providerQuery, setProviderQuery] = useState("");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
@@ -1336,6 +1341,21 @@ function CheckoutSection({
   );
   const [saleApprovedWebhooks, setSaleApprovedWebhooks] = useState<string[]>(
     () => storeData?.checkoutConfig?.saleApprovedWebhooks ?? []
+  );
+
+  const [checkoutTopImage, setCheckoutTopImage] = useState(storeData?.checkoutConfig?.checkoutTopImage ?? "");
+  const [checkoutTopImageSquare, setCheckoutTopImageSquare] = useState(
+    storeData?.checkoutConfig?.checkoutTopImageSquare === true
+  );
+  const [checkoutMidImage, setCheckoutMidImage] = useState(storeData?.checkoutConfig?.checkoutMidImage ?? "");
+  const [checkoutMidImageSquare, setCheckoutMidImageSquare] = useState(
+    storeData?.checkoutConfig?.checkoutMidImageSquare === true
+  );
+  const [checkoutFooterImage, setCheckoutFooterImage] = useState(
+    storeData?.checkoutConfig?.checkoutFooterImage ?? ""
+  );
+  const [checkoutFooterImageSquare, setCheckoutFooterImageSquare] = useState(
+    storeData?.checkoutConfig?.checkoutFooterImageSquare === true
   );
 
   const filteredPixProviders = useMemo(() => {
@@ -1408,17 +1428,39 @@ function CheckoutSection({
     if (id === "paradise") return apiKey.trim().length > 0;
     if (id === "orama") return !!(oramaApiKey.trim() && oramaPublicKey.trim());
     if (id === "asaas") return asaasApiKey.trim().length > 0;
+    if (id === "skalepay") return skalepaySecretKey.trim().length > 0;
     return false;
   };
 
   const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
+
+  const uploadCheckoutPromo =
+    (setter: (v: string) => void) => async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Erro no upload");
+        setter(String(json.url || ""));
+        markDirty();
+      } catch (err) {
+        alert((err as Error).message);
+      } finally {
+        e.target.value = "";
+      }
+    };
 
   const hasKey =
     pixProvider === "orama"
       ? oramaApiKey.trim().length > 0 && oramaPublicKey.trim().length > 0
       : pixProvider === "asaas"
         ? asaasApiKey.trim().length > 0
-        : apiKey.trim().length > 0;
+        : pixProvider === "skalepay"
+          ? skalepaySecretKey.trim().length > 0
+          : apiKey.trim().length > 0;
 
   const handleSave = async () => {
     if (!storeData) return; // guarda: nunca salva com dados ainda não carregados
@@ -1435,11 +1477,18 @@ function CheckoutSection({
           oramaWebhookSecret: oramaWebhookSecret.trim(),
           asaasApiKey: asaasApiKey.trim(),
           asaasSandbox,
+          skalepaySecretKey: skalepaySecretKey.trim(),
           redirectUrl: redirectUrl.trim(),
           redirectEnabled: redirectOn,
           orderbumpStyle,
           salePendingWebhooks: salePendingWebhooks.map((u) => u.trim()).filter(Boolean),
           saleApprovedWebhooks: saleApprovedWebhooks.map((u) => u.trim()).filter(Boolean),
+          checkoutTopImage: checkoutTopImage.trim(),
+          checkoutTopImageSquare: checkoutTopImageSquare,
+          checkoutMidImage: checkoutMidImage.trim(),
+          checkoutMidImageSquare: checkoutMidImageSquare,
+          checkoutFooterImage: checkoutFooterImage.trim(),
+          checkoutFooterImageSquare: checkoutFooterImageSquare,
         },
       });
       setSaveStatus("saved");
@@ -1809,7 +1858,7 @@ function CheckoutSection({
               <div className="admin-pix-webhook-strip-text">
                 <div className="admin-pix-webhook-strip-title">URL de webhook / postback desta loja</div>
                 <p className="admin-pix-webhook-strip-hint">
-                  É sempre a mesma para Paradise, OramaPay, Asaas e outros: onde o gateway permitir, cadastre no painel ou use notificações de cobrança.
+                  É sempre a mesma para Paradise, OramaPay, Asaas, Skale Pay e outros: onde o gateway permitir, cadastre no painel ou use notificações de cobrança.
                   O checkout confirma pagamento por polling; webhooks opcionais do Asaas vão ao mesmo caminho público quando você configurá-los.
                 </p>
               </div>
@@ -1944,7 +1993,40 @@ function CheckoutSection({
                 </div>
               )}
 
-              {pixProvider !== "paradise" && pixProvider !== "orama" && pixProvider !== "asaas" && (
+              {pixProvider === "skalepay" && (
+                <div className="admin-pix-cred-grid admin-pix-cred-grid--single">
+                  <div className="admin-pix-field">
+                    <label className="admin-form-label">Chave secreta (Secret Key)</label>
+                    <input
+                      className="admin-form-input"
+                      type="password"
+                      placeholder="cole a chave em Configurações → Credenciais de API"
+                      value={skalepaySecretKey}
+                      onChange={(e) => {
+                        setSkalepaySecretKey(e.target.value);
+                        markDirty();
+                      }}
+                      autoComplete="off"
+                    />
+                    <p className="admin-pix-field-hint">
+                      Autenticação Basic Auth (<code>SECRET_KEY:x</code>) conforme{" "}
+                      <a
+                        href="https://skalepay.readme.io/reference/introducao"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        documentação Skale Pay
+                      </a>
+                      . O postback da transação usa a URL de webhook desta loja.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {pixProvider !== "paradise" &&
+                pixProvider !== "orama" &&
+                pixProvider !== "asaas" &&
+                pixProvider !== "skalepay" && (
                 <p style={{ fontSize: "0.85rem", color: "var(--adm-text-muted)" }}>
                   Este provedor ainda não possui campos de credencial nesta versão.
                 </p>
@@ -1954,7 +2036,8 @@ function CheckoutSection({
             {(pixProvider === "paradise" && apiKey.trim()) ||
             (pixProvider === "orama" &&
               (oramaApiKey.trim() || oramaPublicKey.trim() || oramaWebhookSecret.trim())) ||
-            (pixProvider === "asaas" && asaasApiKey.trim()) ? (
+            (pixProvider === "asaas" && asaasApiKey.trim()) ||
+            (pixProvider === "skalepay" && skalepaySecretKey.trim()) ? (
               <section className="admin-pix-card admin-pix-card--readonly">
                 <h3 className="admin-pix-card-title">Credenciais salvas no sistema</h3>
                 <p className="admin-pix-card-lead">Pré-visualização mascarada — valores reais ficam apenas no servidor.</p>
@@ -1993,6 +2076,14 @@ function CheckoutSection({
                     <div className="admin-pix-field admin-pix-field--readonly">
                       <span className="admin-pix-readonly-label">Sandbox</span>
                       <code className="admin-pix-readonly-value">{asaasSandbox ? "sim" : "produção"}</code>
+                    </div>
+                  </div>
+                )}
+                {pixProvider === "skalepay" && (
+                  <div className="admin-pix-cred-grid admin-pix-cred-grid--single">
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">Secret Key</span>
+                      <code className="admin-pix-readonly-value">{maskPixCredential(skalepaySecretKey)}</code>
                     </div>
                   </div>
                 )}
@@ -2035,6 +2126,104 @@ function CheckoutSection({
                   />
                   <span className="admin-toggle-slider" />
                 </label>
+              </div>
+            </section>
+
+            <section className="admin-pix-card">
+              <h3 className="admin-pix-card-title">Imagens no checkout</h3>
+              <p className="admin-pix-card-lead">
+                Banners ou imagens opcionais na página de pagamento. Use <strong>formato quadrado</strong> para selos/logos
+                (1:1) ou desmarque para faixa tipo banner (largura total, altura limitada).
+              </p>
+
+              <div className="admin-pix-field admin-pix-field--full" style={{ marginBottom: 18 }}>
+                <label className="admin-form-label">Topo do checkout</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  <label className="admin-btn admin-btn-secondary" style={{ cursor: "pointer", fontSize: "0.8rem" }}>
+                    Upload
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={uploadCheckoutPromo(setCheckoutTopImage)} />
+                  </label>
+                  <input
+                    className="admin-form-input"
+                    style={{ flex: "1 1 200px", marginBottom: 0 }}
+                    placeholder="https://… ou /api/uploads/…"
+                    value={checkoutTopImage}
+                    onChange={(e) => { setCheckoutTopImage(e.target.value); markDirty(); }}
+                  />
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "var(--adm-text-muted)", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={checkoutTopImageSquare}
+                    onChange={(e) => { setCheckoutTopImageSquare(e.target.checked); markDirty(); }}
+                  />
+                  Exibir como quadrado (1:1)
+                </label>
+                {checkoutTopImage.trim() ? (
+                  <img src={checkoutTopImage.trim()} alt="" style={{ marginTop: 10, maxWidth: "100%", maxHeight: 120, objectFit: "contain", borderRadius: 8, border: "1px solid var(--adm-border)" }} />
+                ) : null}
+              </div>
+
+              <div className="admin-pix-field admin-pix-field--full" style={{ marginBottom: 18 }}>
+                <label className="admin-form-label">Após identificação e frete</label>
+                <p className="admin-pix-field-hint" style={{ marginTop: -4, marginBottom: 8 }}>
+                  Aparece depois do bloco de endereço e formas de entrega, antes das ofertas e do resumo.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  <label className="admin-btn admin-btn-secondary" style={{ cursor: "pointer", fontSize: "0.8rem" }}>
+                    Upload
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={uploadCheckoutPromo(setCheckoutMidImage)} />
+                  </label>
+                  <input
+                    className="admin-form-input"
+                    style={{ flex: "1 1 200px", marginBottom: 0 }}
+                    placeholder="https://… ou /api/uploads/…"
+                    value={checkoutMidImage}
+                    onChange={(e) => { setCheckoutMidImage(e.target.value); markDirty(); }}
+                  />
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "var(--adm-text-muted)", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={checkoutMidImageSquare}
+                    onChange={(e) => { setCheckoutMidImageSquare(e.target.checked); markDirty(); }}
+                  />
+                  Exibir como quadrado (1:1)
+                </label>
+                {checkoutMidImage.trim() ? (
+                  <img src={checkoutMidImage.trim()} alt="" style={{ marginTop: 10, maxWidth: "100%", maxHeight: 120, objectFit: "contain", borderRadius: 8, border: "1px solid var(--adm-border)" }} />
+                ) : null}
+              </div>
+
+              <div className="admin-pix-field admin-pix-field--full">
+                <label className="admin-form-label">Rodapé do checkout</label>
+                <p className="admin-pix-field-hint" style={{ marginTop: -4, marginBottom: 8 }}>
+                  Acima da linha &quot;© Ambiente seguro&quot;.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  <label className="admin-btn admin-btn-secondary" style={{ cursor: "pointer", fontSize: "0.8rem" }}>
+                    Upload
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={uploadCheckoutPromo(setCheckoutFooterImage)} />
+                  </label>
+                  <input
+                    className="admin-form-input"
+                    style={{ flex: "1 1 200px", marginBottom: 0 }}
+                    placeholder="https://… ou /api/uploads/…"
+                    value={checkoutFooterImage}
+                    onChange={(e) => { setCheckoutFooterImage(e.target.value); markDirty(); }}
+                  />
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "var(--adm-text-muted)", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={checkoutFooterImageSquare}
+                    onChange={(e) => { setCheckoutFooterImageSquare(e.target.checked); markDirty(); }}
+                  />
+                  Exibir como quadrado (1:1)
+                </label>
+                {checkoutFooterImage.trim() ? (
+                  <img src={checkoutFooterImage.trim()} alt="" style={{ marginTop: 10, maxWidth: "100%", maxHeight: 120, objectFit: "contain", borderRadius: 8, border: "1px solid var(--adm-border)" }} />
+                ) : null}
               </div>
             </section>
 

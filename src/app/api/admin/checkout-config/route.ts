@@ -30,7 +30,9 @@ export async function GET(req: NextRequest) {
       ? !!(c.oramaApiKey?.trim() && c.oramaPublicKey?.trim())
       : provider === "asaas"
         ? !!(c.asaasApiKey?.trim())
-        : !!(c.paradiseApiKey?.trim());
+        : provider === "skalepay"
+          ? !!(c.skalepaySecretKey?.trim())
+          : !!(c.paradiseApiKey?.trim());
 
   return NextResponse.json({
     hasInternalCheckout,

@@ -120,8 +120,26 @@ function normalizePaths(data: StoreData, tenant: string): { data: StoreData; cha
   const banners = data.banners?.map((b) => ({ ...b, image: fix(b.image) }));
   const storeLogo = fix(data.storeLogo);
 
+  let checkoutConfig = data.checkoutConfig;
+  if (checkoutConfig) {
+    const imgKeys = [
+      "checkoutTopImage",
+      "checkoutMidImage",
+      "checkoutFooterImage",
+    ] as const;
+    const nextCc = { ...checkoutConfig };
+    for (const key of imgKeys) {
+      const cur = nextCc[key];
+      if (typeof cur === "string" && cur.trim()) {
+        const n = fix(cur);
+        (nextCc as Record<string, string | undefined>)[key] = n || undefined;
+      }
+    }
+    checkoutConfig = nextCc;
+  }
+
   return {
-    data: { ...data, storeLogo, products, banners: banners ?? [] },
+    data: { ...data, storeLogo, products, banners: banners ?? [], checkoutConfig: checkoutConfig ?? data.checkoutConfig },
     changed,
   };
 }

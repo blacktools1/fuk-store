@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
     hasInternalCheckout = !!(c?.oramaApiKey?.trim() && c?.oramaPublicKey?.trim());
   } else if (provider === "asaas") {
     hasInternalCheckout = !!(c?.asaasApiKey?.trim());
+  } else if (provider === "skalepay") {
+    hasInternalCheckout = !!(c?.skalepaySecretKey?.trim());
   }
 
   return NextResponse.json(
@@ -44,6 +46,12 @@ export async function GET(req: NextRequest) {
       redirectUrl: c?.redirectUrl ?? "",
       redirectEnabled: c?.redirectEnabled ?? true,
       backLink: c?.backLink ?? "",
+      checkoutTopImage: c?.checkoutTopImage?.trim() ?? "",
+      checkoutTopImageSquare: c?.checkoutTopImageSquare === true,
+      checkoutMidImage: c?.checkoutMidImage?.trim() ?? "",
+      checkoutMidImageSquare: c?.checkoutMidImageSquare === true,
+      checkoutFooterImage: c?.checkoutFooterImage?.trim() ?? "",
+      checkoutFooterImageSquare: c?.checkoutFooterImageSquare === true,
     },
     { headers: { "Cache-Control": STORE_JSON_CACHE_CONTROL } }
   );

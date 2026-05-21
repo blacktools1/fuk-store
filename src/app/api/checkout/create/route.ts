@@ -4,6 +4,7 @@ import { readStoreData } from "@/lib/store-data";
 import { createParadisePayment } from "@/lib/paradise";
 import { createOramaPayment } from "@/lib/orama";
 import { createAsaasCheckoutPix } from "@/lib/asaas";
+import { createSkalePayment } from "@/lib/skalepay";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
@@ -197,6 +198,69 @@ export async function POST(req: NextRequest) {
           phone,
           document: cpf,
         },
+      });
+
+    } else if (provider === "skalepay") {
+      if (!config?.skalepaySecretKey?.trim()) {
+        return NextResponse.json(
+          {
+            error:
+              "Chave secreta Skale Pay não configurada. Acesse o painel admin → Checkout PIX.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const cartSum = (cartItems as { price: number; qty: number }[]).reduce(
+        (s, i) => s + i.price * (i.qty || 1),
+        0
+      );
+      const scale = cartSum > 0 ? totals.cartAfterPix / cartSum : 1;
+      const items: { name: string; unitPrice: number; quantity: number }[] = (
+        cartItems as { name: string; price: number; qty: number }[]
+      ).map((i) => ({
+        name: i.name,
+        unitPrice: Math.round(i.price * scale * 100),
+        quantity: i.qty || 1,
+      }));
+      for (const ob of activeOrdebumps) {
+        items.push({
+          name: ob.title,
+          unitPrice: Math.round(ob.price * 100),
+          quantity: 1,
+        });
+      }
+      if (totals.shippingPrice > 0) {
+        items.push({
+          name: `Frete — ${totals.shippingLabel}`,
+          unitPrice: Math.round(totals.shippingPrice * 100),
+          quantity: 1,
+        });
+      }
+
+      const utmFlat: Record<string, string> = {};
+      if (utms && typeof utms === "object") {
+        for (const [k, v] of Object.entries(utms as Record<string, unknown>)) {
+          if (v != null && String(v).trim() !== "") utmFlat[k] = String(v).trim();
+        }
+      }
+
+      result = await createSkalePayment({
+        secretKey: config.skalepaySecretKey,
+        amountInCents: Math.round(total * 100),
+        customer: {
+          name: customer.name.trim(),
+          email: customer.email.trim().toLowerCase(),
+          phone,
+          document: cpf,
+        },
+        items,
+        externalRef: reference,
+        webhookUrl,
+        metadata:
+          Object.keys(utmFlat).length > 0
+            ? JSON.stringify({ ref: reference, utms: utmFlat })
+            : reference,
       });
 
     } else {

@@ -66,7 +66,7 @@ export interface ShippingOption {
  * Provedores de pagamento PIX disponíveis.
  * Adicionar novos valores aqui conforme cada integração for implementada.
  */
-export type PixProvider = "paradise" | "orama" | "asaas";
+export type PixProvider = "paradise" | "orama" | "asaas" | "skalepay";
 
 /** Uma conta UTMify (dashboard) com label para identificação */
 export interface UtmifyAccount {
@@ -86,6 +86,8 @@ export interface CheckoutConfig {
   asaasApiKey?: string;
   /** Usa hosts `api-sandbox.asaas.com` em vez da produção */
   asaasSandbox?: boolean;
+  /** Chave secreta Skale Pay (Basic Auth: `{secret}:x`) */
+  skalepaySecretKey?: string;
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;
@@ -102,6 +104,16 @@ export interface CheckoutConfig {
   salePendingWebhooks?: string[];
   /** POST JSON quando o pagamento é confirmado */
   saleApprovedWebhooks?: string[];
+  /** Imagem promocional no topo do checkout (URL ou /api/uploads/…) */
+  checkoutTopImage?: string;
+  /** Se true, exibe a imagem do topo em área quadrada (1:1); se false, faixa tipo banner */
+  checkoutTopImageSquare?: boolean;
+  /** Imagem após bloco de identificação + endereço/frete (antes de order bumps e resumo) */
+  checkoutMidImage?: string;
+  checkoutMidImageSquare?: boolean;
+  /** Imagem acima do rodapé do checkout */
+  checkoutFooterImage?: string;
+  checkoutFooterImageSquare?: boolean;
 }
 
 export interface StorePixel {
