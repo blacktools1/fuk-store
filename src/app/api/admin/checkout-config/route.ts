@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       : provider === "asaas"
         ? !!(c.asaasApiKey?.trim())
         : provider === "skalepay"
-          ? !!(c.skalepaySecretKey?.trim())
+          ? !!(c.skalepaySecretKey?.trim() && c.skalepayUserToken?.trim())
           : !!(c.paradiseApiKey?.trim());
 
   return NextResponse.json({

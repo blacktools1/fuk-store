@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   } else if (provider === "asaas") {
     hasInternalCheckout = !!(c?.asaasApiKey?.trim());
   } else if (provider === "skalepay") {
-    hasInternalCheckout = !!(c?.skalepaySecretKey?.trim());
+    hasInternalCheckout = !!(c?.skalepaySecretKey?.trim() && c?.skalepayUserToken?.trim());
   }
 
   return NextResponse.json(

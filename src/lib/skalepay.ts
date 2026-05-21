@@ -9,9 +9,15 @@ import { getPixQrImgSrc } from "./pix-qr";
 
 const SKALE_BASE = "https://api.conta.skalepay.com.br/v1";
 
-/** Basic Auth: base64("{SECRET_KEY}:x") */
-function basicAuth(secretKey: string): string {
-  const credentials = Buffer.from(`${secretKey.trim()}:x`).toString("base64");
+/**
+ * Basic Auth: base64("{SECRET_KEY}:{USER_TOKEN}").
+ * No painel (Credenciais de API) a Skale exibe chave secreta + token de usuário.
+ * A doc pública cita `:x` como placeholder; na prática o token de usuário é obrigatório.
+ */
+function basicAuth(secretKey: string, userToken: string): string {
+  const key = secretKey.trim();
+  const token = userToken.trim() || "x";
+  const credentials = Buffer.from(`${key}:${token}`).toString("base64");
   return `Basic ${credentials}`;
 }
 
@@ -58,6 +64,7 @@ export interface SkaleStatusResult {
 
 export async function createSkalePayment(params: {
   secretKey: string;
+  userToken: string;
   amountInCents: number;
   customer: {
     name: string;
@@ -104,7 +111,7 @@ export async function createSkalePayment(params: {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: basicAuth(params.secretKey),
+      Authorization: basicAuth(params.secretKey, params.userToken),
       Accept: "application/json",
     },
     body: JSON.stringify(body),
@@ -112,7 +119,11 @@ export async function createSkalePayment(params: {
 
   const data = await parseJsonSafely(res);
   if (!res.ok) {
-    throw new Error(formatSkaleError(data, `Skale Pay: HTTP ${res.status}`));
+    const hint =
+      res.status === 401 || res.status === 403
+        ? " Verifique Secret Key e Token de usuário em Configurações → Credenciais de API."
+        : "";
+    throw new Error(formatSkaleError(data, `Skale Pay: HTTP ${res.status}`) + hint);
   }
 
   const id = String(data.id ?? "").trim();
@@ -150,12 +161,13 @@ export async function createSkalePayment(params: {
 
 export async function checkSkaleStatus(params: {
   secretKey: string;
+  userToken: string;
   transactionId: string;
 }): Promise<SkaleStatusResult> {
   const id = encodeURIComponent(params.transactionId);
   const res = await fetch(`${SKALE_BASE}/transactions/${id}`, {
     headers: {
-      Authorization: basicAuth(params.secretKey),
+      Authorization: basicAuth(params.secretKey, params.userToken),
       Accept: "application/json",
     },
   });

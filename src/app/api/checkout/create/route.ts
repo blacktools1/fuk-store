@@ -201,11 +201,11 @@ export async function POST(req: NextRequest) {
       });
 
     } else if (provider === "skalepay") {
-      if (!config?.skalepaySecretKey?.trim()) {
+      if (!config?.skalepaySecretKey?.trim() || !config?.skalepayUserToken?.trim()) {
         return NextResponse.json(
           {
             error:
-              "Chave secreta Skale Pay não configurada. Acesse o painel admin → Checkout PIX.",
+              "Credenciais Skale Pay incompletas (Secret Key + Token de usuário). Acesse o painel admin → Checkout PIX.",
           },
           { status: 400 }
         );
@@ -247,6 +247,7 @@ export async function POST(req: NextRequest) {
 
       result = await createSkalePayment({
         secretKey: config.skalepaySecretKey,
+        userToken: config.skalepayUserToken,
         amountInCents: Math.round(total * 100),
         customer: {
           name: customer.name.trim(),

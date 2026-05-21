@@ -50,14 +50,15 @@ export async function POST(req: NextRequest) {
         transactionId: String(transactionId),
       });
     } else if (provider === "skalepay") {
-      if (!config?.skalepaySecretKey?.trim()) {
+      if (!config?.skalepaySecretKey?.trim() || !config?.skalepayUserToken?.trim()) {
         return NextResponse.json(
-          { error: "Checkout Skale Pay não configurado" },
+          { error: "Checkout Skale Pay não configurado (Secret Key + Token de usuário)" },
           { status: 400 }
         );
       }
       result = await checkSkaleStatus({
         secretKey: config.skalepaySecretKey,
+        userToken: config.skalepayUserToken,
         transactionId: String(transactionId),
       });
     } else {
