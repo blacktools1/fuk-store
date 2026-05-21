@@ -22,6 +22,11 @@ import { PIX_PROVIDER_CATALOG, getPixProviderEntry } from "@/lib/pix-providers";
 import { formatPrice } from "@/lib/products";
 import { STORE_IMAGE_QUALITY_THUMB } from "@/lib/store-image";
 import { SalesSection } from "./SalesSection";
+import {
+  CheckoutVisualSection,
+  type CheckoutVisualSlot,
+  type CheckoutVisualValues,
+} from "./CheckoutVisualSection";
 import type { SalesRevenueSummary } from "@/lib/sales-log";
 import { AdminIcon, type AdminIconName } from "./AdminIcons";
 
@@ -82,6 +87,7 @@ const ADMIN_NAV_SUBMENU: Partial<Record<Section, NavSubItem[]>> = {
     { id: "admin-section-products-bumps", label: "Order bumps" },
   ],
   checkout: [
+    { id: "admin-section-checkout-visual", label: "Banners no checkout" },
     { id: "admin-section-checkout-provedor", label: "Provedor PIX" },
     { id: "admin-section-checkout-webhooks", label: "Webhooks HTTP" },
     { id: "admin-section-checkout-orderbump", label: "Estilo order bumps" },
@@ -682,6 +688,11 @@ function DashboardSection({
   const [saving, setSaving]         = useState(false);
 
   const cc = storeData?.checkoutConfig;
+  const checkoutBannersCount = [
+    cc?.checkoutTopImage,
+    cc?.checkoutMidImage,
+    cc?.checkoutFooterImage,
+  ].filter((u) => typeof u === "string" && u.trim()).length;
   const providerId = String(cc?.pixProvider ?? "paradise").toLowerCase();
   const pixProviderLabel = getPixProviderEntry(providerId)?.name ?? providerId;
   const hasInternalCheckout =
@@ -911,6 +922,12 @@ function DashboardSection({
             {hasInternalCheckout
               ? `ativo com ${pixProviderLabel} — o cliente paga na sua loja.`
               : "ainda não está pronto: abra Checkout PIX e preencha as credenciais do provedor selecionado."}
+          </li>
+          <li>
+            <strong style={{ color: "var(--adm-text)" }}>Banners no checkout:</strong>{" "}
+            {checkoutBannersCount > 0
+              ? `${checkoutBannersCount} imagem(ns) ativa(s) — edite em Checkout PIX → Banners no checkout.`
+              : "nenhum banner — adicione em Checkout PIX → Banners no checkout."}
           </li>
           <li>
             <strong style={{ color: "var(--adm-text)" }}>Redirecionamento pós-compra:</strong>{" "}
@@ -1357,6 +1374,26 @@ function CheckoutSection({
   const [checkoutFooterImageSquare, setCheckoutFooterImageSquare] = useState(
     storeData?.checkoutConfig?.checkoutFooterImageSquare === true
   );
+  const [checkoutVisualSlot, setCheckoutVisualSlot] = useState<CheckoutVisualSlot>("top");
+
+  const checkoutVisualValues: CheckoutVisualValues = useMemo(
+    () => ({
+      topImage: checkoutTopImage,
+      topSquare: checkoutTopImageSquare,
+      midImage: checkoutMidImage,
+      midSquare: checkoutMidImageSquare,
+      footerImage: checkoutFooterImage,
+      footerSquare: checkoutFooterImageSquare,
+    }),
+    [
+      checkoutTopImage,
+      checkoutTopImageSquare,
+      checkoutMidImage,
+      checkoutMidImageSquare,
+      checkoutFooterImage,
+      checkoutFooterImageSquare,
+    ]
+  );
 
   const filteredPixProviders = useMemo(() => {
     const q = providerQuery.trim().toLowerCase();
@@ -1434,24 +1471,40 @@ function CheckoutSection({
 
   const markDirty = () => { setIsDirty(true); setSaveStatus("idle"); };
 
-  const uploadCheckoutPromo =
-    (setter: (v: string) => void) => async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      try {
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.message || "Erro no upload");
-        setter(String(json.url || ""));
-        markDirty();
-      } catch (err) {
-        alert((err as Error).message);
-      } finally {
-        e.target.value = "";
-      }
-    };
+  const patchCheckoutVisual = (patch: Partial<CheckoutVisualValues>) => {
+    if (patch.topImage !== undefined) setCheckoutTopImage(patch.topImage);
+    if (patch.topSquare !== undefined) setCheckoutTopImageSquare(patch.topSquare);
+    if (patch.midImage !== undefined) setCheckoutMidImage(patch.midImage);
+    if (patch.midSquare !== undefined) setCheckoutMidImageSquare(patch.midSquare);
+    if (patch.footerImage !== undefined) setCheckoutFooterImage(patch.footerImage);
+    if (patch.footerSquare !== undefined) setCheckoutFooterImageSquare(patch.footerSquare);
+    markDirty();
+  };
+
+  const uploadCheckoutVisual = async (
+    slot: CheckoutVisualSlot,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Erro no upload");
+      const url = String(json.url || "");
+      if (slot === "top") setCheckoutTopImage(url);
+      else if (slot === "mid") setCheckoutMidImage(url);
+      else setCheckoutFooterImage(url);
+      setCheckoutVisualSlot(slot);
+      markDirty();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   const hasKey =
     pixProvider === "orama"
@@ -1756,6 +1809,15 @@ function CheckoutSection({
           </button>
         </div>
       )}
+
+      <CheckoutVisualSection
+        values={checkoutVisualValues}
+        activeSlot={checkoutVisualSlot}
+        onActiveSlot={setCheckoutVisualSlot}
+        onPatch={patchCheckoutVisual}
+        onUpload={uploadCheckoutVisual}
+        checkoutUrl={publicOrigin ? `${publicOrigin}/checkout` : "/checkout"}
+      />
 
       {/* Hub Provedores PIX — sidebar + painel (referência layout) */}
       <div className="admin-pix-hub-wrap admin-card" style={{ padding: "20px 22px" }} id="admin-section-checkout-provedor">
@@ -2126,104 +2188,6 @@ function CheckoutSection({
                   />
                   <span className="admin-toggle-slider" />
                 </label>
-              </div>
-            </section>
-
-            <section className="admin-pix-card">
-              <h3 className="admin-pix-card-title">Imagens no checkout</h3>
-              <p className="admin-pix-card-lead">
-                Banners ou imagens opcionais na página de pagamento. Use <strong>formato quadrado</strong> para selos/logos
-                (1:1) ou desmarque para faixa tipo banner (largura total, altura limitada).
-              </p>
-
-              <div className="admin-pix-field admin-pix-field--full" style={{ marginBottom: 18 }}>
-                <label className="admin-form-label">Topo do checkout</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                  <label className="admin-btn admin-btn-secondary" style={{ cursor: "pointer", fontSize: "0.8rem" }}>
-                    Upload
-                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={uploadCheckoutPromo(setCheckoutTopImage)} />
-                  </label>
-                  <input
-                    className="admin-form-input"
-                    style={{ flex: "1 1 200px", marginBottom: 0 }}
-                    placeholder="https://… ou /api/uploads/…"
-                    value={checkoutTopImage}
-                    onChange={(e) => { setCheckoutTopImage(e.target.value); markDirty(); }}
-                  />
-                </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "var(--adm-text-muted)", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={checkoutTopImageSquare}
-                    onChange={(e) => { setCheckoutTopImageSquare(e.target.checked); markDirty(); }}
-                  />
-                  Exibir como quadrado (1:1)
-                </label>
-                {checkoutTopImage.trim() ? (
-                  <img src={checkoutTopImage.trim()} alt="" style={{ marginTop: 10, maxWidth: "100%", maxHeight: 120, objectFit: "contain", borderRadius: 8, border: "1px solid var(--adm-border)" }} />
-                ) : null}
-              </div>
-
-              <div className="admin-pix-field admin-pix-field--full" style={{ marginBottom: 18 }}>
-                <label className="admin-form-label">Após identificação e frete</label>
-                <p className="admin-pix-field-hint" style={{ marginTop: -4, marginBottom: 8 }}>
-                  Aparece depois do bloco de endereço e formas de entrega, antes das ofertas e do resumo.
-                </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                  <label className="admin-btn admin-btn-secondary" style={{ cursor: "pointer", fontSize: "0.8rem" }}>
-                    Upload
-                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={uploadCheckoutPromo(setCheckoutMidImage)} />
-                  </label>
-                  <input
-                    className="admin-form-input"
-                    style={{ flex: "1 1 200px", marginBottom: 0 }}
-                    placeholder="https://… ou /api/uploads/…"
-                    value={checkoutMidImage}
-                    onChange={(e) => { setCheckoutMidImage(e.target.value); markDirty(); }}
-                  />
-                </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "var(--adm-text-muted)", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={checkoutMidImageSquare}
-                    onChange={(e) => { setCheckoutMidImageSquare(e.target.checked); markDirty(); }}
-                  />
-                  Exibir como quadrado (1:1)
-                </label>
-                {checkoutMidImage.trim() ? (
-                  <img src={checkoutMidImage.trim()} alt="" style={{ marginTop: 10, maxWidth: "100%", maxHeight: 120, objectFit: "contain", borderRadius: 8, border: "1px solid var(--adm-border)" }} />
-                ) : null}
-              </div>
-
-              <div className="admin-pix-field admin-pix-field--full">
-                <label className="admin-form-label">Rodapé do checkout</label>
-                <p className="admin-pix-field-hint" style={{ marginTop: -4, marginBottom: 8 }}>
-                  Acima da linha &quot;© Ambiente seguro&quot;.
-                </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                  <label className="admin-btn admin-btn-secondary" style={{ cursor: "pointer", fontSize: "0.8rem" }}>
-                    Upload
-                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={uploadCheckoutPromo(setCheckoutFooterImage)} />
-                  </label>
-                  <input
-                    className="admin-form-input"
-                    style={{ flex: "1 1 200px", marginBottom: 0 }}
-                    placeholder="https://… ou /api/uploads/…"
-                    value={checkoutFooterImage}
-                    onChange={(e) => { setCheckoutFooterImage(e.target.value); markDirty(); }}
-                  />
-                </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "var(--adm-text-muted)", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={checkoutFooterImageSquare}
-                    onChange={(e) => { setCheckoutFooterImageSquare(e.target.checked); markDirty(); }}
-                  />
-                  Exibir como quadrado (1:1)
-                </label>
-                {checkoutFooterImage.trim() ? (
-                  <img src={checkoutFooterImage.trim()} alt="" style={{ marginTop: 10, maxWidth: "100%", maxHeight: 120, objectFit: "contain", borderRadius: 8, border: "1px solid var(--adm-border)" }} />
-                ) : null}
               </div>
             </section>
 
