@@ -4,6 +4,7 @@ import { readStoreData, writeStoreData } from "@/lib/store-data";
 import type { UtmifyAccount } from "@/lib/admin-types";
 import { filterShippingForCheckout } from "@/lib/checkout-public";
 import { hasSkaleCredentials, skaleCredentialsFromConfig } from "@/lib/skalepay";
+import { hasHubpagueCredentials, hubpagueCredentialsFromConfig } from "@/lib/hubpague";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,9 @@ export async function GET(req: NextRequest) {
         ? !!(c.asaasApiKey?.trim())
         : provider === "skalepay"
           ? hasSkaleCredentials(skaleCredentialsFromConfig(c))
-          : !!(c.paradiseApiKey?.trim());
+          : provider === "hubpague"
+            ? hasHubpagueCredentials(hubpagueCredentialsFromConfig(c))
+            : !!(c.paradiseApiKey?.trim());
 
   return NextResponse.json({
     hasInternalCheckout,

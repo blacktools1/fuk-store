@@ -66,7 +66,7 @@ export interface ShippingOption {
  * Provedores de pagamento PIX disponíveis.
  * Adicionar novos valores aqui conforme cada integração for implementada.
  */
-export type PixProvider = "paradise" | "orama" | "asaas" | "skalepay";
+export type PixProvider = "paradise" | "orama" | "asaas" | "skalepay" | "hubpague";
 
 /** Uma conta UTMify (dashboard) com label para identificação */
 export interface UtmifyAccount {
@@ -92,6 +92,8 @@ export interface CheckoutConfig {
   skalepaySecretKey?: string;
   /** @deprecated não usado na API SkalePayments */
   skalepayUserId?: string;
+  /** API Token HubPague Cash (Authorization: Bearer) */
+  hubpagueApiToken?: string;
   redirectUrl?: string;
   redirectEnabled?: boolean;
   backLink?: string;

@@ -37,6 +37,14 @@ export const PIX_PROVIDER_CATALOG: PixProviderCatalogEntry[] = [
     authType: "X-API-Key",
     apiHost: "api.skalepayments.com.br",
   },
+  {
+    id: "hubpague",
+    name: "HubPague",
+    description: "PIX cash-in (depósitos) via Cash API.",
+    available: true,
+    authType: "Bearer token",
+    apiHost: "api.hubpague.com",
+  },
 ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
 export function getPixProviderEntry(id: string): PixProviderCatalogEntry | undefined {

@@ -9,6 +9,11 @@ import {
   hasSkaleCredentials,
   skaleCredentialsFromConfig,
 } from "@/lib/skalepay";
+import {
+  createHubpaguePayment,
+  hasHubpagueCredentials,
+  hubpagueCredentialsFromConfig,
+} from "@/lib/hubpague";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { validateCPF, digitsOnly } from "@/lib/cpf";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
@@ -266,6 +271,31 @@ export async function POST(req: NextRequest) {
         externalRef: reference,
         webhookUrl,
         metadata: skaleMetadata,
+      });
+
+    } else if (provider === "hubpague") {
+      const hubCreds = hubpagueCredentialsFromConfig(config);
+      if (!hasHubpagueCredentials(hubCreds)) {
+        return NextResponse.json(
+          {
+            error:
+              "Credenciais HubPague incompletas. Admin → Checkout PIX → API Token (Bearer).",
+          },
+          { status: 400 }
+        );
+      }
+
+      result = await createHubpaguePayment({
+        credentials: hubCreds,
+        amountInCents: Math.round(total * 100),
+        customer: {
+          name: customer.name.trim(),
+          email: customer.email.trim().toLowerCase(),
+          phone,
+          document: cpf,
+        },
+        externalRef: reference,
+        webhookUrl,
       });
 
     } else {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readStoreData } from "@/lib/store-data";
 import { hasSkaleCredentials, skaleCredentialsFromConfig } from "@/lib/skalepay";
+import { hasHubpagueCredentials, hubpagueCredentialsFromConfig } from "@/lib/hubpague";
 import { getTenantFromRequest } from "@/lib/tenant";
 import { filterOrderbumpsForCheckout, filterShippingForCheckout } from "@/lib/checkout-public";
 import { STORE_JSON_CACHE_CONTROL } from "@/lib/http-cache";
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
     hasInternalCheckout = !!(c?.asaasApiKey?.trim());
   } else if (provider === "skalepay") {
     hasInternalCheckout = hasSkaleCredentials(skaleCredentialsFromConfig(c));
+  } else if (provider === "hubpague") {
+    hasInternalCheckout = hasHubpagueCredentials(hubpagueCredentialsFromConfig(c));
   }
 
   return NextResponse.json(

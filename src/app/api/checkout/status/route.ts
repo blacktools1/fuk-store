@@ -9,6 +9,11 @@ import {
   hasSkaleCredentials,
   skaleCredentialsFromConfig,
 } from "@/lib/skalepay";
+import {
+  checkHubpagueStatus,
+  hasHubpagueCredentials,
+  hubpagueCredentialsFromConfig,
+} from "@/lib/hubpague";
 import { sendUtmifyOrderToAll } from "@/lib/utmify";
 import { notifyStoreWebhooks } from "@/lib/store-webhooks";
 import { markSalePaid } from "@/lib/sales-log";
@@ -63,6 +68,18 @@ export async function POST(req: NextRequest) {
       }
       result = await checkSkaleStatus({
         credentials: skaleCreds,
+        transactionId: String(transactionId),
+      });
+    } else if (provider === "hubpague") {
+      const hubCreds = hubpagueCredentialsFromConfig(config);
+      if (!hasHubpagueCredentials(hubCreds)) {
+        return NextResponse.json(
+          { error: "Checkout HubPague não configurado (API Token)" },
+          { status: 400 }
+        );
+      }
+      result = await checkHubpagueStatus({
+        credentials: hubCreds,
         transactionId: String(transactionId),
       });
     } else {

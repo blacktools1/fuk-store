@@ -702,7 +702,9 @@ function DashboardSection({
         ? !!(cc?.asaasApiKey?.trim())
         : providerId === "skalepay"
           ? !!(cc?.skalepayApiKey?.trim() || cc?.skalepaySecretKey?.trim())
-          : !!(cc?.paradiseApiKey?.trim());
+          : providerId === "hubpague"
+            ? !!cc?.hubpagueApiToken?.trim()
+            : !!(cc?.paradiseApiKey?.trim());
   const pixelList = storeData?.pixels ?? [];
   const pixelsActive = pixelList.filter((p) => p.active).length;
   const utmifyCount = (cc?.utmifyAccounts ?? []).length;
@@ -1342,6 +1344,15 @@ function CheckoutSection({
     message: string;
     hint?: string;
   } | null>(null);
+  const [hubpagueApiToken, setHubpagueApiToken] = useState(
+    storeData?.checkoutConfig?.hubpagueApiToken ?? ""
+  );
+  const [hubpagueTestLoading, setHubpagueTestLoading] = useState(false);
+  const [hubpagueTestResult, setHubpagueTestResult] = useState<{
+    ok: boolean;
+    message: string;
+    hint?: string;
+  } | null>(null);
   const [providerQuery, setProviderQuery] = useState("");
   const [redirectUrl, setRedirectUrl]     = useState(storeData?.checkoutConfig?.redirectUrl ?? "");
   const [redirectOn, setRedirectOn]       = useState(storeData?.checkoutConfig?.redirectEnabled ?? true);
@@ -1479,6 +1490,9 @@ function CheckoutSection({
     if (id === "skalepay") {
       return skalepayApiKey.trim().length > 0;
     }
+    if (id === "hubpague") {
+      return hubpagueApiToken.trim().length > 0;
+    }
     return false;
   };
 
@@ -1513,6 +1527,36 @@ function CheckoutSection({
       setSkaleTestResult({ ok: false, message: "Erro de rede ao testar credenciais." });
     } finally {
       setSkaleTestLoading(false);
+    }
+  };
+
+  const handleHubpagueTest = async () => {
+    if (!hubpagueApiToken.trim()) return;
+    setHubpagueTestLoading(true);
+    setHubpagueTestResult(null);
+    try {
+      if (isDirty) {
+        await onSaveConfig({
+          checkoutConfig: {
+            ...checkoutConfigWithoutShipping(storeData?.checkoutConfig),
+            pixProvider,
+            hubpagueApiToken: hubpagueApiToken.trim(),
+          },
+        });
+        setIsDirty(false);
+        setSaveStatus("saved");
+      }
+      const res = await fetch("/api/admin/hubpague-test", { method: "POST", credentials: "include" });
+      const data = (await res.json()) as { ok?: boolean; message?: string; hint?: string };
+      setHubpagueTestResult({
+        ok: !!data.ok,
+        message: data.message ?? (res.ok ? "OK" : "Falha no teste"),
+        hint: data.hint,
+      });
+    } catch {
+      setHubpagueTestResult({ ok: false, message: "Erro de rede ao testar credenciais." });
+    } finally {
+      setHubpagueTestLoading(false);
     }
   };
 
@@ -1558,7 +1602,9 @@ function CheckoutSection({
         ? asaasApiKey.trim().length > 0
         : pixProvider === "skalepay"
           ? skalepayApiKey.trim().length > 0
-          : apiKey.trim().length > 0;
+          : pixProvider === "hubpague"
+            ? hubpagueApiToken.trim().length > 0
+            : apiKey.trim().length > 0;
 
   const handleSave = async () => {
     if (!storeData) return; // guarda: nunca salva com dados ainda não carregados
@@ -1578,6 +1624,7 @@ function CheckoutSection({
           skalepayApiKey: skalepayApiKey.trim(),
           skalepaySecretKey: skalepayApiKey.trim(),
           skalepayUserId: skalepayUserId.trim(),
+          hubpagueApiToken: hubpagueApiToken.trim(),
           redirectUrl: redirectUrl.trim(),
           redirectEnabled: redirectOn,
           orderbumpStyle,
@@ -2145,10 +2192,57 @@ function CheckoutSection({
                 </div>
               )}
 
+              {pixProvider === "hubpague" && (
+                <div className="admin-pix-cred-grid admin-pix-cred-grid--orama">
+                  <div className="admin-pix-field admin-pix-field--full">
+                    <label className="admin-form-label">API Token</label>
+                    <input
+                      className="admin-form-input"
+                      type="password"
+                      placeholder="Bearer token da Cash API"
+                      value={hubpagueApiToken}
+                      onChange={(e) => {
+                        setHubpagueApiToken(e.target.value);
+                        setHubpagueTestResult(null);
+                        markDirty();
+                      }}
+                      autoComplete="off"
+                    />
+                    <p className="admin-pix-field-hint">
+                      <code>Authorization: Bearer …</code> — API{" "}
+                      <a href="https://api.hubpague.com/docs/cash" target="_blank" rel="noopener noreferrer">
+                        HubPague Cash
+                      </a>
+                      . Depósito PIX: <code>POST /deposits/pix</code>.
+                    </p>
+                  </div>
+                  <div className="admin-pix-field admin-pix-field--full" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="admin-btn-secondary"
+                      disabled={!hubpagueApiToken.trim() || hubpagueTestLoading}
+                      onClick={() => void handleHubpagueTest()}
+                    >
+                      {hubpagueTestLoading ? "Testando…" : "Testar credenciais HubPague"}
+                    </button>
+                    {hubpagueTestResult && (
+                      <p
+                        className="admin-pix-field-hint"
+                        style={{ margin: 0, color: hubpagueTestResult.ok ? "var(--adm-success, #22c55e)" : "#f87171" }}
+                      >
+                        {hubpagueTestResult.message}
+                        {hubpagueTestResult.hint ? ` — ${hubpagueTestResult.hint}` : ""}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {pixProvider !== "paradise" &&
                 pixProvider !== "orama" &&
                 pixProvider !== "asaas" &&
-                pixProvider !== "skalepay" && (
+                pixProvider !== "skalepay" &&
+                pixProvider !== "hubpague" && (
                 <p style={{ fontSize: "0.85rem", color: "var(--adm-text-muted)" }}>
                   Este provedor ainda não possui campos de credencial nesta versão.
                 </p>
@@ -2159,7 +2253,8 @@ function CheckoutSection({
             (pixProvider === "orama" &&
               (oramaApiKey.trim() || oramaPublicKey.trim() || oramaWebhookSecret.trim())) ||
             (pixProvider === "asaas" && asaasApiKey.trim()) ||
-            (pixProvider === "skalepay" && skalepayApiKey.trim()) ? (
+            (pixProvider === "skalepay" && skalepayApiKey.trim()) ||
+            (pixProvider === "hubpague" && hubpagueApiToken.trim()) ? (
               <section className="admin-pix-card admin-pix-card--readonly">
                 <h3 className="admin-pix-card-title">Credenciais salvas no sistema</h3>
                 <p className="admin-pix-card-lead">Pré-visualização mascarada — valores reais ficam apenas no servidor.</p>
@@ -2206,6 +2301,14 @@ function CheckoutSection({
                     <div className="admin-pix-field admin-pix-field--readonly">
                       <span className="admin-pix-readonly-label">Chave de API</span>
                       <code className="admin-pix-readonly-value">{maskPixCredential(skalepayApiKey)}</code>
+                    </div>
+                  </div>
+                )}
+                {pixProvider === "hubpague" && (
+                  <div className="admin-pix-cred-grid admin-pix-cred-grid--single">
+                    <div className="admin-pix-field admin-pix-field--readonly">
+                      <span className="admin-pix-readonly-label">API Token</span>
+                      <code className="admin-pix-readonly-value">{maskPixCredential(hubpagueApiToken)}</code>
                     </div>
                   </div>
                 )}
