@@ -92,7 +92,7 @@ export interface CheckoutConfig {
   skalepaySecretKey?: string;
   /** @deprecated não usado na API SkalePayments */
   skalepayUserId?: string;
-  /** API Token HubPague Cash (Authorization: Bearer) */
+  /** API Token HubPague (Authorization: Bearer) — painel Integrações */
   hubpagueApiToken?: string;
   redirectUrl?: string;
   redirectEnabled?: boolean;

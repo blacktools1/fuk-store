@@ -285,6 +285,33 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const cartSumHub = (cartItems as { price: number; qty: number }[]).reduce(
+        (s, i) => s + i.price * (i.qty || 1),
+        0
+      );
+      const scaleHub = cartSumHub > 0 ? totals.cartAfterPix / cartSumHub : 1;
+      const hubProducts: { name: string; unitPrice: number; quantity: number }[] = (
+        cartItems as { name: string; price: number; qty: number }[]
+      ).map((i) => ({
+        name: i.name,
+        unitPrice: Math.round(i.price * scaleHub * 100),
+        quantity: i.qty || 1,
+      }));
+      for (const ob of activeOrdebumps) {
+        hubProducts.push({
+          name: ob.title,
+          unitPrice: Math.round(ob.price * 100),
+          quantity: 1,
+        });
+      }
+      if (totals.shippingPrice > 0) {
+        hubProducts.push({
+          name: `Frete — ${totals.shippingLabel}`,
+          unitPrice: Math.round(totals.shippingPrice * 100),
+          quantity: 1,
+        });
+      }
+
       result = await createHubpaguePayment({
         credentials: hubCreds,
         amountInCents: Math.round(total * 100),
@@ -294,8 +321,8 @@ export async function POST(req: NextRequest) {
           phone,
           document: cpf,
         },
+        products: hubProducts,
         externalRef: reference,
-        webhookUrl,
       });
 
     } else {

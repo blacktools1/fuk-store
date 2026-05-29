@@ -40,10 +40,10 @@ export const PIX_PROVIDER_CATALOG: PixProviderCatalogEntry[] = [
   {
     id: "hubpague",
     name: "HubPague",
-    description: "PIX cash-in (depósitos) via Cash API.",
+    description: "PIX via API de pagamentos (transações IN).",
     available: true,
     authType: "Bearer token",
-    apiHost: "api.hubpague.com",
+    apiHost: "app.hubpague.io",
   },
 ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 

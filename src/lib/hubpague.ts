@@ -1,13 +1,13 @@
 /**
- * Cliente HubPague Cash API (PIX cash-in).
- * @see https://api.hubpague.com/docs/cash
+ * Cliente HubPague API de Pagamentos (PIX).
+ * @see https://documenter.getpostman.com/view/7243567/2sBXVZoaLN
  */
 
 import QRCode from "qrcode";
 import { getPixQrImgSrc } from "./pix-qr";
 import type { CheckoutConfig } from "./admin-types";
 
-const HUBPAGUE_BASE = "https://api.hubpague.com/api/public/cash";
+const HUBPAGUE_BASE = "https://app.hubpague.io/api";
 
 export type HubpagueCredentials = {
   apiToken?: string;
@@ -49,9 +49,11 @@ async function hubpagueFetch(
   return { res, data };
 }
 
-function unwrapData(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.success === true && data.data && typeof data.data === "object" && !Array.isArray(data.data)) {
-    return data.data as Record<string, unknown>;
+/** Resposta pode vir na raiz ou em `data` (GET /transactions). */
+function unwrapTransaction(data: Record<string, unknown>): Record<string, unknown> {
+  const inner = data.data;
+  if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+    return inner as Record<string, unknown>;
   }
   return data;
 }
@@ -65,12 +67,31 @@ async function parseJsonSafely(res: Response): Promise<Record<string, unknown>> 
 }
 
 function formatHubpagueError(data: Record<string, unknown>, fallback: string): string {
-  if (data.success === false && typeof data.message === "string" && data.message.trim()) {
+  if (typeof data.message === "string" && data.message.trim()) {
     return data.message;
   }
-  const msg = data.message ?? data.error;
-  if (typeof msg === "string" && msg.trim()) return msg;
+  if (data.status === "error" && typeof data.message === "string") {
+    return data.message;
+  }
+  const keys = Object.keys(data).filter((k) => Array.isArray(data[k]));
+  if (keys.length > 0) {
+    const first = keys[0];
+    const arr = data[first] as unknown[];
+    if (typeof arr[0] === "string") return `${first}: ${arr[0]}`;
+  }
   return fallback;
+}
+
+function formatCpfDisplay(digits: string): string {
+  const d = digits.replace(/\D/g, "").slice(0, 11);
+  if (d.length !== 11) return d;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function formatCnpjDisplay(digits: string): string {
+  const d = digits.replace(/\D/g, "").slice(0, 14);
+  if (d.length !== 14) return d;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 }
 
 async function qrDataUrlFromPixPayload(emv: string): Promise<string> {
@@ -89,7 +110,7 @@ export type HubpagueAuthTestResult = {
   hint?: string;
 };
 
-/** Testa credenciais com GET /balance. */
+/** Testa credenciais com GET /wallets. */
 export async function testHubpagueCredentials(
   creds: HubpagueCredentials
 ): Promise<HubpagueAuthTestResult> {
@@ -102,14 +123,13 @@ export async function testHubpagueCredentials(
     };
   }
 
-  const { res, data } = await hubpagueFetch("/balance", creds, { method: "GET" });
+  const { res, data } = await hubpagueFetch("/wallets", creds, { method: "GET" });
   const msg = formatHubpagueError(data, `HTTP ${res.status}`);
 
-  if (res.ok && data.success !== false) {
-    const balance = unwrapData(data);
-    const available = balance.available ?? balance.availableBalance;
-    const suffix =
-      available != null ? ` — saldo disponível: ${formatBalance(available)}` : "";
+  if (res.ok && data.status !== "error") {
+    const wallet = (data.data as Record<string, unknown> | undefined) ?? data;
+    const available = wallet.available_balance ?? wallet.current_balance;
+    const suffix = available != null ? ` — saldo: ${available}` : "";
     return {
       ok: true,
       httpStatus: res.status,
@@ -121,15 +141,8 @@ export async function testHubpagueCredentials(
     ok: false,
     httpStatus: res.status,
     message: msg,
-    hint: "Use Authorization: Bearer {seu_api_token} conforme a documentação Cash API.",
+    hint: "Token em Integrações no painel HubPague. Header: Authorization: Bearer {token}.",
   };
-}
-
-function formatBalance(value: unknown): string {
-  if (typeof value === "number") {
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value / 100);
-  }
-  return String(value);
 }
 
 export interface HubpagueCreateResult {
@@ -154,51 +167,62 @@ export async function createHubpaguePayment(params: {
     phone: string;
     document: string;
   };
+  products: { name: string; unitPrice: number; quantity: number }[];
   externalRef: string;
-  webhookUrl: string;
 }): Promise<HubpagueCreateResult> {
-  const docDigits = params.customer.document.replace(/\D/g, "").slice(0, 11);
-  if (docDigits.length !== 11) {
+  const docDigits = params.customer.document.replace(/\D/g, "");
+  const isCnpj = docDigits.length === 14;
+  const docType = isCnpj ? "CNPJ" : "CPF";
+  const docValue = isCnpj ? formatCnpjDisplay(docDigits) : formatCpfDisplay(docDigits);
+
+  if (!isCnpj && docDigits.length !== 11) {
     throw new Error("HubPague: CPF do pagador deve ter 11 dígitos.");
   }
 
-  const body = {
+  const body: Record<string, unknown> = {
     amount: params.amountInCents,
     method: "pix",
-    transactionOrigin: "cashin",
-    externalId: params.externalRef,
-    postbackUrl: params.webhookUrl,
-    payer: {
+    external_id: params.externalRef,
+    customer: {
       name: params.customer.name,
       email: params.customer.email,
-      document: docDigits,
-      phone: { number: params.customer.phone.replace(/\D/g, "") },
+      phone: params.customer.phone,
+      document: {
+        type: docType,
+        value: docValue,
+      },
     },
+    products: params.products.map((p) => ({
+      name: p.name.slice(0, 200),
+      price: p.unitPrice,
+      quantity: String(p.quantity || 1),
+      type: "digital",
+    })),
   };
 
-  const { res, data } = await hubpagueFetch("/deposits/pix", params.credentials, {
+  const { res, data } = await hubpagueFetch("/payments", params.credentials, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
-  if (!res.ok || data.success === false) {
+  if (!res.ok || data.status === "error") {
     throw new Error(formatHubpagueError(data, `HubPague: HTTP ${res.status}`));
   }
 
-  const deposit = unwrapData(data);
-  const id = String(deposit.id ?? "").trim();
+  const tx = unwrapTransaction(data);
+  const id = String(tx.id ?? data.id ?? "").trim();
   if (!id) {
     throw new Error("HubPague: resposta sem ID. " + JSON.stringify(data));
   }
 
-  const pixObj = deposit.pix as Record<string, unknown> | undefined;
-  const copyPaste = String(pixObj?.code ?? "").trim();
-  const imageBase64 = String(pixObj?.imageBase64 ?? "").trim();
+  const pixObj = (tx.pix ?? data.pix) as Record<string, unknown> | undefined;
+  const copyPaste = String(pixObj?.copypaste ?? pixObj?.copyPaste ?? "").trim();
+  const qrcode = String(pixObj?.qrcode ?? "").trim();
 
   const qrRaw =
-    imageBase64.startsWith("data:image/") || imageBase64.startsWith("iVBOR") || imageBase64.startsWith("/9j/")
-      ? imageBase64
+    qrcode.startsWith("data:image/") || qrcode.startsWith("iVBOR") || qrcode.startsWith("/9j/")
+      ? qrcode
       : "";
 
   let qrImageSrc = getPixQrImgSrc(qrRaw);
@@ -222,19 +246,24 @@ export async function checkHubpagueStatus(params: {
   credentials: HubpagueCredentials;
   transactionId: string;
 }): Promise<HubpagueStatusResult> {
-  const hash = encodeURIComponent(params.transactionId);
-  const { res, data } = await hubpagueFetch(`/deposits/${hash}`, params.credentials, {
+  const id = encodeURIComponent(params.transactionId);
+  const { res, data } = await hubpagueFetch(`/transactions/${id}`, params.credentials, {
     method: "GET",
   });
 
-  if (!res.ok || data.success === false) {
+  if (!res.ok || data.status === "error") {
     throw new Error(formatHubpagueError(data, `HubPague status: HTTP ${res.status}`));
   }
 
-  const deposit = unwrapData(data);
-  const status = String(deposit.status ?? "waiting_payment").toLowerCase();
+  const tx = unwrapTransaction(data);
+  const status = String(tx.status ?? "pending").toLowerCase();
   const paid = status === "paid";
-  const amountInCents = typeof deposit.amount === "number" ? deposit.amount : 0;
+  const amountInCents =
+    typeof tx.total === "number"
+      ? tx.total
+      : typeof data.total === "number"
+        ? data.total
+        : 0;
 
   return { status, paid, amountInCents };
 }

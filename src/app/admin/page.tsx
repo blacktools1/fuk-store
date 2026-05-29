@@ -2209,11 +2209,19 @@ function CheckoutSection({
                       autoComplete="off"
                     />
                     <p className="admin-pix-field-hint">
-                      <code>Authorization: Bearer …</code> — API{" "}
-                      <a href="https://api.hubpague.com/docs/cash" target="_blank" rel="noopener noreferrer">
-                        HubPague Cash
+                      <code>Authorization: Bearer …</code> —{" "}
+                      <a
+                        href="https://documenter.getpostman.com/view/7243567/2sBXVZoaLN"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        API HubPague
                       </a>
-                      . Depósito PIX: <code>POST /deposits/pix</code>.
+                      . PIX: <code>POST /api/payments</code>. Webhook cadastrado em{" "}
+                      <a href="https://app.hubpague.io/integrations" target="_blank" rel="noopener noreferrer">
+                        Integrações
+                      </a>
+                      .
                     </p>
                   </div>
                   <div className="admin-pix-field admin-pix-field--full" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
